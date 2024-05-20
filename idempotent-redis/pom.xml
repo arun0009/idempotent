@@ -1,0 +1,16 @@
+<?xml version="1.0"?>
+<project
+        xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd"
+        xmlns="http://maven.apache.org/POM/4.0.0"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+    <modelVersion>4.0.0</modelVersion>
+    <groupId>com.arung</groupId>
+    <artifactId>idempotent-redis</artifactId>
+    <version>1.1.0</version>
+    <name>idempotent-spring-boot-redis</name>
+    <packaging>jar</packaging>
+    <url>https://github.com/arun0009/idempotent/tree/master/idempotent-spring-boot-redis</url>
+    <description>idempotent-spring-boot-redis</description>
+    <dependencies>
+    </dependencies>
+</project>

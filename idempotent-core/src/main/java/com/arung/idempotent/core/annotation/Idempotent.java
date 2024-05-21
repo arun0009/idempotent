@@ -16,7 +16,7 @@ public @interface Idempotent {
 
     String key() default "";
 
-    String body() default "";
-
     long ttlInSeconds() default 300L;
+
+    boolean hashKey() default false;
 }

@@ -1,7 +1,5 @@
 package com.arung.idempotent.core.persistence;
 
-import java.util.concurrent.TimeUnit;
-
 public interface IdempotentStore {
 
     Value getValue(IdempotentKey key);
@@ -12,8 +10,12 @@ public interface IdempotentStore {
 
     void update(IdempotentKey key, Value value);
 
-    public enum Status {
-        INPROGRESS("INPROGRESS"), COMPLETED("COMPLETED"), EXPIRED("EXPIRED");
+    record IdempotentKey(String key, String processName) {}
+
+    record Value(String status, Long expirationTimeInMilliSeconds, Object response) {}
+
+    enum Status {
+        INPROGRESS("INPROGRESS"), COMPLETED("COMPLETED");
 
         private final String status;
 

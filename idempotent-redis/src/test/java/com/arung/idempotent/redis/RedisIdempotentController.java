@@ -10,12 +10,14 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.io.Serializable;
+
 @RestController
 public class RedisIdempotentController {
 
-    public record Asset(String id, String type, String name) {}
+    public record Asset(String id, String type, String name) implements Serializable {}
 
-    public record AssetResponse(String id, String type, String name, String url) {}
+    public record AssetResponse(String id, String type, String name, String url) implements Serializable {}
 
     @Idempotent(key="#asset.id", ttlInSeconds = 60)
     @PostMapping("/assets")

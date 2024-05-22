@@ -10,7 +10,9 @@ import org.springframework.data.redis.connection.RedisStandaloneConfiguration;
 import org.springframework.data.redis.connection.jedis.JedisClientConfiguration;
 import org.springframework.data.redis.connection.jedis.JedisConnectionFactory;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.serializer.GenericToStringSerializer;
 import org.springframework.data.redis.serializer.Jackson2JsonRedisSerializer;
+import org.springframework.data.redis.serializer.RedisSerializer;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
 
 import java.util.List;
@@ -66,9 +68,6 @@ public class RedisConfig {
     public RedisTemplate<IdempotentStore.IdempotentKey, IdempotentStore.Value> redisTemplate() {
         RedisTemplate<IdempotentStore.IdempotentKey, IdempotentStore.Value> template = new RedisTemplate<>();
         template.setConnectionFactory(jedisConnectionFactory());
-        template.setKeySerializer(new Jackson2JsonRedisSerializer<>(IdempotentStore.IdempotentKey.class));
-        template.setValueSerializer(new Jackson2JsonRedisSerializer<>(IdempotentStore.Value.class));
-
         return template;
     }
 

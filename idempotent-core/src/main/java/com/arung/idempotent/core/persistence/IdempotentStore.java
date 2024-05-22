@@ -1,5 +1,7 @@
 package com.arung.idempotent.core.persistence;
 
+import java.io.Serializable;
+
 public interface IdempotentStore {
 
     Value getValue(IdempotentKey key);
@@ -10,9 +12,9 @@ public interface IdempotentStore {
 
     void update(IdempotentKey key, Value value);
 
-    record IdempotentKey(String key, String processName) {}
+    record IdempotentKey(String key, String processName) implements Serializable {}
 
-    record Value(String status, Long expirationTimeInMilliSeconds, Object response) {}
+    record Value(String status, Long expirationTimeInMilliSeconds, Object response) implements Serializable {}
 
     enum Status {
         INPROGRESS("INPROGRESS"), COMPLETED("COMPLETED");

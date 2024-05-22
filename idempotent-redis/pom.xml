@@ -4,13 +4,43 @@
         xmlns="http://maven.apache.org/POM/4.0.0"
         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
     <modelVersion>4.0.0</modelVersion>
-    <groupId>com.arung</groupId>
+    <parent>
+        <groupId>com.arung</groupId>
+        <artifactId>idempotent</artifactId>
+        <version>1.0.0</version>
+    </parent>
     <artifactId>idempotent-redis</artifactId>
-    <version>1.1.0</version>
+    <version>1.0.0</version>
     <name>idempotent-spring-boot-redis</name>
     <packaging>jar</packaging>
     <url>https://github.com/arun0009/idempotent/tree/master/idempotent-spring-boot-redis</url>
     <description>idempotent-spring-boot-redis</description>
     <dependencies>
+        <dependency>
+            <groupId>com.arung</groupId>
+            <artifactId>idempotent-core</artifactId>
+            <version>1.0.0</version>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-redis</artifactId>
+            <version>3.2.5</version>
+        </dependency>
+        <dependency>
+            <groupId>redis.clients</groupId>
+            <artifactId>jedis</artifactId>
+            <version>5.1.2</version>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+            <version>2.17.1</version>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>testcontainers</artifactId>
+            <version>1.19.8</version>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 </project>

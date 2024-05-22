@@ -1,19 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
-
-<project xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xmlns="http://maven.apache.org/POM/4.0.0"
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.arung</groupId>
     <artifactId>idempotent</artifactId>
     <version>1.0.0</version>
     <packaging>pom</packaging>
-    <url>https://github.com/arun0009/idempotent</url>
     <name>Idempotent</name>
     <description>Annotation to make services Idempotent</description>
-    <scm>
-        <url>https://github.com/arun0009/idempotent.git</url>
-    </scm>
+    <url>https://github.com/arun0009/idempotent</url>
     <developers>
         <developer>
             <name>Arun Gopalpuri</name>
@@ -21,6 +16,15 @@
             <organizationUrl>https://github.com/arun0009/idempotent</organizationUrl>
         </developer>
     </developers>
+
+    <modules>
+        <module>idempotent-core</module>
+        <module>idempotent-redis</module>
+        <module>idempotent-dynamo</module>
+    </modules>
+    <scm>
+        <url>https://github.com/arun0009/idempotent.git</url>
+    </scm>
 
     <distributionManagement>
         <snapshotRepository>
@@ -34,11 +38,6 @@
         <maven.compiler.release>17</maven.compiler.release>
     </properties>
 
-    <modules>
-        <module>idempotent-core</module>
-        <module>idempotent-redis</module>
-        <module>idempotent-dynamo</module>
-    </modules>
     <dependencies>
         <dependency>
             <groupId>org.slf4j</groupId>
@@ -79,10 +78,10 @@
                 <executions>
                     <execution>
                         <id>default-jar</id>
-                        <phase>package</phase>
                         <goals>
                             <goal>jar</goal>
                         </goals>
+                        <phase>package</phase>
                     </execution>
                 </executions>
             </plugin>
@@ -97,6 +96,65 @@
                         <arg>-parameters</arg>
                     </compilerArgs>
                 </configuration>
+            </plugin>
+            <plugin>
+                <groupId>com.diffplug.spotless</groupId>
+                <artifactId>spotless-maven-plugin</artifactId>
+                <version>2.43.0</version>
+                <configuration>
+                    <formats>
+                        <!-- you can define as many formats as you want, each is independent -->
+                        <format>
+                            <!-- define the files to apply to -->
+                            <includes>
+                                <include>*.md</include>
+                                <include>.gitignore</include>
+                            </includes>
+                            <!-- define the steps to apply to those files -->
+                            <trimTrailingWhitespace/>
+                            <endWithNewline/>
+                            <indent>
+                                <tabs>true</tabs>
+                                <spacesPerTab>2</spacesPerTab>
+                            </indent>
+                        </format>
+                    </formats>
+                    <!-- define a language-specific format -->
+                    <java>
+                        <!-- Cleanthat will refactor your code, but it may break your style: apply it before your formatter -->
+                        <cleanthat/>
+                        <!-- apply a specific flavor of google-java-format and reflow long strings -->
+                        <palantirJavaFormat/>
+                        <importOrder>
+                            <order>,javax|java,\#</order>
+                        </importOrder>
+                        <removeUnusedImports/>
+                        <formatAnnotations/>
+                    </java>
+                    <pom>
+                        <includes>
+                            <include>pom.xml</include>
+                        </includes>
+                        <sortPom>
+                            <encoding>UTF-8</encoding>
+                            <keepBlankLines>true</keepBlankLines>
+                            <nrOfIndentSpace>4</nrOfIndentSpace>
+                            <indentBlankLines>false</indentBlankLines>
+                            <indentSchemaLocation>true</indentSchemaLocation>
+                            <expandEmptyElements>false</expandEmptyElements>
+                            <sortProperties>true</sortProperties>
+                        </sortPom>
+                    </pom>
+                </configuration>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>apply</goal>
+                        </goals>
+                        <!-- This gets triggered automatically when we run the build script -->
+                        <phase>compile</phase>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>

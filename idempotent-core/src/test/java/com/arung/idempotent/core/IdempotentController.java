@@ -20,7 +20,7 @@ public class IdempotentController {
         return new IdempotentAspect(new InMemoryIdempotentStore());
     }
 
-    @Idempotent(key="#asset.id", ttlInSeconds = 60)
+    @Idempotent(key = "#asset.id", ttlInSeconds = 60)
     @PostMapping("/assets")
     public AssetResponse createAsset(@RequestBody Asset asset) {
         System.out.println(asset.name);

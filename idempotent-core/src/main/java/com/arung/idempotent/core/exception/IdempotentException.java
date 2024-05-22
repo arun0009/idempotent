@@ -17,5 +17,4 @@ public class IdempotentException extends RuntimeException {
     public IdempotentException(String message, Throwable cause) {
         super(message, cause);
     }
-
 }

@@ -14,9 +14,9 @@ import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
+
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-
 
 @SpringBootApplication(scanBasePackages = "com.arung.idempotent.core")
 @SpringBootTest
@@ -36,7 +36,8 @@ public class IdempotentControllerTest {
     @RepeatedTest(3)
     @Execution(ExecutionMode.CONCURRENT)
     void createAsset() throws Exception {
-        String assetJson = """
+        String assetJson =
+                """
                 {
                     "id": 1,
                     "type": "API",
@@ -44,12 +45,15 @@ public class IdempotentControllerTest {
                 }
                 """;
 
-        String expectedResponseJson = """
+        String expectedResponseJson =
+                """
                 {"id":"1","type":"API","name":"Asset API-1","url":"https://github.com/arun0009/idempotent"}""";
 
         assetJson = String.format(assetJson, "Asset API-" + i);
         i = i + 1;
-        ResultActions resultActions = mockMvc.perform(post("/assets").contentType(MediaType.APPLICATION_JSON).content(assetJson)).andExpect(status().isOk());
+        ResultActions resultActions = mockMvc.perform(
+                        post("/assets").contentType(MediaType.APPLICATION_JSON).content(assetJson))
+                .andExpect(status().isOk());
         MvcResult mvcResult = resultActions.andReturn();
         String responseBody = mvcResult.getResponse().getContentAsString();
         Assertions.assertEquals(expectedResponseJson, responseBody);

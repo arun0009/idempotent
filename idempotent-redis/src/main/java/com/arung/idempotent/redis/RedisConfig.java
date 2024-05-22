@@ -40,31 +40,37 @@ public class RedisConfig {
     @Bean
     JedisConnectionFactory jedisConnectionFactory() {
         JedisConnectionFactory jedisConnectionFactory;
-        JedisClientConfiguration.JedisClientConfigurationBuilder jedisClientConfiguration = JedisClientConfiguration.builder();
+        JedisClientConfiguration.JedisClientConfigurationBuilder jedisClientConfiguration =
+                JedisClientConfiguration.builder();
         if (redisSslEnabled) {
             jedisClientConfiguration.useSsl();
         }
         if (redisClusterEnabled) {
-            RedisClusterConfiguration redisClusterConfiguration = new RedisClusterConfiguration(List.of(String.format("%s:%d", redisHost, redisPort)));
+            RedisClusterConfiguration redisClusterConfiguration =
+                    new RedisClusterConfiguration(List.of(String.format("%s:%d", redisHost, redisPort)));
             if (redisAuthEnabled) {
                 redisClusterConfiguration.setUsername("default");
                 redisClusterConfiguration.setPassword(redisAuthPassword);
             }
-            jedisConnectionFactory = new JedisConnectionFactory(redisClusterConfiguration, jedisClientConfiguration.build());
+            jedisConnectionFactory =
+                    new JedisConnectionFactory(redisClusterConfiguration, jedisClientConfiguration.build());
         } else {
-            RedisStandaloneConfiguration redisStandaloneConfiguration = new RedisStandaloneConfiguration(redisHost, redisPort);
+            RedisStandaloneConfiguration redisStandaloneConfiguration =
+                    new RedisStandaloneConfiguration(redisHost, redisPort);
             if (redisAuthEnabled) {
                 redisStandaloneConfiguration.setUsername("default");
                 redisStandaloneConfiguration.setPassword(redisAuthPassword);
             }
-            jedisConnectionFactory = new JedisConnectionFactory(redisStandaloneConfiguration, jedisClientConfiguration.build());
+            jedisConnectionFactory =
+                    new JedisConnectionFactory(redisStandaloneConfiguration, jedisClientConfiguration.build());
         }
 
         return jedisConnectionFactory;
     }
 
     @Bean
-    public RedisTemplate<IdempotentStore.IdempotentKey, IdempotentStore.Value> redisTemplate(RedisConnectionFactory connectionFactory) {
+    public RedisTemplate<IdempotentStore.IdempotentKey, IdempotentStore.Value> redisTemplate(
+            RedisConnectionFactory connectionFactory) {
         RedisTemplate<IdempotentStore.IdempotentKey, IdempotentStore.Value> template = new RedisTemplate<>();
         template.setConnectionFactory(connectionFactory);
 
@@ -81,7 +87,8 @@ public class RedisConfig {
     }
 
     @Bean
-    public IdempotentStore redisIdempotentStore(RedisTemplate<IdempotentStore.IdempotentKey, IdempotentStore.Value> redisTemplate) {
+    public IdempotentStore redisIdempotentStore(
+            RedisTemplate<IdempotentStore.IdempotentKey, IdempotentStore.Value> redisTemplate) {
         return new RedisIdempotentStore(redisTemplate);
     }
 }

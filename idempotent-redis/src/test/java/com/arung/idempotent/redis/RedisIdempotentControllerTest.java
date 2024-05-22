@@ -24,16 +24,16 @@ import org.testcontainers.containers.GenericContainer;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-
 @SpringBootApplication(scanBasePackages = "com.arung.idempotent.redis")
 @SpringBootTest
 @ContextConfiguration(initializers = com.arung.idempotent.redis.RedisIdempotentControllerTest.Initializer.class)
-@TestPropertySource(properties = {
-        "spring.data.redis.auth.enabled=false",
-        "spring.data.redis.ssl.enabled=false",
-        "spring.data.redis.auth.password=nopassword",
-        "spring.data.redis.cluster.enabled=false"
-})
+@TestPropertySource(
+        properties = {
+            "spring.data.redis.auth.enabled=false",
+            "spring.data.redis.ssl.enabled=false",
+            "spring.data.redis.auth.password=nopassword",
+            "spring.data.redis.cluster.enabled=false"
+        })
 public class RedisIdempotentControllerTest {
 
     @Autowired
@@ -45,9 +45,8 @@ public class RedisIdempotentControllerTest {
 
     public static class Initializer implements ApplicationContextInitializer<ConfigurableApplicationContext> {
 
-        static GenericContainer redis = new GenericContainer<>("redis:6.2.6")
-                .withExposedPorts(6379)
-                .withReuse(true);
+        static GenericContainer redis =
+                new GenericContainer<>("redis:6.2.6").withExposedPorts(6379).withReuse(true);
 
         @Override
         public void initialize(ConfigurableApplicationContext context) {
@@ -57,7 +56,7 @@ public class RedisIdempotentControllerTest {
             // Override Redis configuration
             String redisContainerIP = "spring.data.redis.host=" + redis.getHost();
             String redisContainerPort = "spring.data.redis.port=" + redis.getMappedPort(6379);
-            TestPropertySourceUtils.addInlinedPropertiesToEnvironment(context,  redisContainerIP, redisContainerPort);
+            TestPropertySourceUtils.addInlinedPropertiesToEnvironment(context, redisContainerIP, redisContainerPort);
         }
     }
 
@@ -69,7 +68,8 @@ public class RedisIdempotentControllerTest {
     @RepeatedTest(3)
     @Execution(ExecutionMode.CONCURRENT)
     void createAsset() throws Exception {
-        String assetJson = """
+        String assetJson =
+                """
                 {
                     "id": 1,
                     "type": "API",
@@ -77,12 +77,15 @@ public class RedisIdempotentControllerTest {
                 }
                 """;
 
-        String expectedResponseJson = """
+        String expectedResponseJson =
+                """
                 {"id":"1","type":"API","name":"Asset API-1","url":"https://github.com/arun0009/idempotent"}""";
 
         assetJson = String.format(assetJson, "Asset API-" + i);
         i = i + 1;
-        ResultActions resultActions = mockMvc.perform(post("/assets").contentType(MediaType.APPLICATION_JSON).content(assetJson)).andExpect(status().isOk());
+        ResultActions resultActions = mockMvc.perform(
+                        post("/assets").contentType(MediaType.APPLICATION_JSON).content(assetJson))
+                .andExpect(status().isOk());
         MvcResult mvcResult = resultActions.andReturn();
         String responseBody = mvcResult.getResponse().getContentAsString();
         Assertions.assertEquals(expectedResponseJson, responseBody);

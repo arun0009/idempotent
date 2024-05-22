@@ -65,7 +65,10 @@ public class IdempotentAspect {
             }
 
             Long expiryTimeInMilliseconds = Instant.now().toEpochMilli() + (ttlInSeconds * 1000);
-            idempotentStore.store(idempotentKey, new IdempotentStore.Value(IdempotentStore.Status.INPROGRESS.name(), expiryTimeInMilliseconds, null));
+            idempotentStore.store(
+                    idempotentKey,
+                    new IdempotentStore.Value(
+                            IdempotentStore.Status.INPROGRESS.name(), expiryTimeInMilliseconds, null));
 
             Object response;
             try {
@@ -80,10 +83,16 @@ public class IdempotentAspect {
                 if (!responseEntity.getStatusCode().is2xxSuccessful()) {
                     idempotentStore.remove(idempotentKey);
                 } else {
-                    idempotentStore.update(idempotentKey, new IdempotentStore.Value(IdempotentStore.Status.COMPLETED.name(), expiryTimeInMilliseconds, response));
+                    idempotentStore.update(
+                            idempotentKey,
+                            new IdempotentStore.Value(
+                                    IdempotentStore.Status.COMPLETED.name(), expiryTimeInMilliseconds, response));
                 }
             } else if (response != null) {
-                idempotentStore.update(idempotentKey, new IdempotentStore.Value(IdempotentStore.Status.COMPLETED.name(), expiryTimeInMilliseconds, response));
+                idempotentStore.update(
+                        idempotentKey,
+                        new IdempotentStore.Value(
+                                IdempotentStore.Status.COMPLETED.name(), expiryTimeInMilliseconds, response));
             } else {
                 idempotentStore.remove(idempotentKey);
             }
@@ -93,7 +102,7 @@ public class IdempotentAspect {
         }
     }
 
-    //gets Idempotent Key from request header X-Idempotency-Key
+    // gets Idempotent Key from request header X-Idempotency-Key
     private static String getIdempotentKeyFromHeader() {
         // If key is still null or empty, get it from the request header
         ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
@@ -105,7 +114,7 @@ public class IdempotentAspect {
         return key;
     }
 
-    //gets Idempotent Key value from Spring Expression SpEL.
+    // gets Idempotent Key value from Spring Expression SpEL.
     private String getIdempotentKeyFromAnnotation(ProceedingJoinPoint pjp, String key, MethodSignature signature) {
         // Evaluate the SpEL expression if the key is specified
         if (key != null && !key.isEmpty()) {
@@ -117,14 +126,15 @@ public class IdempotentAspect {
                     context.setVariable(paramNames[i], args[i]);
                 }
             } else {
-                throw new IllegalStateException("Parameter names are not available. Ensure the '-parameters' compiler option is enabled.");
+                throw new IllegalStateException(
+                        "Parameter names are not available. Ensure the '-parameters' compiler option is enabled.");
             }
             key = parser.parseExpression(key).getValue(context, String.class);
         }
         return key;
     }
 
-    //hash idempotentKey
+    // hash idempotentKey
     private static String hashIdempotentKey(String key) throws NoSuchAlgorithmException {
         MessageDigest md = MessageDigest.getInstance("SHA-256");
         byte[] hashBytes = md.digest(key.getBytes());
@@ -140,6 +150,8 @@ public class IdempotentAspect {
     }
 
     private String processName(ProceedingJoinPoint pjp) {
-        return String.format("__%s.%s()", pjp.getTarget().getClass().getSimpleName(), pjp.getSignature().getName());
+        return String.format(
+                "__%s.%s()",
+                pjp.getTarget().getClass().getSimpleName(), pjp.getSignature().getName());
     }
 }

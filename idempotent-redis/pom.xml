@@ -1,8 +1,6 @@
-<?xml version="1.0"?>
-<project
-        xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd"
-        xmlns="http://maven.apache.org/POM/4.0.0"
-        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
     <parent>
         <groupId>com.arung</groupId>
@@ -11,10 +9,10 @@
     </parent>
     <artifactId>idempotent-redis</artifactId>
     <version>1.0.0</version>
-    <name>idempotent-spring-boot-redis</name>
     <packaging>jar</packaging>
-    <url>https://github.com/arun0009/idempotent/tree/master/idempotent-spring-boot-redis</url>
-    <description>idempotent-spring-boot-redis</description>
+    <name>idempotent-redis</name>
+    <description>idempotent-redis</description>
+    <url>https://github.com/arun0009/idempotent/tree/main/idempotent-redis</url>
     <dependencies>
         <dependency>
             <groupId>com.arung</groupId>
@@ -37,7 +35,7 @@
             <version>6.1.7</version>
         </dependency>
         <dependency>
-           <groupId>com.fasterxml.jackson.core</groupId>
+            <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
             <version>2.17.1</version>
         </dependency>

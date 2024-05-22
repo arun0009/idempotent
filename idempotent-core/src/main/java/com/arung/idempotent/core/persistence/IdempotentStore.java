@@ -17,7 +17,8 @@ public interface IdempotentStore {
     record Value(String status, Long expirationTimeInMilliSeconds, Object response) implements Serializable {}
 
     enum Status {
-        INPROGRESS("INPROGRESS"), COMPLETED("COMPLETED");
+        INPROGRESS("INPROGRESS"),
+        COMPLETED("COMPLETED");
 
         private final String status;
 

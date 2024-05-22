@@ -11,22 +11,22 @@ public class InMemoryIdempotentStore implements IdempotentStore {
     }
 
     @Override
-    public Value getValue(IdempotentKey idempotentKey) {
+    public Value getValue(IdempotentKey idempotentKey){
         return map.get(idempotentKey);
     }
 
     @Override
-    public void store(IdempotentKey idempotentKey, Value value) {
+    public void store(IdempotentKey idempotentKey, Value value){
          map.put(idempotentKey, value);
     }
 
     @Override
-    public void remove(IdempotentKey idempotentKey) {
+    public void remove(IdempotentKey idempotentKey){
          map.remove(idempotentKey);
     }
 
     @Override
-    public void update(IdempotentKey idempotentKey, Value value) {
+    public void update(IdempotentKey idempotentKey, Value value){
         map.replace(idempotentKey, value);
     }
 }

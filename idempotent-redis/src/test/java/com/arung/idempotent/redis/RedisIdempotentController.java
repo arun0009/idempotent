@@ -15,9 +15,9 @@ import java.io.Serializable;
 @RestController
 public class RedisIdempotentController {
 
-    public record Asset(String id, String type, String name) implements Serializable {}
+    public record Asset(String id, String type, String name) {}
 
-    public record AssetResponse(String id, String type, String name, String url) implements Serializable {}
+    public record AssetResponse(String id, String type, String name, String url) {}
 
     @Idempotent(key="#asset.id", ttlInSeconds = 60)
     @PostMapping("/assets")

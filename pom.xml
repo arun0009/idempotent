@@ -7,8 +7,13 @@
     <version>1.0.0</version>
     <packaging>pom</packaging>
     <name>Idempotent</name>
-    <description>Annotation to make services Idempotent</description>
-    <url>https://github.com/arun0009/idempotent</url>
+    <description>Make your APIs Idempotent</description>
+    <licenses>
+        <license>
+            <name>MIT License</name>
+            <url>https://opensource.org/license/mit</url>
+        </license>
+    </licenses>
     <developers>
         <developer>
             <name>Arun Gopalpuri</name>
@@ -16,21 +21,25 @@
             <organizationUrl>https://github.com/arun0009/idempotent</organizationUrl>
         </developer>
     </developers>
-
     <modules>
         <module>idempotent-core</module>
         <module>idempotent-redis</module>
         <module>idempotent-dynamo</module>
     </modules>
     <scm>
-        <url>https://github.com/arun0009/idempotent.git</url>
+        <connection>scm:git:git@github.com:arun0009/idempotent.git</connection>
+        <developerConnection>scm:git:ssh://github.com:arun0009/idempotent.git</developerConnection>
+        <url>https://github.com/arun0009/idempotent/tree/main</url>
     </scm>
-
     <distributionManagement>
         <snapshotRepository>
             <id>ossrh</id>
             <url>https://aws.oss.sonatype.org/content/repositories/snapshots</url>
         </snapshotRepository>
+        <repository>
+            <id>ossrh</id>
+            <url>https://oss.sonatype.org/service/local/staging/deploy/maven2</url>
+        </repository>
     </distributionManagement>
 
     <properties>
@@ -82,6 +91,33 @@
     </dependencies>
     <build>
         <plugins>
+            <plugin>
+                <artifactId>maven-source-plugin</artifactId>
+                <version>3.3.1</version>
+                <executions>
+                    <execution>
+                        <id>attach-sources</id>
+                        <goals>
+                            <goal>jar-no-fork</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <artifactId>maven-javadoc-plugin</artifactId>
+                <version>3.6.3</version>
+                <executions>
+                    <execution>
+                        <id>attach-javadocs</id>
+                        <goals>
+                            <goal>jar</goal>
+                        </goals>
+                        <configuration>
+                            <failOnError>false</failOnError>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-jar-plugin</artifactId>
@@ -169,4 +205,32 @@
             </plugin>
         </plugins>
     </build>
+    <profiles>
+        <profile>
+            <id>upload</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <artifactId>maven-gpg-plugin</artifactId>
+                        <version>3.2.4</version>
+                        <executions>
+                            <execution>
+                                <id>sign-artifacts</id>
+                                <goals>
+                                    <goal>sign</goal>
+                                </goals>
+                                <phase>verify</phase>
+                                <configuration>
+                                    <gpgArguments>
+                                        <arg>--pinentry-mode</arg>
+                                        <arg>loopback</arg>
+                                    </gpgArguments>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 </project>

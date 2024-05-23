@@ -1,0 +1,8 @@
+idempotent:
+  redis:
+    auth.enabled: false
+    ssl.enabled: false
+    auth.password: nopassword
+    cluster.enabled: false
+    host: localhost
+    port: 6379

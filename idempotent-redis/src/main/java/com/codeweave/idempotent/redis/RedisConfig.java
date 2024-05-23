@@ -19,22 +19,22 @@ import java.util.List;
 @Configuration
 public class RedisConfig {
 
-    @Value("${spring.data.redis.host}")
+    @Value("${idempotent.redis.host}")
     private String redisHost;
 
-    @Value("${spring.data.redis.port}")
+    @Value("${idempotent.redis.port}")
     private int redisPort;
 
-    @Value("${spring.data.redis.auth.enabled:true}")
+    @Value("${idempotent.redis.auth.enabled:true}")
     private boolean redisAuthEnabled;
 
-    @Value("${spring.data.redis.ssl.enabled:true}")
+    @Value("${idempotent.redis.ssl.enabled:true}")
     private boolean redisSslEnabled;
 
-    @Value("${spring.data.redis.auth.password}")
+    @Value("${idempotent.redis.auth.password}")
     private String redisAuthPassword;
 
-    @Value("${spring.data.redis.cluster.enabled}")
+    @Value("${idempotent.redis.cluster.enabled}")
     private boolean redisClusterEnabled;
 
     @Bean

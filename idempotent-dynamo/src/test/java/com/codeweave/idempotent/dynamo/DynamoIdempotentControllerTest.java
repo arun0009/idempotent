@@ -1,4 +1,4 @@
-package com.codeweave.idempotent.redis;
+package com.codeweave.idempotent.dynamo;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -12,7 +12,6 @@ import org.springframework.context.ApplicationContextInitializer;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.support.TestPropertySourceUtils;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.ResultActions;
@@ -23,10 +22,10 @@ import org.testcontainers.containers.GenericContainer;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@SpringBootApplication(scanBasePackages = "com.codeweave.idempotent.redis")
+@SpringBootApplication(scanBasePackages = "com.codeweave.idempotent.dynamo")
 @SpringBootTest
-@ContextConfiguration(initializers = com.codeweave.idempotent.redis.RedisIdempotentControllerTest.Initializer.class)
-public class RedisIdempotentControllerTest {
+@ContextConfiguration(initializers = com.codeweave.idempotent.dynamo.DynamoIdempotentControllerTest.Initializer.class)
+public class DynamoIdempotentControllerTest {
 
     @Autowired
     private WebApplicationContext webApplicationContext;
@@ -37,17 +36,14 @@ public class RedisIdempotentControllerTest {
 
     public static class Initializer implements ApplicationContextInitializer<ConfigurableApplicationContext> {
 
-        static GenericContainer redis =
-                new GenericContainer<>("redis:6.2.6").withExposedPorts(6379).withReuse(true);
+        static GenericContainer dynamo = new GenericContainer<>("amazon/dynamodb-local:2.2.1")
+                .withExposedPorts(8000)
+                .withReuse(true);
 
         @Override
         public void initialize(ConfigurableApplicationContext context) {
             // Start container
-            redis.start();
-
-            // Override Redis configuration
-            String redisContainerIP = "idempotent.redis.host=" + redis.getHost();
-            TestPropertySourceUtils.addInlinedPropertiesToEnvironment(context, redisContainerIP);
+            dynamo.start();
         }
     }
 

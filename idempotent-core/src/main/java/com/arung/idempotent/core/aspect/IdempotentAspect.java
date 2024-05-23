@@ -1,7 +1,7 @@
-package com.arung.idempotent.core.aspect;
+package com.codeweave.idempotent.core.aspect;
 
-import com.arung.idempotent.core.annotation.Idempotent;
-import com.arung.idempotent.core.persistence.IdempotentStore;
+import com.codeweave.idempotent.core.annotation.Idempotent;
+import com.codeweave.idempotent.core.persistence.IdempotentStore;
 import jakarta.servlet.http.HttpServletRequest;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
@@ -32,7 +32,7 @@ public class IdempotentAspect {
     // Create the SpEL parser
     ExpressionParser parser = new SpelExpressionParser();
 
-    @Around("@annotation(com.arung.idempotent.core.annotation.Idempotent)")
+    @Around("@annotation(com.codeweave.idempotent.core.annotation.Idempotent)")
     public Object around(ProceedingJoinPoint pjp) throws Throwable {
         String key = getIdempotentKeyFromHeader();
         MethodSignature signature = (MethodSignature) pjp.getSignature();

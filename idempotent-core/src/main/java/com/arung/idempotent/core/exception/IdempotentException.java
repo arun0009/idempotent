@@ -1,4 +1,4 @@
-package com.arung.idempotent.core.exception;
+package com.codeweave.idempotent.core.exception;
 
 public class IdempotentException extends RuntimeException {
 

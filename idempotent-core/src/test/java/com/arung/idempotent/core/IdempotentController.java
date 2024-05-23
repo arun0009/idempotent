@@ -1,8 +1,8 @@
-package com.arung.idempotent.core;
+package com.codeweave.idempotent.core;
 
-import com.arung.idempotent.core.annotation.Idempotent;
-import com.arung.idempotent.core.aspect.IdempotentAspect;
-import com.arung.idempotent.core.persistence.InMemoryIdempotentStore;
+import com.codeweave.idempotent.core.annotation.Idempotent;
+import com.codeweave.idempotent.core.aspect.IdempotentAspect;
+import com.codeweave.idempotent.core.persistence.InMemoryIdempotentStore;
 import org.springframework.context.annotation.Bean;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;

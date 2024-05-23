@@ -1,4 +1,4 @@
-package com.arung.idempotent.core;
+package com.codeweave.idempotent.core;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -18,7 +18,7 @@ import org.springframework.web.context.WebApplicationContext;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@SpringBootApplication(scanBasePackages = "com.arung.idempotent.core")
+@SpringBootApplication(scanBasePackages = "com.codeweave.idempotent.core")
 @SpringBootTest
 public class IdempotentControllerTest {
     @Autowired

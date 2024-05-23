@@ -1,4 +1,4 @@
-package com.arung.idempotent.redis;
+package com.codeweave.idempotent.redis;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -24,9 +24,9 @@ import org.testcontainers.containers.GenericContainer;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@SpringBootApplication(scanBasePackages = "com.arung.idempotent.redis")
+@SpringBootApplication(scanBasePackages = "com.codeweave.idempotent.redis")
 @SpringBootTest
-@ContextConfiguration(initializers = com.arung.idempotent.redis.RedisIdempotentControllerTest.Initializer.class)
+@ContextConfiguration(initializers = com.codeweave.idempotent.redis.RedisIdempotentControllerTest.Initializer.class)
 @TestPropertySource(
         properties = {
             "spring.data.redis.auth.enabled=false",

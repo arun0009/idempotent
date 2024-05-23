@@ -1,6 +1,6 @@
-package com.arung.idempotent.redis;
+package com.codeweave.idempotent.redis;
 
-import com.arung.idempotent.core.persistence.IdempotentStore;
+import com.codeweave.idempotent.core.persistence.IdempotentStore;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;

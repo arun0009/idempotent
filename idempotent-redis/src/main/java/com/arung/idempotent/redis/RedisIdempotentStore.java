@@ -1,6 +1,6 @@
-package com.arung.idempotent.redis;
+package com.codeweave.idempotent.redis;
 
-import com.arung.idempotent.core.persistence.IdempotentStore;
+import com.codeweave.idempotent.core.persistence.IdempotentStore;
 import org.springframework.data.redis.core.RedisTemplate;
 
 public class RedisIdempotentStore implements IdempotentStore {

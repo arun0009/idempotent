@@ -1,4 +1,4 @@
-package com.arung.idempotent.core.persistence;
+package com.codeweave.idempotent.core.persistence;
 
 import java.util.concurrent.ConcurrentHashMap;
 

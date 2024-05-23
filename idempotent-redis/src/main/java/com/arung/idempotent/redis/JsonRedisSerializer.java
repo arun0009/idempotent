@@ -1,6 +1,6 @@
-package com.arung.idempotent.redis;
+package com.codeweave.idempotent.redis;
 
-import com.arung.idempotent.core.exception.IdempotentException;
+import com.codeweave.idempotent.core.exception.IdempotentException;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.data.redis.serializer.RedisSerializer;

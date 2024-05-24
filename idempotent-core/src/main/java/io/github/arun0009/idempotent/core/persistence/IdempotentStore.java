@@ -13,7 +13,7 @@ public interface IdempotentStore {
      * @param key the idempotentKey
      * @return the value which contains response
      */
-    Value getValue(IdempotentKey key);
+    Value getValue(IdempotentKey key, Class<?> returnType);
 
     /**
      * Store.

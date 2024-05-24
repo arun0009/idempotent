@@ -13,9 +13,8 @@ public class RedisIdempotentController {
     public record AssetResponse(String id, String type, String name, String url) {}
 
     @Idempotent(key = "#asset.id", ttlInSeconds = 60)
-    @PostMapping("/assets")
+    @PostMapping("/redis/assets")
     public AssetResponse createAsset(@RequestBody Asset asset) {
-        System.out.println(asset.name);
         return new AssetResponse(asset.id, asset.type, asset.name, "https://github.com/arun0009/idempotent");
     }
 }

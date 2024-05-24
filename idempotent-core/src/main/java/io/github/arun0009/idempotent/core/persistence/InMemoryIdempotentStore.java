@@ -17,7 +17,7 @@ public class InMemoryIdempotentStore implements IdempotentStore {
     }
 
     @Override
-    public Value getValue(IdempotentKey idempotentKey) {
+    public Value getValue(IdempotentKey idempotentKey, Class<?> returnType) {
         return map.get(idempotentKey);
     }
 

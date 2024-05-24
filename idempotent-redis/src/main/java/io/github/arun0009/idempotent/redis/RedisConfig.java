@@ -1,6 +1,6 @@
 package io.github.arun0009.idempotent.redis;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import io.github.arun0009.idempotent.core.aspect.IdempotentAspect;
 import io.github.arun0009.idempotent.core.persistence.IdempotentStore;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -11,10 +11,9 @@ import org.springframework.data.redis.connection.RedisStandaloneConfiguration;
 import org.springframework.data.redis.connection.jedis.JedisClientConfiguration;
 import org.springframework.data.redis.connection.jedis.JedisConnectionFactory;
 import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.data.redis.serializer.StringRedisSerializer;
-import org.springframework.http.converter.json.Jackson2ObjectMapperBuilder;
+import org.springframework.data.redis.serializer.GenericJackson2JsonRedisSerializer;
 
-import java.util.List;
+import java.util.Arrays;
 
 /**
  * Redis Configuration for Idempotent store
@@ -25,19 +24,16 @@ public class RedisConfig {
     @Value("${idempotent.redis.host}")
     private String redisHost;
 
-    @Value("${idempotent.redis.port}")
-    private int redisPort;
-
     @Value("${idempotent.redis.auth.enabled:true}")
     private boolean redisAuthEnabled;
 
     @Value("${idempotent.redis.ssl.enabled:true}")
     private boolean redisSslEnabled;
 
-    @Value("${idempotent.redis.auth.password}")
+    @Value("${idempotent.redis.auth.password:}")
     private String redisAuthPassword;
 
-    @Value("${idempotent.redis.cluster.enabled}")
+    @Value("${idempotent.redis.cluster.enabled: true}")
     private boolean redisClusterEnabled;
 
     /**
@@ -55,7 +51,7 @@ public class RedisConfig {
         }
         if (redisClusterEnabled) {
             RedisClusterConfiguration redisClusterConfiguration =
-                    new RedisClusterConfiguration(List.of(String.format("%s:%d", redisHost, redisPort)));
+                    new RedisClusterConfiguration(Arrays.asList(redisHost.split(",")));
             if (redisAuthEnabled) {
                 redisClusterConfiguration.setUsername("default");
                 redisClusterConfiguration.setPassword(redisAuthPassword);
@@ -63,8 +59,9 @@ public class RedisConfig {
             jedisConnectionFactory =
                     new JedisConnectionFactory(redisClusterConfiguration, jedisClientConfiguration.build());
         } else {
+            String[] hostPort = redisHost.split(":");
             RedisStandaloneConfiguration redisStandaloneConfiguration =
-                    new RedisStandaloneConfiguration(redisHost, redisPort);
+                    new RedisStandaloneConfiguration(hostPort[0], Integer.parseInt(hostPort[1]));
             if (redisAuthEnabled) {
                 redisStandaloneConfiguration.setUsername("default");
                 redisStandaloneConfiguration.setPassword(redisAuthPassword);
@@ -72,7 +69,10 @@ public class RedisConfig {
             jedisConnectionFactory =
                     new JedisConnectionFactory(redisStandaloneConfiguration, jedisClientConfiguration.build());
         }
-
+        if (jedisConnectionFactory.getPoolConfig() != null) {
+            jedisConnectionFactory.getPoolConfig().setMaxIdle(30);
+            jedisConnectionFactory.getPoolConfig().setMinIdle(10);
+        }
         return jedisConnectionFactory;
     }
 
@@ -88,14 +88,8 @@ public class RedisConfig {
         RedisTemplate<IdempotentStore.IdempotentKey, IdempotentStore.Value> template = new RedisTemplate<>();
         template.setConnectionFactory(connectionFactory);
 
-        // Configure Jackson ObjectMapper using Jackson2ObjectMapperBuilder
-        ObjectMapper objectMapper = Jackson2ObjectMapperBuilder.json().build();
-
-        // Set the key and value serializers
-        template.setKeySerializer(new StringRedisSerializer());
-        template.setValueSerializer(new JsonRedisSerializer<>(objectMapper));
-        template.setHashKeySerializer(new StringRedisSerializer());
-        template.setHashValueSerializer(new JsonRedisSerializer<>(objectMapper));
+        template.setKeySerializer(new GenericJackson2JsonRedisSerializer());
+        template.setDefaultSerializer(new GenericJackson2JsonRedisSerializer());
 
         return template;
     }
@@ -110,5 +104,10 @@ public class RedisConfig {
     public IdempotentStore redisIdempotentStore(
             RedisTemplate<IdempotentStore.IdempotentKey, IdempotentStore.Value> redisTemplate) {
         return new RedisIdempotentStore(redisTemplate);
+    }
+
+    @Bean
+    public IdempotentAspect idempotentAspect(IdempotentStore idempotentStore) {
+        return new IdempotentAspect(idempotentStore);
     }
 }

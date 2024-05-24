@@ -1,8 +1,10 @@
 idempotent:
   redis:
-    auth.enabled: false
-    ssl.enabled: false
-    auth.password: nopassword
-    cluster.enabled: false
-    host: localhost
-    port: 6379
+    auth:
+      enabled: false
+      #password: password
+    ssl:
+      enabled: false
+    cluster:
+      enabled: false
+    host: localhost:6379

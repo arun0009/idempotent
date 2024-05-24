@@ -8,6 +8,7 @@ import org.junit.jupiter.api.parallel.ExecutionMode;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.util.TestPropertyValues;
 import org.springframework.context.ApplicationContextInitializer;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.http.MediaType;
@@ -37,14 +38,15 @@ public class DynamoIdempotentControllerTest {
 
     public static class Initializer implements ApplicationContextInitializer<ConfigurableApplicationContext> {
 
-        static GenericContainer dynamo = new GenericContainer<>("amazon/dynamodb-local:2.2.1")
-                .withExposedPorts(8000)
-                .withReuse(true);
+        static GenericContainer dynamo = new GenericContainer<>("amazon/dynamodb-local:2.2.1").withExposedPorts(8000);
 
         @Override
         public void initialize(ConfigurableApplicationContext context) {
             // Start container
             dynamo.start();
+            TestPropertyValues.of(
+                            "aws.dynamodb.endpoint=" + "http://" + dynamo.getHost() + ":" + dynamo.getFirstMappedPort())
+                    .applyTo(context.getEnvironment());
         }
     }
 
@@ -71,8 +73,9 @@ public class DynamoIdempotentControllerTest {
 
         assetJson = String.format(assetJson, "Asset API-" + i);
         i = i + 1;
-        ResultActions resultActions = mockMvc.perform(
-                        post("/assets").contentType(MediaType.APPLICATION_JSON).content(assetJson))
+        ResultActions resultActions = mockMvc.perform(post("/dynamo/assets")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(assetJson))
                 .andExpect(status().isOk());
         MvcResult mvcResult = resultActions.andReturn();
         String responseBody = mvcResult.getResponse().getContentAsString();

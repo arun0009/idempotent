@@ -78,7 +78,8 @@ public class IdempotentAspect {
             }
 
             IdempotentStore.IdempotentKey idempotentKey = new IdempotentStore.IdempotentKey(key, processName);
-            IdempotentStore.Value value = idempotentStore.getValue(idempotentKey);
+            IdempotentStore.Value value =
+                    idempotentStore.getValue(idempotentKey, ((MethodSignature) pjp.getSignature()).getReturnType());
 
             if (value != null && value.response() != null) {
                 if (value.status().equals(IdempotentStore.Status.COMPLETED.name()))

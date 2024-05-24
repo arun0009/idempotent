@@ -2,6 +2,8 @@ package io.github.arun0009.idempotent.dynamo;
 
 import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbAttribute;
 import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbBean;
+import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbPartitionKey;
+import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbSortKey;
 
 /**
  * Idempotent item is a copy of Idempotent Store's IdempotentKey/Value to store in Dynamo.
@@ -12,13 +14,14 @@ public class IdempotentItem {
     private String processName;
     private String status;
     private Long expirationTimeInMilliSeconds;
-    private Object response;
+    private String response;
 
     /**
      * Gets idempotent key.
      *
      * @return the idempotent key.
      */
+    @DynamoDbPartitionKey
     @DynamoDbAttribute("key")
     public String getKey() {
         return key;
@@ -38,6 +41,7 @@ public class IdempotentItem {
      *
      * @return the process name
      */
+    @DynamoDbSortKey
     @DynamoDbAttribute("processName")
     public String getProcessName() {
         return processName;
@@ -96,7 +100,7 @@ public class IdempotentItem {
      * @return the response
      */
     @DynamoDbAttribute("response")
-    public Object getResponse() {
+    public String getResponse() {
         return response;
     }
 
@@ -105,7 +109,7 @@ public class IdempotentItem {
      *
      * @param response the response
      */
-    public void setResponse(Object response) {
+    public void setResponse(String response) {
         this.response = response;
     }
 }

@@ -1,5 +1,13 @@
-use.local.dynamodb: true
+use:
+  local:
+    dynamodb: true
+dynamodb:
+  table:
+    name: Idempotent
+    create: true
 aws:
+  accessKey: key
+  accessSecret: secret
   region: us-east-1
   dynamodb:
     endpoint: http://localhost:8000

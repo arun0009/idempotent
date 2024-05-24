@@ -23,7 +23,6 @@ public class IdempotentController {
     @Idempotent(key = "#asset.id", ttlInSeconds = 60)
     @PostMapping("/assets")
     public AssetResponse createAsset(@RequestBody Asset asset) {
-        System.out.println(asset.name);
         return new AssetResponse(asset.id, asset.type, asset.name, "https://github.com/arun0009/idempotent");
     }
 }

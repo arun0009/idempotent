@@ -20,7 +20,7 @@ public class RedisIdempotentStore implements IdempotentStore {
     }
 
     @Override
-    public Value getValue(IdempotentKey key) {
+    public Value getValue(IdempotentKey key, Class<?> returnType) {
         return redisTemplate.opsForValue().get(key);
     }
 

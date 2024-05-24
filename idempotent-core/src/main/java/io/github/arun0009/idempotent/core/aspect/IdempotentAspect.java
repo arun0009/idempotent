@@ -1,12 +1,13 @@
 package io.github.arun0009.idempotent.core.aspect;
 
 import io.github.arun0009.idempotent.core.annotation.Idempotent;
+import io.github.arun0009.idempotent.core.exception.IdempotentException;
 import io.github.arun0009.idempotent.core.persistence.IdempotentStore;
-import jakarta.servlet.http.HttpServletRequest;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
 import org.aspectj.lang.reflect.MethodSignature;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.expression.ExpressionParser;
 import org.springframework.expression.spel.standard.SpelExpressionParser;
 import org.springframework.expression.spel.support.StandardEvaluationContext;
@@ -17,6 +18,7 @@ import org.springframework.web.context.request.ServletRequestAttributes;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Idempotent aspect Implementation
@@ -24,12 +26,24 @@ import java.time.Instant;
 @Aspect
 public class IdempotentAspect {
 
-    /**
-     * X_IDEMPOTENCY_KEY Header that can be passed by client as http header to override server side idempotency key.
-     */
-    public static final String X_IDEMPOTENCY_KEY = "X-Idempotency-Key";
+    @Value("${idempotent.key.header:X-Idempotency-Key}")
+    public String idempotentKeyHeader;
+
+    @Value("${idempotent.inprogress.max.retries:5}")
+    public int inprogressMaxRetries;
+
+    @Value("${idempotent.inprogress.retry.initial.intervalMillis:100}")
+    public int inprogressRetryInterval;
+
+    @Value("${idempotent.inprogress.retry.multiplier:2}")
+    public int inprogressRetryMultiplier;
 
     private final IdempotentStore idempotentStore;
+
+    /**
+     * Create the SpEL parser.
+     */
+    private final ExpressionParser parser = new SpelExpressionParser();
 
     /**
      * Instantiates a new Idempotent aspect with a given store (look at idempotent-redis and idempotent-dynamo implementations).
@@ -40,11 +54,6 @@ public class IdempotentAspect {
     public IdempotentAspect(IdempotentStore idempotentStore) {
         this.idempotentStore = idempotentStore;
     }
-
-    /**
-     * Create the SpEL parser.
-     */
-    ExpressionParser parser = new SpelExpressionParser();
 
     /**
      * Around - wrap logic around the api. We first store idempotent key along with Process Name
@@ -59,85 +68,49 @@ public class IdempotentAspect {
      */
     @Around("@annotation(io.github.arun0009.idempotent.core.annotation.Idempotent)")
     public Object around(ProceedingJoinPoint pjp) throws Throwable {
-        String key = getIdempotentKeyFromHeader();
-        MethodSignature signature = (MethodSignature) pjp.getSignature();
-        Idempotent idempotent = signature.getMethod().getAnnotation(Idempotent.class);
-
-        String keySPEL = idempotent.key();
-        boolean hashKey = idempotent.hashKey();
-        String processName = processName(pjp);
-        long ttlInSeconds = idempotent.ttlInSeconds();
-
+        String key = getIdempotentKey(pjp);
         if (key == null || key.isEmpty()) {
-            key = getIdempotentKeyFromAnnotation(pjp, keySPEL, signature);
-        }
-
-        if (key != null && !key.isEmpty()) {
-            if (hashKey) {
-                key = hashIdempotentKey(key);
-            }
-
-            IdempotentStore.IdempotentKey idempotentKey = new IdempotentStore.IdempotentKey(key, processName);
-            IdempotentStore.Value value =
-                    idempotentStore.getValue(idempotentKey, ((MethodSignature) pjp.getSignature()).getReturnType());
-
-            if (value != null && value.response() != null) {
-                if (value.status().equals(IdempotentStore.Status.COMPLETED.name()))
-                    if (Instant.now().isBefore(Instant.ofEpochSecond(value.expirationTimeInMilliSeconds()))) {
-                        return value.response();
-                    } else {
-                        idempotentStore.remove(idempotentKey);
-                    }
-            }
-
-            Long expiryTimeInMilliseconds = Instant.now().toEpochMilli() + (ttlInSeconds * 1000);
-            idempotentStore.store(
-                    idempotentKey,
-                    new IdempotentStore.Value(
-                            IdempotentStore.Status.INPROGRESS.name(), expiryTimeInMilliseconds, null));
-
-            Object response;
-            try {
-                response = pjp.proceed();
-            } catch (Exception e) {
-                idempotentStore.remove(idempotentKey);
-                throw e;
-            }
-
-            if (response instanceof ResponseEntity<?> responseEntity) {
-                // if not successful response remove idempotency key to allow retries
-                if (!responseEntity.getStatusCode().is2xxSuccessful()) {
-                    idempotentStore.remove(idempotentKey);
-                } else {
-                    idempotentStore.update(
-                            idempotentKey,
-                            new IdempotentStore.Value(
-                                    IdempotentStore.Status.COMPLETED.name(), expiryTimeInMilliseconds, response));
-                }
-            } else if (response != null) {
-                idempotentStore.update(
-                        idempotentKey,
-                        new IdempotentStore.Value(
-                                IdempotentStore.Status.COMPLETED.name(), expiryTimeInMilliseconds, response));
-            } else {
-                idempotentStore.remove(idempotentKey);
-            }
-            return response;
-        } else {
             return pjp.proceed();
         }
+
+        String processName = getProcessName(pjp);
+        long ttlInSeconds = ((MethodSignature) pjp.getSignature())
+                .getMethod()
+                .getAnnotation(Idempotent.class)
+                .ttlInSeconds();
+        key = hashKeyIfRequired(key, pjp);
+
+        IdempotentStore.IdempotentKey idempotentKey = new IdempotentStore.IdempotentKey(key, processName);
+        IdempotentStore.Value value =
+                idempotentStore.getValue(idempotentKey, ((MethodSignature) pjp.getSignature()).getReturnType());
+
+        if (isExistingRequest(value)) {
+            return handleExistingRequest(pjp, idempotentKey, value, ttlInSeconds);
+        }
+
+        return handleNewRequest(pjp, idempotentKey, ttlInSeconds);
     }
 
-    // gets Idempotent Key from request header X-Idempotency-Key
-    private static String getIdempotentKeyFromHeader() {
-        // If key is still null or empty, get it from the request header
-        ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
-        String key = null;
-        if (attributes != null) {
-            HttpServletRequest request = attributes.getRequest();
-            key = request.getHeader(X_IDEMPOTENCY_KEY);
+    /**
+     * get idempotent key, first preference is to check header so client can dictate what is idempotent or else get
+     * it from annotation key.
+     * @param pjp Spring's Proceed Joint Point
+     * @return value of key as String
+     */
+    private String getIdempotentKey(ProceedingJoinPoint pjp) {
+        String key = getIdempotentKeyFromHeader();
+        if (key == null || key.isEmpty()) {
+            MethodSignature signature = (MethodSignature) pjp.getSignature();
+            key = getIdempotentKeyFromAnnotation(
+                    pjp, signature.getMethod().getAnnotation(Idempotent.class).key(), signature);
         }
         return key;
+    }
+
+    // gets Idempotent Key from request header default X-Idempotency-Key
+    private String getIdempotentKeyFromHeader() {
+        ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
+        return attributes != null ? attributes.getRequest().getHeader(idempotentKeyHeader) : null;
     }
 
     // gets Idempotent Key value from Spring Expression SpEL.
@@ -155,28 +128,160 @@ public class IdempotentAspect {
                 throw new IllegalStateException(
                         "Parameter names are not available. Ensure the '-parameters' compiler option is enabled.");
             }
-            key = parser.parseExpression(key).getValue(context, String.class);
+            return parser.parseExpression(key).getValue(context, String.class);
+        }
+        return null;
+    }
+
+    /**
+     * Hash key if hashKey arg is set to true, usually if idempotent key is entire entity it's a good idea to hash
+     * the entity key.
+     * @param key key to hash
+     * @param pjp Springs Proceed Joint Point
+     * @return hashed key as String
+     * @throws NoSuchAlgorithmException throw exception if sha-256 algorithm is not found
+     */
+    private String hashKeyIfRequired(String key, ProceedingJoinPoint pjp) throws NoSuchAlgorithmException {
+        if (((MethodSignature) pjp.getSignature())
+                .getMethod()
+                .getAnnotation(Idempotent.class)
+                .hashKey()) {
+            MessageDigest md = MessageDigest.getInstance("SHA-256");
+            byte[] hashBytes = md.digest(key.getBytes());
+            StringBuilder hexString = new StringBuilder();
+            for (byte hashByte : hashBytes) {
+                String hex = Integer.toHexString(0xff & hashByte);
+                if (hex.length() == 1) hexString.append('0');
+                hexString.append(hex);
+            }
+            return hexString.toString();
         }
         return key;
     }
 
-    // hash idempotentKey
-    private static String hashIdempotentKey(String key) throws NoSuchAlgorithmException {
-        MessageDigest md = MessageDigest.getInstance("SHA-256");
-        byte[] hashBytes = md.digest(key.getBytes());
-        StringBuilder hexString = new StringBuilder();
-        for (byte hashByte : hashBytes) {
-            String hex = Integer.toHexString(0xff & hashByte);
-            if (hex.length() == 1) {
-                hexString.append('0');
-            }
-            hexString.append(hex);
-        }
-        return hexString.toString();
+    /**
+     * check if request is existing i.e. INPROGRESS request.
+     * @param value idempotent value
+     * @return true if its an existing INPROGRESS request.
+     */
+    private boolean isExistingRequest(IdempotentStore.Value value) {
+        return value != null
+                && value.status().equals(IdempotentStore.Status.INPROGRESS.name())
+                && Instant.now().isBefore(Instant.ofEpochSecond(value.expirationTimeInMilliSeconds()));
     }
 
-    // processName is ControllerName.methodName().
-    private String processName(ProceedingJoinPoint pjp) {
+    /**
+     * Maybe a request is already in progress and this is a duplicate request, exponentially backoff
+     * and retry and get response from first call. If status doesn't change from INPROGRESS
+     * fpr a given timeout delete the key.
+     *
+     * @param pjp Springs Proceed Joint Point
+     * @param idempotentKey idempotent key for given request
+     * @param value response value along with status and expiry time
+     * @param ttlInSeconds how long should this idempotent request/response be stored
+     * @return Object which is the response.
+     * @throws IdempotentException idempotent exception with message
+     */
+    private Object handleExistingRequest(
+            ProceedingJoinPoint pjp,
+            IdempotentStore.IdempotentKey idempotentKey,
+            IdempotentStore.Value value,
+            long ttlInSeconds)
+            throws IdempotentException {
+        try {
+            if (value.status().equals(IdempotentStore.Status.INPROGRESS.name())) {
+                value = waitForCompletion(idempotentKey, value);
+            }
+            if (value.status().equals(IdempotentStore.Status.COMPLETED.name())) {
+                return value.response();
+            } else {
+                idempotentStore.remove(idempotentKey);
+            }
+            return handleNewRequest(pjp, idempotentKey, ttlInSeconds);
+        } catch (Exception e) {
+            throw new IdempotentException("error handling existing request", e);
+        }
+    }
+
+    /**
+     * If a request is in progress wait for it to complete for a given period before giving up and deleting.
+     *
+     * @param idempotentKey idempotent key for given request
+     * @param value response value along with status and expiry time
+     * @return value response value along with status and expiry time
+     * @throws IdempotentException idempotent exception with message
+     */
+    private IdempotentStore.Value waitForCompletion(
+            IdempotentStore.IdempotentKey idempotentKey, IdempotentStore.Value value) throws IdempotentException {
+        int retries = 0;
+        while (retries < inprogressMaxRetries && !value.status().equals(IdempotentStore.Status.COMPLETED.name())) {
+            try {
+                TimeUnit.MILLISECONDS.sleep(
+                        (long) inprogressRetryInterval * (int) Math.pow(inprogressRetryMultiplier, retries));
+            } catch (InterruptedException e) {
+                throw new IdempotentException("error waiting for completion", e);
+            }
+            retries++;
+            value = idempotentStore.getValue(idempotentKey, value.getClass());
+        }
+        return value;
+    }
+
+    /**
+     * handles new request (with no entry in idempotent table/cache)
+     * @param pjp Springs Proceed Joint Point
+     * @param idempotentKey idempotent key for given request
+     * @param ttlInSeconds how long should this idempotent request/response be stored
+     * @return Object which is the response.
+     * @throws IdempotentException idempotent exception with message
+     */
+    private Object handleNewRequest(
+            ProceedingJoinPoint pjp, IdempotentStore.IdempotentKey idempotentKey, long ttlInSeconds)
+            throws IdempotentException {
+        long expiryTimeInMilliseconds = Instant.now().toEpochMilli() + (ttlInSeconds * 1000);
+        idempotentStore.store(
+                idempotentKey,
+                new IdempotentStore.Value(IdempotentStore.Status.INPROGRESS.name(), expiryTimeInMilliseconds, null));
+
+        Object response;
+        try {
+            response = pjp.proceed();
+        } catch (Throwable e) {
+            idempotentStore.remove(idempotentKey);
+            throw new IdempotentException("error calling downstream api", e);
+        }
+
+        updateStoreWithResponse(idempotentKey, response, expiryTimeInMilliseconds);
+        return response;
+    }
+
+    /**
+     * Update response in memory/table with response, status
+     * @param idempotentKey idempotent key for given request
+     * @param response of downstream api
+     * @param expiryTimeInMilliseconds time after which this record/entry can be deleted
+     */
+    private void updateStoreWithResponse(
+            IdempotentStore.IdempotentKey idempotentKey, Object response, long expiryTimeInMilliseconds) {
+        if (response instanceof ResponseEntity<?> responseEntity
+                && !responseEntity.getStatusCode().is2xxSuccessful()) {
+            idempotentStore.remove(idempotentKey);
+        } else if (response != null) {
+            idempotentStore.update(
+                    idempotentKey,
+                    new IdempotentStore.Value(
+                            IdempotentStore.Status.COMPLETED.name(), expiryTimeInMilliseconds, response));
+        } else {
+            idempotentStore.remove(idempotentKey);
+        }
+    }
+
+    /**
+     * get process name which is __ControllerName.methodName()
+     * @param pjp Springs Proceed Joint Point
+     * @return process name
+     */
+    private String getProcessName(ProceedingJoinPoint pjp) {
         return String.format(
                 "__%s.%s()",
                 pjp.getTarget().getClass().getSimpleName(), pjp.getSignature().getName());

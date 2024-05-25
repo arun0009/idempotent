@@ -16,7 +16,7 @@ public interface IdempotentStore {
     Value getValue(IdempotentKey key, Class<?> returnType);
 
     /**
-     * Store.
+     * Store idempotent key and value which contains response
      *
      * @param key   the idempotentKey
      * @param value the value which contains response
@@ -24,14 +24,14 @@ public interface IdempotentStore {
     void store(IdempotentKey key, Value value);
 
     /**
-     * Remove.
+     * Remove the idempotent entry for given idempotent key
      *
      * @param key the idempotentKey
      */
     void remove(IdempotentKey key);
 
     /**
-     * Update.
+     * Updates an idempotent keys value with status and response.
      *
      * @param key   the idempotentKey
      * @param value the value which contains response

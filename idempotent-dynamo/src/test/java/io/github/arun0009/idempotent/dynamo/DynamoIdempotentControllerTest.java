@@ -44,8 +44,8 @@ public class DynamoIdempotentControllerTest {
         public void initialize(ConfigurableApplicationContext context) {
             // Start container
             dynamo.start();
-            TestPropertyValues.of(
-                            "aws.dynamodb.endpoint=" + "http://" + dynamo.getHost() + ":" + dynamo.getFirstMappedPort())
+            TestPropertyValues.of("idempotent.dynamodb.endpoint=" + "http://" + dynamo.getHost() + ":"
+                            + dynamo.getFirstMappedPort())
                     .applyTo(context.getEnvironment());
         }
     }

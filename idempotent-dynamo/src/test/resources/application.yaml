@@ -1,13 +1,12 @@
-use:
-  local:
-    dynamodb: true
-dynamodb:
-  table:
-    name: Idempotent
-    create: true
-aws:
-  accessKey: key
-  accessSecret: secret
-  region: us-east-1
+idempotent:
   dynamodb:
     endpoint: http://localhost:8000
+    table:
+      name: Idempotent
+      create: true
+    use:
+      local: true
+  aws:
+    accessKey: key
+    accessSecret: secret
+    region: us-east-1

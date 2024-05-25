@@ -2,9 +2,9 @@ idempotent:
   redis:
     auth:
       enabled: false
-      #password: password
     ssl:
       enabled: false
     cluster:
       enabled: false
-    host: localhost:6379
+    standalone:
+      host: localhost:6379

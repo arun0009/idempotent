@@ -44,7 +44,8 @@ class RedisIdempotentControllerTest {
         public void initialize(ConfigurableApplicationContext context) {
             // Start container
             redis.start();
-            TestPropertyValues.of("idempotent.redis.host=" + redis.getHost() + ":" + redis.getFirstMappedPort())
+            TestPropertyValues.of(
+                            "idempotent.redis.standalone.host=" + redis.getHost() + ":" + redis.getFirstMappedPort())
                     .applyTo(context.getEnvironment());
         }
     }

@@ -11,7 +11,7 @@ public interface IdempotentStore {
      * Gets value (response for given key) if exists and avoids calling downstream apis.
      *
      * @param key the idempotentKey
-     * @return the value which contains response
+     * @return Value the value which contains response
      */
     Value getValue(IdempotentKey key, Class<?> returnType);
 

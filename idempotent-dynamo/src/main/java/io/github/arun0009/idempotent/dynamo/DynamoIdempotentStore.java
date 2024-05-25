@@ -27,6 +27,7 @@ public class DynamoIdempotentStore implements IdempotentStore {
      * Instantiates a new Dynamo idempotent store.
      *
      * @param dynamoEnhancedClient the dynamo v2 enhanced client
+     * @param dynamoTableName      the dynamo table name
      */
     public DynamoIdempotentStore(DynamoDbEnhancedClient dynamoEnhancedClient, String dynamoTableName) {
         this.dynamoEnhancedClient = dynamoEnhancedClient;

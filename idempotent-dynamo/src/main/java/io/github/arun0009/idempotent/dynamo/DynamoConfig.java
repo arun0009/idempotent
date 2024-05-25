@@ -24,24 +24,31 @@ import java.net.URI;
 @Configuration
 public class DynamoConfig {
 
+    // dynamodb aws region
     @Value("${idempotent.aws.region}")
     private String awsRegion;
 
+    // dynamodb endpoint, set this if using localstack or testcontainers (local dynamodb)
     @Value("${idempotent.dynamodb.endpoint:}")
     private String dynamoDbEndpoint;
 
+    // aws access key
     @Value("${idempotent.aws.accessKey:}")
     private String awsAccessKey;
 
+    // aws access secret
     @Value("${idempotent.aws.accessSecret:}")
     private String awsAccessSecret;
 
+    // set to true if using local dynamo e.g localstack or testcontainers
     @Value("${idempotent.dynamodb.use.local:false}")
     private boolean useLocalDynamoDb;
 
+    // set to true if you want dynamo client to create table
     @Value("${idempotent.dynamodb.table.create:false}")
     private boolean createTable;
 
+    // set idempotent table name, defaults to Idempotent
     @Value("${idempotent.dynamodb.table.name:Idempotent}")
     private String dynamoTableName;
 
@@ -87,6 +94,11 @@ public class DynamoConfig {
         return new DynamoIdempotentStore(dynamoEnhancedClient, dynamoTableName);
     }
 
+    /**
+     *
+     * @param idempotentStore DynamoDB IdempotentStore
+     * @return IdempotentAspect which uses dynamo for store
+     */
     @Bean
     public IdempotentAspect idempotentAspect(IdempotentStore idempotentStore) {
         return new IdempotentAspect(idempotentStore);

@@ -24,33 +24,43 @@ import java.util.List;
 @Configuration
 public class RedisConfig {
 
+    // redis standalone host as "hostname:port" format
     @Value("${idempotent.redis.standalone.host:}")
     private String redisHost;
 
+    // redis auth enabled flag, set to true to enable authentication else false
     @Value("${idempotent.redis.auth.enabled:false}")
     private boolean redisAuthEnabled;
 
+    // redis ssl enabled flag, true to enable ssl, else set to false
     @Value("${idempotent.redis.ssl.enabled:false}")
     private boolean redisSslEnabled;
 
+    // redis auth username, set only if redis auth enabled
     @Value("${idempotent.redis.auth.username:}")
     private String redisAuthUsername;
 
+    // redis auth password, set only if redis auth enabled
     @Value("${idempotent.redis.auth.password:}")
     private String redisAuthPassword;
 
+    // redis cluster mode enabled flag, set to true if using cluster mode redis
     @Value("${idempotent.redis.cluster.enabled:false}")
     private boolean redisClusterEnabled;
 
+    // cluster hosts list seperated by comma in hostname:port format e.g. host1:6379,host2:6379
     @Value("${idempotent.redis.cluster.hosts")
     private String clusterHosts;
 
+    // sentinel mode redis flag
     @Value("${idempotent.redis.sentinel.enabled:false}")
     private boolean redisSentinelEnabled;
 
+    // sentinel master host in hostname:port format e.g. host1:6379
     @Value("${idempotent.redis.sentinel.master:}")
     private String redisSentinelMaster;
 
+    // sentinel hosts list seperated by comma in hostname:port format e.g. host1:6379,host2:6379
     @Value("${idempotent.redis.sentinel.nodes:}")
     private String redisSentinelNodes;
 
@@ -167,9 +177,10 @@ public class RedisConfig {
     }
 
     /**
+     * Idempotent aspect idempotent aspect.
      *
      * @param idempotentStore idempotent store to use
-     * @return IdempotentAspect
+     * @return IdempotentAspect idempotent aspect
      */
     @Bean
     public IdempotentAspect idempotentAspect(IdempotentStore idempotentStore) {

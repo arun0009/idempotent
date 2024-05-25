@@ -26,17 +26,22 @@ import java.util.concurrent.TimeUnit;
 @Aspect
 public class IdempotentAspect {
 
+    // header in request to check for idempotent key
     @Value("${idempotent.key.header:X-Idempotency-Key}")
-    public String idempotentKeyHeader;
+    private String idempotentKeyHeader;
 
+    // in progress request max reties to try (useful if duplicate requests are made concurrently, only lets one win)
+    // defaults to 5.
     @Value("${idempotent.inprogress.max.retries:5}")
-    public int inprogressMaxRetries;
+    private int inprogressMaxRetries;
 
+    // in progress status check retry initial interval, defaults to 100 ms.
     @Value("${idempotent.inprogress.retry.initial.intervalMillis:100}")
-    public int inprogressRetryInterval;
+    private int inprogressRetryInterval;
 
+    // in progress retry multiplier for exponential backoff retries, default 2
     @Value("${idempotent.inprogress.retry.multiplier:2}")
-    public int inprogressRetryMultiplier;
+    private int inprogressRetryMultiplier;
 
     private final IdempotentStore idempotentStore;
 

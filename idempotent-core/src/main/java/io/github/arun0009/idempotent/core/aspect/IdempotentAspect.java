@@ -133,9 +133,20 @@ public class IdempotentAspect {
                 throw new IllegalStateException(
                         "Parameter names are not available. Ensure the '-parameters' compiler option is enabled.");
             }
-            return parser.parseExpression(key).getValue(context, String.class);
+
+            Object value = parser.parseExpression(key).getValue(context);
+            return value != null ? convertToString(value) : null;
         }
         return null;
+    }
+
+    private String convertToString(Object value) {
+        if (value instanceof String) {
+            return (String) value;
+        } else {
+            // Customize conversion logic as needed
+            return value.toString(); // Fallback conversion
+        }
     }
 
     /**
@@ -165,14 +176,12 @@ public class IdempotentAspect {
     }
 
     /**
-     * check if request is existing i.e. INPROGRESS request.
+     * check if request is existing request.
      * @param value idempotent value
      * @return true if its an existing INPROGRESS request.
      */
     private boolean isExistingRequest(IdempotentStore.Value value) {
-        return value != null
-                && value.status().equals(IdempotentStore.Status.INPROGRESS.name())
-                && Instant.now().isBefore(Instant.ofEpochSecond(value.expirationTimeInMilliSeconds()));
+        return value != null && Instant.now().isBefore(Instant.ofEpochSecond(value.expirationTimeInMilliSeconds()));
     }
 
     /**

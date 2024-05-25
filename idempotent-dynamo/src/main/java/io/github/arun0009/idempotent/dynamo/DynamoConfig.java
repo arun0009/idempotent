@@ -25,7 +25,7 @@ import java.net.URI;
 public class DynamoConfig {
 
     // dynamodb aws region
-    @Value("${idempotent.aws.region}")
+    @Value("${idempotent.aws.region:}")
     private String awsRegion;
 
     // dynamodb endpoint, set this if using localstack or testcontainers (local dynamodb)

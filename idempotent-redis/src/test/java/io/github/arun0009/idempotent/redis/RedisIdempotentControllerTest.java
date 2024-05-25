@@ -1,7 +1,7 @@
 package io.github.arun0009.idempotent.redis;
 
+import io.github.arun0009.idempotent.core.IdempotentTest;
 import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.parallel.Execution;
@@ -12,17 +12,14 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.util.TestPropertyValues;
 import org.springframework.context.ApplicationContextInitializer;
 import org.springframework.context.ConfigurableApplicationContext;
-import org.springframework.http.MediaType;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.test.web.servlet.MvcResult;
-import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
 import org.testcontainers.containers.GenericContainer;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 
 @SpringBootApplication(scanBasePackages = "io.github.arun0009.idempotent.redis")
 @SpringBootTest
@@ -30,12 +27,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         initializers = io.github.arun0009.idempotent.redis.RedisIdempotentControllerTest.Initializer.class)
 class RedisIdempotentControllerTest {
 
+    MockMvc mockMvc;
+
     @Autowired
     private WebApplicationContext webApplicationContext;
-
-    int i = 1;
-
-    private MockMvc mockMvc;
 
     static GenericContainer redis = new GenericContainer<>("redis:6.2.6").withExposedPorts(6379);
 
@@ -63,27 +58,12 @@ class RedisIdempotentControllerTest {
     @RepeatedTest(3)
     @Execution(ExecutionMode.CONCURRENT)
     void createAsset() throws Exception {
-        String assetJson =
-                """
-                {
-                    "id": 1,
-                    "type": "API",
-                    "name": "%s"
-                }
-                """;
+        new IdempotentTest().validateAssetResponse(mockMvc, "Create", post("/redis/assets"));
+    }
 
-        String expectedResponseJson =
-                """
-                {"id":"1","type":"API","name":"Asset API-1","url":"https://github.com/arun0009/idempotent"}""";
-
-        assetJson = String.format(assetJson, "Asset API-" + i);
-        i = i + 1;
-        ResultActions resultActions = mockMvc.perform(post("/redis/assets")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(assetJson))
-                .andExpect(status().isOk());
-        MvcResult mvcResult = resultActions.andReturn();
-        String responseBody = mvcResult.getResponse().getContentAsString();
-        Assertions.assertEquals(expectedResponseJson, responseBody);
+    @RepeatedTest(3)
+    @Execution(ExecutionMode.CONCURRENT)
+    void updateAsset() throws Exception {
+        new IdempotentTest().validateAssetResponse(mockMvc, "Update", put("/redis/assets"));
     }
 }

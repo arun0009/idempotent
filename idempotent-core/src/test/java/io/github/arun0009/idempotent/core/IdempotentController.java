@@ -5,15 +5,12 @@ import io.github.arun0009.idempotent.core.aspect.IdempotentAspect;
 import io.github.arun0009.idempotent.core.persistence.InMemoryIdempotentStore;
 import org.springframework.context.annotation.Bean;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 public class IdempotentController {
-
-    public record Asset(String id, String type, String name) {}
-
-    public record AssetResponse(String id, String type, String name, String url) {}
 
     @Bean
     public IdempotentAspect idempotentAspect() {
@@ -21,8 +18,16 @@ public class IdempotentController {
     }
 
     @Idempotent(key = "#asset.id", ttlInSeconds = 60)
-    @PostMapping("/assets")
-    public AssetResponse createAsset(@RequestBody Asset asset) {
-        return new AssetResponse(asset.id, asset.type, asset.name, "https://github.com/arun0009/idempotent");
+    @PostMapping("/in-memory/assets")
+    public IdempotentTest.AssetResponse createAsset(@RequestBody IdempotentTest.Asset asset) {
+        return new IdempotentTest.AssetResponse(
+                asset.id(), asset.type(), asset.name(), "https://github.com/arun0009/create/idempotent");
+    }
+
+    @Idempotent(key = "#asset.type", ttlInSeconds = 60)
+    @PutMapping("/in-memory/assets")
+    public IdempotentTest.AssetResponse updateAsset(@RequestBody IdempotentTest.Asset asset) {
+        return new IdempotentTest.AssetResponse(
+                asset.id(), asset.type(), asset.name(), "https://github.com/arun0009/update/idempotent");
     }
 }

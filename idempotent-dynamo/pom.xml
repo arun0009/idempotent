@@ -35,5 +35,12 @@
             <version>1.5.6</version>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>io.github.arun0009</groupId>
+            <artifactId>idempotent-core</artifactId>
+            <version>1.0.0</version>
+            <type>test-jar</type>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 </project>

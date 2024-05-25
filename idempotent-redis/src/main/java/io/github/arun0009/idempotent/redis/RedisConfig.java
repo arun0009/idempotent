@@ -49,7 +49,7 @@ public class RedisConfig {
     private boolean redisClusterEnabled;
 
     // cluster hosts list seperated by comma in hostname:port format e.g. host1:6379,host2:6379
-    @Value("${idempotent.redis.cluster.hosts")
+    @Value("${idempotent.redis.cluster.hosts:")
     private String clusterHosts;
 
     // sentinel mode redis flag
@@ -65,13 +65,14 @@ public class RedisConfig {
     private String redisSentinelNodes;
 
     /**
-     * Jedis connection factory to connect to Redis standalone, cluster, or sentinel instance.
+     * Jedis connection factory to connect to Redis standalone, cluster, or sentinel instance. You can pass your
+     * own JedisConnectionFactory with @Bean("IdempotentCache")
      *
      * @return the jedis connection factory
      */
     @Bean
     @Primary
-    @ConditionalOnMissingBean(JedisConnectionFactory.class)
+    @ConditionalOnMissingBean(name = "IdempotentCache")
     public JedisConnectionFactory jedisConnectionFactory() {
         JedisClientConfiguration.JedisClientConfigurationBuilder jedisClientConfiguration =
                 JedisClientConfiguration.builder();
@@ -86,11 +87,6 @@ public class RedisConfig {
             jedisConnectionFactory = redisSentinelConnection(jedisClientConfiguration);
         } else {
             jedisConnectionFactory = redisStandaloneConnection(jedisClientConfiguration);
-        }
-
-        if (jedisConnectionFactory.getPoolConfig() != null) {
-            jedisConnectionFactory.getPoolConfig().setMaxIdle(30);
-            jedisConnectionFactory.getPoolConfig().setMinIdle(10);
         }
 
         return jedisConnectionFactory;
@@ -118,6 +114,9 @@ public class RedisConfig {
 
         for (String node : redisSentinelNodes.split(",")) {
             String[] hostPort = node.split(":");
+            if (hostPort.length != 2) {
+                throw new IdempotentException("Invalid sentinel node: " + node);
+            }
             nodes.add(new RedisNode(hostPort[0], Integer.parseInt(hostPort[1])));
         }
 
@@ -136,7 +135,7 @@ public class RedisConfig {
             JedisClientConfiguration.JedisClientConfigurationBuilder jedisClientConfiguration) {
         String[] hostPort = redisHost.split(":");
         if (hostPort.length != 2) {
-            throw new IdempotentException("idempotent.redis.host must be in the format host:port");
+            throw new IdempotentException("idempotent.redis.host must be in the format host:port for " + redisHost);
         }
 
         RedisStandaloneConfiguration redisStandaloneConfiguration =

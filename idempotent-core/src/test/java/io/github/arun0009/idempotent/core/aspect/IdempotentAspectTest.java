@@ -102,7 +102,7 @@ class IdempotentAspectTest {
 
         Object response = idempotentAspect.around(proceedingJoinPoint);
 
-        verify(idempotentStore, atLeast(2)).getValue(eq(idempotentKey), any());
+        verify(idempotentStore, times(2)).getValue(eq(idempotentKey), any());
         assertInstanceOf(ResponseEntity.class, response);
         assertEquals("cached response", ((ResponseEntity<?>) response).getBody());
     }

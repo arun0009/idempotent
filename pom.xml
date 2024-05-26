@@ -8,6 +8,8 @@
     <packaging>pom</packaging>
     <name>Idempotent</name>
     <description>Make your APIs Idempotent</description>
+    <url>https://github.com/arun0009/idempotent</url>
+
     <licenses>
         <license>
             <name>MIT License</name>
@@ -27,18 +29,20 @@
         <module>idempotent-redis</module>
         <module>idempotent-dynamo</module>
     </modules>
+
     <scm>
         <connection>scm:git:git@github.com:arun0009/idempotent.git</connection>
         <developerConnection>scm:git:ssh://github.com:arun0009/idempotent.git</developerConnection>
         <url>https://github.com/arun0009/idempotent/tree/main</url>
     </scm>
+
     <distributionManagement>
         <repository>
-            <id>ossrh</id>
+            <id>central</id>
             <url>https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/</url>
         </repository>
         <snapshotRepository>
-            <id>ossrh</id>
+            <id>central</id>
             <url>https://s01.oss.sonatype.org/content/repositories/snapshots</url>
         </snapshotRepository>
     </distributionManagement>
@@ -90,7 +94,6 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
-    <!-- end maven release/publish plugins -->
 
     <build>
         <plugins>
@@ -182,7 +185,6 @@
         </plugins>
     </build>
 
-    <!-- maven release/publish plugins -->
     <profiles>
         <profile>
             <id>release</id>
@@ -209,6 +211,7 @@
                                 <goals>
                                     <goal>jar</goal>
                                 </goals>
+                                <phase>package</phase>
                                 <configuration>
                                     <failOnError>false</failOnError>
                                 </configuration>
@@ -216,14 +219,13 @@
                         </executions>
                     </plugin>
                     <plugin>
-                        <groupId>org.sonatype.plugins</groupId>
-                        <artifactId>nexus-staging-maven-plugin</artifactId>
-                        <version>1.6.13</version>
+                        <groupId>org.sonatype.central</groupId>
+                        <artifactId>central-publishing-maven-plugin</artifactId>
+                        <version>0.4.0</version>
                         <extensions>true</extensions>
                         <configuration>
-                            <serverId>ossrh</serverId>
-                            <nexusUrl>https://s01.oss.sonatype.org/</nexusUrl>
-                            <autoReleaseAfterClose>true</autoReleaseAfterClose>
+                            <publishingServerId>central</publishingServerId>
+                            <tokenAuth>true</tokenAuth>
                         </configuration>
                     </plugin>
                     <plugin>
@@ -238,7 +240,8 @@
                                 </goals>
                                 <phase>verify</phase>
                                 <configuration>
-                                    <keyname>0x7E6E81D4</keyname>
+                                    <keyname>0x2AFBBA33</keyname>
+                                    <passphraseServerId>0x2AFBBA33</passphraseServerId>
                                     <gpgArguments>
                                         <arg>--pinentry-mode</arg>
                                         <arg>loopback</arg>

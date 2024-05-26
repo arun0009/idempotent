@@ -17,10 +17,8 @@ public class IdempotentTest {
 
     public record AssetResponse(String id, AssetType type, String name, String url) {}
 
-    int i = 1;
-
-    public void validateAssetResponse(MockMvc mockMvc, String type, MockHttpServletRequestBuilder requestBuilder)
-            throws Exception {
+    public void validateAssetResponse(
+            MockMvc mockMvc, int counter, String type, MockHttpServletRequestBuilder requestBuilder) throws Exception {
         String assetJsonTemplate =
                 """
                  {
@@ -32,8 +30,7 @@ public class IdempotentTest {
                      "name": "%s"
                  }
                 """;
-        String assetJson = String.format(assetJsonTemplate, type, "Asset API-" + i);
-        i = i + 1;
+        String assetJson = String.format(assetJsonTemplate, type, "Asset API-" + counter);
         ResultActions resultActions = mockMvc.perform(
                         requestBuilder.contentType(MediaType.APPLICATION_JSON).content(assetJson))
                 .andExpect(status().isOk());

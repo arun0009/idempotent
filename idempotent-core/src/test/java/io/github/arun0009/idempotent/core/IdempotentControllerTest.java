@@ -1,7 +1,10 @@
 package io.github.arun0009.idempotent.core;
 
+import org.junit.AfterClass;
+import org.junit.BeforeClass;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.RepeatedTest;
+import org.junit.jupiter.api.RepetitionInfo;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -20,9 +23,19 @@ public class IdempotentControllerTest {
     @Autowired
     private WebApplicationContext webApplicationContext;
 
-    int i = 1;
-
     private MockMvc mockMvc;
+
+    private static final ThreadLocal<Integer> counter = new ThreadLocal<>();
+
+    @BeforeClass
+    public static void beforeClass() {
+        counter.set(1); // Initialize counter before tests
+    }
+
+    @AfterClass
+    public static void afterClass() {
+        counter.remove(); // Remove ThreadLocal after tests
+    }
 
     @BeforeEach
     public void setUp() {
@@ -31,13 +44,17 @@ public class IdempotentControllerTest {
 
     @RepeatedTest(3)
     @Execution(ExecutionMode.CONCURRENT)
-    void createAsset() throws Exception {
-        new IdempotentTest().validateAssetResponse(mockMvc, "Create", post("/in-memory/assets"));
+    void createAsset(RepetitionInfo repetitionInfo) throws Exception {
+        new IdempotentTest()
+                .validateAssetResponse(
+                        mockMvc, repetitionInfo.getCurrentRepetition(), "Create", post("/in-memory/assets"));
     }
 
     @RepeatedTest(3)
     @Execution(ExecutionMode.CONCURRENT)
-    void updateAsset() throws Exception {
-        new IdempotentTest().validateAssetResponse(mockMvc, "Update", put("/in-memory/assets"));
+    void updateAsset(RepetitionInfo repetitionInfo) throws Exception {
+        new IdempotentTest()
+                .validateAssetResponse(
+                        mockMvc, repetitionInfo.getCurrentRepetition(), "Update", put("/in-memory/assets"));
     }
 }

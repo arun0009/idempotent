@@ -4,6 +4,7 @@ import io.github.arun0009.idempotent.core.IdempotentTest;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.RepeatedTest;
+import org.junit.jupiter.api.RepetitionInfo;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -57,13 +58,15 @@ class RedisIdempotentControllerTest {
 
     @RepeatedTest(3)
     @Execution(ExecutionMode.CONCURRENT)
-    void createAsset() throws Exception {
-        new IdempotentTest().validateAssetResponse(mockMvc, "Create", post("/redis/assets"));
+    void createAsset(RepetitionInfo repetitionInfo) throws Exception {
+        new IdempotentTest()
+                .validateAssetResponse(mockMvc, repetitionInfo.getCurrentRepetition(), "Create", post("/redis/assets"));
     }
 
     @RepeatedTest(3)
     @Execution(ExecutionMode.CONCURRENT)
-    void updateAsset() throws Exception {
-        new IdempotentTest().validateAssetResponse(mockMvc, "Update", put("/redis/assets"));
+    void updateAsset(RepetitionInfo repetitionInfo) throws Exception {
+        new IdempotentTest()
+                .validateAssetResponse(mockMvc, repetitionInfo.getCurrentRepetition(), "Update", put("/redis/assets"));
     }
 }

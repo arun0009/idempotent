@@ -181,7 +181,7 @@ public class IdempotentAspect {
      * @return true if its an existing INPROGRESS request.
      */
     private boolean isExistingRequest(IdempotentStore.Value value) {
-        return value != null && Instant.now().isBefore(Instant.ofEpochSecond(value.expirationTimeInMilliSeconds()));
+        return value != null && Instant.now().isBefore(Instant.ofEpochMilli(value.expirationTimeInMilliSeconds()));
     }
 
     /**

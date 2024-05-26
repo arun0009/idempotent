@@ -15,6 +15,8 @@ import software.amazon.awssdk.enhanced.dynamodb.TableSchema;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClientBuilder;
+import software.amazon.awssdk.services.dynamodb.model.TimeToLiveSpecification;
+import software.amazon.awssdk.services.dynamodb.model.UpdateTimeToLiveRequest;
 
 import java.net.URI;
 
@@ -79,6 +81,14 @@ public class DynamoConfig {
             dynamoEnhancedClient
                     .table(dynamoTableName, TableSchema.fromBean(IdempotentItem.class))
                     .createTable();
+            UpdateTimeToLiveRequest ttlRequest = UpdateTimeToLiveRequest.builder()
+                    .tableName(dynamoTableName)
+                    .timeToLiveSpecification(TimeToLiveSpecification.builder()
+                            .enabled(true)
+                            .attributeName("expirationTimeInMilliSeconds")
+                            .build())
+                    .build();
+            dynamoDbClientBuilder.build().updateTimeToLive(ttlRequest);
         }
         return dynamoEnhancedClient;
     }

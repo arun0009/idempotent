@@ -1,5 +1,16 @@
 # Idempotent Cache with DynamoDB Storage/Cache
 
+To integrate the idempotent cache with DynamoDB storage/cache into your project, add the following dependency to your
+pom.xml file:
+
+```xml
+<dependency>
+		<groupId>io.github.arun0009</groupId>
+		<artifactId>idempotent-dynamo</artifactId>
+		<version>1.0.0</version>
+</dependency>
+```
+
 ## Overview
 
 This project provides an idempotent request handling mechanism using DynamoDB for storage/cache. The idempotent cache

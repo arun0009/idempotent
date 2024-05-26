@@ -1,5 +1,15 @@
 # Idempotent Cache with Redis Storage/Cache
 
+To integrate the idempotent cache with Rediscache into your project, add the following dependency to your pom.xml file:
+
+```xml
+<dependency>
+	<groupId>io.github.arun0009</groupId>
+	<artifactId>idempotent-redis</artifactId>
+	<version>1.0.0</version>
+</dependency>
+```
+
 ## Overview
 
 This project provides an idempotent request handling mechanism using Redis for storage/cache. The idempotent cache

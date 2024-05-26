@@ -80,7 +80,7 @@ public class IdempotentItem {
      *
      * @return the expiration time in milliseconds
      */
-    @DynamoDbAttribute("expiryTime")
+    @DynamoDbAttribute("expirationTimeInMilliSeconds")
     public Long getExpirationTimeInMilliSeconds() {
         return expirationTimeInMilliSeconds;
     }

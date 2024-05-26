@@ -38,10 +38,11 @@ In API development, idempotency helps in the following ways:
 
 To add idempotency to your Spring APIs using Idempotent, follow these steps:
 
-1. Add the Idempotent dependency to your project.
+1. Add the Idempotent maven dependency([redis](https://central.sonatype.com/artifact/io.github.arun0009/idempotent-redis)
+	or [dynamo](https://central.sonatype.com/artifact/io.github.arun0009/idempotent-dynamo)) to your project.
 2. Configure the storage backend ([Redis](idempotent-redis/README.md) or [DynamoDB](idempotent-dynamo/README.md)) in your Spring application context.
 3. Annotate the desired API methods with [@Idempotent](idempotent-core/src/main/java/io/github/arun0009/idempotent/core/annotation/Idempotent.java)
-4. and specify the key and time-to-live (TTL) for idempotent requests.
+4. and specify the key, time-to-live (TTL) and/or if you want to hash the key for idempotent requests.
 ```java
 @Idempotent(key = "#paymentDetails", ttlInSeconds = 60, hashKey=true)
 @PostMapping("/payments")

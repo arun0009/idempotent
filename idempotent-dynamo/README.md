@@ -5,9 +5,10 @@ pom.xml file:
 
 ```xml
 <dependency>
-		<groupId>io.github.arun0009</groupId>
-		<artifactId>idempotent-dynamo</artifactId>
-		<version>1.0.1</version>
+	<groupId>io.github.arun0009</groupId>
+	<artifactId>idempotent-dynamo</artifactId>
+	<!-- get latest idempotent version from maven central -->
+	<version>${idempotent.version}</version>
 </dependency>
 ```
 

@@ -6,7 +6,8 @@ To integrate the idempotent cache with Rediscache into your project, add the fol
 <dependency>
 	<groupId>io.github.arun0009</groupId>
 	<artifactId>idempotent-redis</artifactId>
-	<version>1.0.1</version>
+	<!-- get latest idempotent version from maven central -->
+	<version>${idempotent.version}</version> 
 </dependency>
 ```
 

@@ -5,40 +5,44 @@
     <parent>
         <groupId>io.github.arun0009</groupId>
         <artifactId>idempotent</artifactId>
-        <version>1.0.1</version>
+        <version>1.0.2</version>
     </parent>
     <artifactId>idempotent-dynamo</artifactId>
-    <version>1.0.1</version>
+    <version>1.0.2</version>
     <packaging>jar</packaging>
     <name>idempotent-dynamo</name>
     <description>idempotent-dynamo</description>
     <url>https://github.com/arun0009/idempotent/tree/main/idempotent-dynamo</url>
+    <properties>
+        <dynamo-enhanced.version>2.25.57</dynamo-enhanced.version>
+        <logback.version>1.5.6</logback.version>
+    </properties>
     <dependencies>
         <dependency>
             <groupId>io.github.arun0009</groupId>
             <artifactId>idempotent-core</artifactId>
-            <version>1.0.1</version>
+            <version>${idempotent.version}</version>
         </dependency>
         <dependency>
             <groupId>software.amazon.awssdk</groupId>
             <artifactId>dynamodb-enhanced</artifactId>
-            <version>2.25.57</version>
+            <version>${dynamo-enhanced.version}</version>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-autoconfigure</artifactId>
-            <version>3.3.0</version>
+            <version>${spring-boot.version}</version>
         </dependency>
         <dependency>
             <groupId>ch.qos.logback</groupId>
             <artifactId>logback-classic</artifactId>
-            <version>1.5.6</version>
+            <version>${logback.version}</version>
             <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>io.github.arun0009</groupId>
             <artifactId>idempotent-core</artifactId>
-            <version>1.0.1</version>
+            <version>${idempotent.version}</version>
             <type>test-jar</type>
             <scope>test</scope>
         </dependency>

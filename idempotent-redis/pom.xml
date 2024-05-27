@@ -5,39 +5,42 @@
     <parent>
         <groupId>io.github.arun0009</groupId>
         <artifactId>idempotent</artifactId>
-        <version>1.0.1</version>
+        <version>1.0.2</version>
     </parent>
     <artifactId>idempotent-redis</artifactId>
-    <version>1.0.1</version>
+    <version>1.0.2</version>
     <packaging>jar</packaging>
     <name>idempotent-redis</name>
     <description>idempotent-redis</description>
     <url>https://github.com/arun0009/idempotent/tree/main/idempotent-redis</url>
+    <properties>
+        <jedis.version>5.1.2</jedis.version>
+    </properties>
     <dependencies>
         <dependency>
             <groupId>io.github.arun0009</groupId>
             <artifactId>idempotent-core</artifactId>
-            <version>1.0.1</version>
+            <version>${idempotent.version}</version>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-data-redis</artifactId>
-            <version>3.2.5</version>
+            <version>${spring-boot.version}</version>
         </dependency>
         <dependency>
             <groupId>redis.clients</groupId>
             <artifactId>jedis</artifactId>
-            <version>5.1.2</version>
+            <version>${jedis.version}</version>
         </dependency>
         <dependency>
             <groupId>org.springframework</groupId>
             <artifactId>spring-core</artifactId>
-            <version>6.1.7</version>
+            <version>${spring.version}</version>
         </dependency>
         <dependency>
             <groupId>io.github.arun0009</groupId>
             <artifactId>idempotent-core</artifactId>
-            <version>1.0.1</version>
+            <version>${idempotent.version}</version>
             <type>test-jar</type>
             <scope>test</scope>
         </dependency>

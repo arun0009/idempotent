@@ -5,10 +5,10 @@
     <parent>
         <groupId>io.github.arun0009</groupId>
         <artifactId>idempotent</artifactId>
-        <version>1.0.0</version>
+        <version>1.0.1</version>
     </parent>
     <artifactId>idempotent-redis</artifactId>
-    <version>1.0.0</version>
+    <version>1.0.1</version>
     <packaging>jar</packaging>
     <name>idempotent-redis</name>
     <description>idempotent-redis</description>
@@ -17,7 +17,7 @@
         <dependency>
             <groupId>io.github.arun0009</groupId>
             <artifactId>idempotent-core</artifactId>
-            <version>1.0.0</version>
+            <version>1.0.1</version>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -37,7 +37,7 @@
         <dependency>
             <groupId>io.github.arun0009</groupId>
             <artifactId>idempotent-core</artifactId>
-            <version>1.0.0</version>
+            <version>1.0.1</version>
             <type>test-jar</type>
             <scope>test</scope>
         </dependency>

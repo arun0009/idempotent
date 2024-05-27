@@ -7,7 +7,7 @@ pom.xml file:
 <dependency>
 		<groupId>io.github.arun0009</groupId>
 		<artifactId>idempotent-dynamo</artifactId>
-		<version>1.0.0</version>
+		<version>1.0.1</version>
 </dependency>
 ```
 

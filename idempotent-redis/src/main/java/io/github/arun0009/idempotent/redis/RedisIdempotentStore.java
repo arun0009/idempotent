@@ -3,6 +3,8 @@ package io.github.arun0009.idempotent.redis;
 import io.github.arun0009.idempotent.core.persistence.IdempotentStore;
 import org.springframework.data.redis.core.RedisTemplate;
 
+import java.util.concurrent.TimeUnit;
+
 /**
  * Redis idempotent store
  */
@@ -27,6 +29,9 @@ public class RedisIdempotentStore implements IdempotentStore {
     @Override
     public void store(IdempotentKey key, Value value) {
         redisTemplate.opsForValue().set(key, value);
+        if (value.expirationTimeInMilliSeconds() != null) {
+            redisTemplate.expire(key, value.expirationTimeInMilliSeconds(), TimeUnit.MILLISECONDS);
+        }
     }
 
     @Override
@@ -37,5 +42,8 @@ public class RedisIdempotentStore implements IdempotentStore {
     @Override
     public void update(IdempotentKey key, Value value) {
         redisTemplate.opsForValue().set(key, value);
+        if (value.expirationTimeInMilliSeconds() != null) {
+            redisTemplate.expire(key, value.expirationTimeInMilliSeconds(), TimeUnit.MILLISECONDS);
+        }
     }
 }

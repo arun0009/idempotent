@@ -81,15 +81,15 @@ public class DynamoConfig {
             dynamoEnhancedClient
                     .table(dynamoTableName, TableSchema.fromBean(IdempotentItem.class))
                     .createTable();
-            UpdateTimeToLiveRequest ttlRequest = UpdateTimeToLiveRequest.builder()
-                    .tableName(dynamoTableName)
-                    .timeToLiveSpecification(TimeToLiveSpecification.builder()
-                            .enabled(true)
-                            .attributeName("expirationTimeInMilliSeconds")
-                            .build())
-                    .build();
-            dynamoDbClientBuilder.build().updateTimeToLive(ttlRequest);
         }
+        UpdateTimeToLiveRequest ttlRequest = UpdateTimeToLiveRequest.builder()
+                .tableName(dynamoTableName)
+                .timeToLiveSpecification(TimeToLiveSpecification.builder()
+                        .enabled(true)
+                        .attributeName("expirationTimeInMilliSeconds")
+                        .build())
+                .build();
+        dynamoDbClientBuilder.build().updateTimeToLive(ttlRequest);
         return dynamoEnhancedClient;
     }
 

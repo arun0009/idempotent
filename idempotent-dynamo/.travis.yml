@@ -1,0 +1,27 @@
+language: java
+jdk:
+  - openjdk17
+
+# Skip the installation step since Maven will handle dependencies
+install: true
+
+# Cache the Maven repository to speed up builds
+cache:
+  directories:
+    - $HOME/.m2
+
+script:
+  - mvn clean install
+
+# Define branches to build
+branches:
+  only:
+    - main
+
+# Notifications (optional)
+notifications:
+  email:
+    recipients:
+      - arun0009@gmail.com
+    on_success: never
+    on_failure: always

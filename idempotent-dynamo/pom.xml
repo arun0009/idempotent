@@ -15,7 +15,6 @@
     <url>https://github.com/arun0009/idempotent/tree/main/idempotent-dynamo</url>
     <properties>
         <dynamo-enhanced.version>2.25.57</dynamo-enhanced.version>
-        <logback.version>1.5.6</logback.version>
     </properties>
     <dependencies>
         <dependency>
@@ -36,7 +35,6 @@
         <dependency>
             <groupId>ch.qos.logback</groupId>
             <artifactId>logback-classic</artifactId>
-            <version>${logback.version}</version>
             <scope>test</scope>
         </dependency>
         <dependency>

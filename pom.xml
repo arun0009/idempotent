@@ -4,7 +4,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>io.github.arun0009</groupId>
     <artifactId>idempotent</artifactId>
-    <version>1.0.2</version>
+    <version>1.0.3-SNAPSHOT</version>
     <packaging>pom</packaging>
     <name>Idempotent</name>
     <description>Make your APIs Idempotent</description>
@@ -48,7 +48,7 @@
 
     <properties>
         <central-publishing-maven-plugin.version>0.4.0</central-publishing-maven-plugin.version>
-        <idempotent.version>1.0.2</idempotent.version>
+        <idempotent.version>1.0.3-SNAPSHOT</idempotent.version>
         <java.version>17</java.version>
         <maven-compiler-plugin.version>3.13.0</maven-compiler-plugin.version>
         <maven-gpg-plugin.version>3.2.4</maven-gpg-plugin.version>

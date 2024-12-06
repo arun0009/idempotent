@@ -33,10 +33,10 @@ In API development, idempotency helps in the following ways:
 		adapters for Redis and DynamoDB, allowing developers to choose the backend that best suits their requirements.
 * **Simple Annotation-based Configuration**: Adding idempotency to APIs is as simple as annotating the relevant methods
 		with [@Idempotent](idempotent-core/src/main/java/io/github/arun0009/idempotent/core/annotation/Idempotent.java).
-* **Client-Specified or Server-Specified Idempotent Keys**: Clients can dictate what the idempotent key should be via a
-		configurable HTTP header, or the server can use the idempotency key specified in the @Idempotent annotation configuration.
-* **Handling In-Progress Concurrent/Duplicate Requests**: Concurrent or duplicate requests will wait for the first request
-		to complete (within a given configurable time frame and retries) and return the same response as the first request.
+* **Client-Specified or Server-Specified Idempotent Keys**: Clients can dictate what the idempotent key should be via a 
+    configurable HTTP header, or the server can use the idempotency key specified in the @Idempotent annotation configuration.
+* **Handling In-Progress Concurrent/Duplicate Requests**: Concurrent or duplicate requests will wait for the first request 
+    to complete (within a given configurable time frame and retries) and return the same response as the first request.
 
 ## Getting Started
 

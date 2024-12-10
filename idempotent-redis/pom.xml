@@ -5,17 +5,14 @@
     <parent>
         <groupId>io.github.arun0009</groupId>
         <artifactId>idempotent</artifactId>
-        <version>1.0.2</version>
+        <version>1.0.2-SNAPSHOT</version>
     </parent>
     <artifactId>idempotent-redis</artifactId>
-    <version>1.0.2</version>
+    <version>1.0.2-SNAPSHOT</version>
     <packaging>jar</packaging>
     <name>idempotent-redis</name>
     <description>idempotent-redis</description>
     <url>https://github.com/arun0009/idempotent/tree/main/idempotent-redis</url>
-    <properties>
-        <jedis.version>5.1.2</jedis.version>
-    </properties>
     <dependencies>
         <dependency>
             <groupId>io.github.arun0009</groupId>
@@ -30,12 +27,10 @@
         <dependency>
             <groupId>redis.clients</groupId>
             <artifactId>jedis</artifactId>
-            <version>${jedis.version}</version>
         </dependency>
         <dependency>
             <groupId>org.springframework</groupId>
             <artifactId>spring-core</artifactId>
-            <version>${spring.version}</version>
         </dependency>
         <dependency>
             <groupId>io.github.arun0009</groupId>

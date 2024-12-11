@@ -112,4 +112,15 @@ public class IdempotentItem {
     public void setResponse(String response) {
         this.response = response;
     }
+
+    @Override
+    public String toString() {
+        return "IdempotentItem{" +
+               "key='" + key + '\'' +
+               ", processName='" + processName + '\'' +
+               ", status='" + status + '\'' +
+               ", expirationTimeInMilliSeconds=" + expirationTimeInMilliSeconds +
+               ", response='" + response + '\'' +
+               '}';
+    }
 }

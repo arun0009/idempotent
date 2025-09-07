@@ -35,4 +35,11 @@ public class InMemoryIdempotentStore implements IdempotentStore {
     public void update(IdempotentKey idempotentKey, Value value) {
         map.replace(idempotentKey, value);
     }
+
+    /**
+     * Clear all stored values (for testing purposes).
+     */
+    public void clear() {
+        map.clear();
+    }
 }

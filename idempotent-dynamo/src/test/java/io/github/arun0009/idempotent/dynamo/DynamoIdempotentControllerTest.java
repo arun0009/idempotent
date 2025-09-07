@@ -7,44 +7,23 @@ import org.junit.jupiter.api.RepetitionInfo;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.util.TestPropertyValues;
-import org.springframework.context.ApplicationContextInitializer;
-import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
-import org.testcontainers.containers.GenericContainer;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 
-@SpringBootApplication(scanBasePackages = "io.github.arun0009.idempotent.dynamo")
 @SpringBootTest
-@ContextConfiguration(
-        initializers = io.github.arun0009.idempotent.dynamo.DynamoIdempotentControllerTest.Initializer.class)
-public class DynamoIdempotentControllerTest {
-
-    @Autowired
-    private WebApplicationContext webApplicationContext;
+@ContextConfiguration(classes = DynamoTestConfig.class, initializers = DynamoTestConfig.Initializer.class)
+class DynamoIdempotentControllerTest {
 
     private MockMvc mockMvc;
 
-    public static class Initializer implements ApplicationContextInitializer<ConfigurableApplicationContext> {
-
-        static GenericContainer dynamo = new GenericContainer<>("amazon/dynamodb-local:2.2.1").withExposedPorts(8000);
-
-        @Override
-        public void initialize(ConfigurableApplicationContext context) {
-            // Start container
-            dynamo.start();
-            TestPropertyValues.of("idempotent.dynamodb.endpoint=" + "http://" + dynamo.getHost() + ":"
-                            + dynamo.getFirstMappedPort())
-                    .applyTo(context.getEnvironment());
-        }
-    }
+    @Autowired
+    private WebApplicationContext webApplicationContext;
 
     @BeforeEach
     public void setUp() {

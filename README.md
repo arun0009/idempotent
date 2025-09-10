@@ -41,17 +41,25 @@ In API development, idempotency helps in the following ways:
 1. Add the Idempotent maven dependency([redis](https://central.sonatype.com/artifact/io.github.arun0009/idempotent-redis) or [dynamo](https://central.sonatype.com/artifact/io.github.arun0009/idempotent-dynamo)) to your project.
 2. Configure the storage backend ([Redis](idempotent-redis/README.md) or [DynamoDB](idempotent-dynamo/README.md)) in your Spring application context.
 3. Annotate the desired API methods with [@Idempotent](idempotent-core/src/main/java/io/github/arun0009/idempotent/core/annotation/Idempotent.java):
-4. Specify the key, time-to-live (TTL) and/or if you want to hash the key for idempotent requests.
+4. Specify the key, time-to-live (TTL) as a Duration string, and/or if you want to hash the key for idempotent requests.
 
 ```java
-@Idempotent(key = "#paymentDetails", ttlInSeconds = 60, hashKey=true)
+@Idempotent(
+		key = "#paymentDetails",
+		duration = "PT1M",  // 1 minute
+		hashKey = true
+)
 @PostMapping("/payments")
 public PaymentResponse postPayment(@RequestBody PaymentDetails paymentDetails) {
-	// Method implementation
+		// Method implementation
 }
 ```
 
+> **Note:** The `ttlInSeconds` parameter is deprecated. Please use the `duration` parameter instead, which accepts ISO-8601 duration strings (e.g., "PT1M" for 1 minute, "PT1H" for 1 hour).
+
 ### Service-Based Approach (Programmatic)
+
+The service-based approach uses `Duration` for specifying TTL, providing better type safety and flexibility:
 
 For more control or non-Spring applications, use the `IdempotentService`:
 
@@ -67,7 +75,7 @@ public class PaymentService {
 					paymentId,
 					"process-payment",
 					() -> callPaymentGateway(paymentId),
-					1800 // 30 minutes TTL
+					Duration.ofMinutes(30) // 30 minutes TTL as Duration
 			);
 	}
 }

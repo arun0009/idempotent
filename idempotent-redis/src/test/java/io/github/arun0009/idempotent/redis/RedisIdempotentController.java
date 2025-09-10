@@ -10,14 +10,14 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 public class RedisIdempotentController {
 
-    @Idempotent(key = "#asset.id", ttlInSeconds = 60)
+    @Idempotent(key = "#asset.id", duration = "PT1M")
     @PostMapping("/redis/assets")
     public IdempotentTest.AssetResponse createAsset(@RequestBody IdempotentTest.Asset asset) {
         return new IdempotentTest.AssetResponse(
                 asset.id(), asset.type(), asset.name(), "https://github.com/arun0009/create/idempotent");
     }
 
-    @Idempotent(key = "#asset.type", ttlInSeconds = 60)
+    @Idempotent(key = "#asset.type", duration = "PT1M")
     @PutMapping("/redis/assets")
     public IdempotentTest.AssetResponse updateAsset(@RequestBody IdempotentTest.Asset asset) {
         return new IdempotentTest.AssetResponse(

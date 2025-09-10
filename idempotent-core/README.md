@@ -14,9 +14,9 @@ A Java library providing idempotency utilities for Java applications. Supports b
 
 ```xml
 <dependency>
-    <groupId>io.github.arun0009</groupId>
-    <artifactId>idempotent-core</artifactId>
-    <version>${idempotent.version}</version>
+		<groupId>io.github.arun0009</groupId>
+		<artifactId>idempotent-core</artifactId>
+		<version>${idempotent.version}</version>
 </dependency>
 ```
 
@@ -48,11 +48,11 @@ To implement a custom store, create a class that implements `IdempotentStore` an
 ```java
 @Configuration
 public class CustomIdempotentConfig {
-    @Bean
-    @Primary
-    public IdempotentStore customIdempotentStore() {
-        return new CustomIdempotentStore();
-    }
+		@Bean
+		@Primary
+		public IdempotentStore customIdempotentStore() {
+				return new CustomIdempotentStore();
+		}
 }
 ```
 
@@ -61,45 +61,51 @@ public class CustomIdempotentConfig {
 ### Annotation-based (AOP)
 
 ```java
-@Idempotent(key = "#paymentDetails", ttlInSeconds = 60, hashKey=true)
+@Idempotent(key = "#paymentDetails", duration = "PT1M", hashKey=true)
 @PostMapping("/payments")
 public PaymentResponse postPayment(@RequestBody PaymentDetails paymentDetails) {
-    // Method implementation - only executes once per unique paymentDetails
+		// Method implementation - only executes once per unique paymentDetails
 }
 ```
 
 ### Programmatic API
 
 ```java
-// Basic usage
+// Basic usage with Duration
 String result = idempotentService.execute("payment-123", () -> {
-    return processPayment("123");
+		return processPayment("123");
+}, Duration.ofMinutes(1));
+
+// Or using ISO-8601 duration string
+String result2 = idempotentService.execute("payment-123", "payment-process", () -> {
+		return processPayment("123");
+}, Duration.parse("PT1M"));
 }, 300);
 
 // Different operations with same key
-String email = idempotentService.execute("user-456", "send-email", 
-    () -> sendWelcomeEmail("user-456"), 600);
+String email = idempotentService.execute("user-456", "send-email",
+		() -> sendWelcomeEmail("user-456"), Duration.ofMinutes(10));
 
 // Advanced usage with IdempotentKey
 IdempotentKey key = new IdempotentKey("order-789", "process-payment");
-PaymentResult result = idempotentService.execute(key, 
-    () -> paymentGateway.processPayment(order), 1800);
+PaymentResult result = idempotentService.execute(key,
+		() -> paymentGateway.processPayment(order), Duration.ofMinutes(30));
 ```
 
 ### Supported Return Types
 
 ```java
 // Primitives
-int count = idempotentService.execute("count", 
-    () -> userRepo.count(), 60);
+int count = idempotentService.execute("count",
+		() -> userRepo.count(), Duration.ofMinutes(1));
 
 // Complex objects
-Order order = idempotentService.execute("order-123", 
-    () -> orderService.getOrder("123"), 300);
+Order order = idempotentService.execute("order-123",
+		() -> orderService.getOrder("123"), Duration.ofMinutes(5));
 
 // Null values
-String data = idempotentService.execute("optional", 
-    () -> maybeGetData(), 120);
+String data = idempotentService.execute("optional",
+		() -> maybeGetData(), Duration.ofMinutes(2));
 ```
 
 ## Custom Storage
@@ -108,7 +114,7 @@ Implement the `IdempotentStore` interface to use your preferred storage:
 
 ```java
 public class CustomIdempotentStore implements IdempotentStore {
-    // Implement required methods
+		// Implement required methods
 }
 ```
 
@@ -117,15 +123,15 @@ Then configure it in your Spring configuration:
 ```java
 @Configuration
 public class IdempotentConfig {
-	@Bean	
+	@Bean
 	public IdempotentStore idempotentStore() {
 		return new CustomIdempotentStore();
 	}
 
 	@Bean
-    public IdempotentAspect idempotentAspect(IdempotentStore idempotentStore) {
-        return new IdempotentAspect(idempotentStore);
-    }
+		public IdempotentAspect idempotentAspect(IdempotentStore idempotentStore) {
+				return new IdempotentAspect(idempotentStore);
+		}
 }
 ```
 

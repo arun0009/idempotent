@@ -10,6 +10,7 @@ import org.springframework.test.context.ContextConfiguration;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.*;
 
+import java.time.Duration;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -96,12 +97,12 @@ class DynamoIdempotentServiceIntegrationTest {
         Supplier<String> operation = () -> "result-" + counter.incrementAndGet();
 
         // First execution
-        String result1 = idempotentService.execute("test-key", operation, 300);
+        String result1 = idempotentService.execute("test-key", operation, Duration.ofSeconds(300));
         assertEquals("result-1", result1);
         assertEquals(1, counter.get());
 
         // Second execution should return cached result
-        String result2 = idempotentService.execute("test-key", operation, 300);
+        String result2 = idempotentService.execute("test-key", operation, Duration.ofSeconds(300));
         assertEquals("result-1", result2);
         assertEquals(1, counter.get()); // Counter should not increment
     }
@@ -128,7 +129,7 @@ class DynamoIdempotentServiceIntegrationTest {
         CompletableFuture<String>[] futures = new CompletableFuture[5];
         for (int i = 0; i < 5; i++) {
             futures[i] = CompletableFuture.supplyAsync(
-                    () -> idempotentService.execute("concurrent-key", operation, 300), executor);
+                    () -> idempotentService.execute("concurrent-key", operation, Duration.ofSeconds(300)), executor);
         }
 
         // Wait for all to complete
@@ -149,20 +150,30 @@ class DynamoIdempotentServiceIntegrationTest {
     @Test
     void testServiceWithDifferentProcessNames() {
         AtomicInteger counter = new AtomicInteger(0);
+        String key = "test-key";
+
+        // Operation that increments counter and returns a result
         Supplier<String> operation = () -> "result-" + counter.incrementAndGet();
 
-        // Same key, different process names should execute separately
-        String result1 = idempotentService.execute("same-key", "process-1", operation, 300);
+        // Test 1: First call with process-1 should execute and increment counter to 1
+        String result1 = idempotentService.execute(key, "process-1", operation, Duration.ofSeconds(300));
         assertEquals("result-1", result1);
+        assertEquals(1, counter.get(), "First call should execute the operation once");
 
-        String result2 = idempotentService.execute("same-key", "process-2", operation, 300);
-        assertEquals("result-2", result2);
+        // Test 2: Same key and same process should return cached result without executing
+        String result2 = idempotentService.execute(key, "process-1", operation, Duration.ofSeconds(300));
+        assertEquals("result-1", result2, "Same key and process should return cached result");
+        assertEquals(1, counter.get(), "Counter should remain 1 for same key and process");
 
-        // Same key and process name should return cached result
-        String result3 = idempotentService.execute("same-key", "process-1", operation, 300);
-        assertEquals("result-1", result3);
+        // Test 3: Same key but different process name should execute again and increment counter to 2
+        String result3 = idempotentService.execute(key, "process-2", operation, Duration.ofSeconds(300));
+        assertEquals("result-2", result3, "Different process should execute again");
+        assertEquals(2, counter.get(), "Counter should increment to 2 for different process");
 
-        assertEquals(2, counter.get());
+        // Test 4: Back to first process name should still return cached result
+        String result4 = idempotentService.execute(key, "process-1", operation, Duration.ofSeconds(300));
+        assertEquals("result-1", result4, "Original process should still get cached result");
+        assertEquals(2, counter.get(), "Counter should remain at 2");
     }
 
     @Test
@@ -172,13 +183,17 @@ class DynamoIdempotentServiceIntegrationTest {
         };
 
         // First call should fail
-        assertThrows(Exception.class, () -> idempotentService.execute("error-key", failingOperation, 300));
+        assertThrows(
+                Exception.class,
+                () -> idempotentService.execute("error-key", failingOperation, Duration.ofSeconds(300)));
 
         // Second call should also fail (no caching of errors)
-        assertThrows(Exception.class, () -> idempotentService.execute("error-key", failingOperation, 300));
+        assertThrows(
+                Exception.class,
+                () -> idempotentService.execute("error-key", failingOperation, Duration.ofSeconds(300)));
 
         // Successful operation after failures should work
-        String result = idempotentService.execute("error-key", () -> "success", 300);
+        String result = idempotentService.execute("test-key-1", () -> "success", Duration.ofSeconds(300));
         assertEquals("success", result);
     }
 
@@ -186,12 +201,12 @@ class DynamoIdempotentServiceIntegrationTest {
     void testServiceWithComplexObjects() {
         Supplier<TestData> operation = () -> new TestData("test-name", 42);
 
-        TestData result1 = idempotentService.execute("complex-key", operation, 300);
+        TestData result1 = idempotentService.execute("complex-key", operation, Duration.ofSeconds(300));
         assertNotNull(result1);
         assertEquals("test-name", result1.name);
         assertEquals(42, result1.value);
 
-        TestData result2 = idempotentService.execute("complex-key", operation, 300);
+        TestData result2 = idempotentService.execute("complex-key", operation, Duration.ofSeconds(300));
         assertNotNull(result2);
         assertEquals("test-name", result2.name);
         assertEquals(42, result2.value);

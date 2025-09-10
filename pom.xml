@@ -58,6 +58,7 @@
         <maven.compiler.release>17</maven.compiler.release>
         <spotless.version>2.46.1</spotless.version>
         <spring-boot.version>3.5.5</spring-boot.version>
+        <testcontainers.version>1.21.3</testcontainers.version>
     </properties>
 
     <dependencyManagement>
@@ -104,6 +105,7 @@
         <dependency>
             <groupId>org.testcontainers</groupId>
             <artifactId>testcontainers</artifactId>
+            <version>${testcontainers.version}</version>
             <scope>test</scope>
         </dependency>
     </dependencies>

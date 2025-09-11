@@ -15,7 +15,7 @@ import java.util.function.Supplier;
  */
 public class IdempotentService {
 
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper().findAndRegisterModules();
     private final IdempotentStore idempotentStore;
 
     public IdempotentService(IdempotentStore idempotentStore) {

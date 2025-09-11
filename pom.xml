@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+        xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
     <groupId>io.github.arun0009</groupId>
     <artifactId>idempotent</artifactId>
-    <version>1.0.2</version>
+    <version>1.1.0</version>
     <packaging>pom</packaging>
     <name>Idempotent</name>
     <description>Make your APIs Idempotent</description>
@@ -48,16 +48,17 @@
 
     <properties>
         <central-publishing-maven-plugin.version>0.4.0</central-publishing-maven-plugin.version>
-        <idempotent.version>1.0.2</idempotent.version>
+        <idempotent.version>1.1.0</idempotent.version>
         <java.version>17</java.version>
-        <maven-compiler-plugin.version>3.13.0</maven-compiler-plugin.version>
-        <maven-gpg-plugin.version>3.2.4</maven-gpg-plugin.version>
-        <maven-jar-plugin.version>3.4.1</maven-jar-plugin.version>
-        <maven-javadoc-plugin.version>3.11.2</maven-javadoc-plugin.version>
+        <maven-compiler-plugin.version>3.14.0</maven-compiler-plugin.version>
+        <maven-gpg-plugin.version>3.2.8</maven-gpg-plugin.version>
+        <maven-jar-plugin.version>3.4.2</maven-jar-plugin.version>
+        <maven-javadoc-plugin.version>3.11.3</maven-javadoc-plugin.version>
         <maven-source-plugin.version>3.3.1</maven-source-plugin.version>
         <maven.compiler.release>17</maven.compiler.release>
-        <spotless.version>2.43.0</spotless.version>
-        <spring-boot.version>3.4.0</spring-boot.version>
+        <spotless.version>2.46.1</spotless.version>
+        <spring-boot.version>3.5.5</spring-boot.version>
+        <testcontainers.version>1.21.3</testcontainers.version>
     </properties>
 
     <dependencyManagement>
@@ -104,6 +105,7 @@
         <dependency>
             <groupId>org.testcontainers</groupId>
             <artifactId>testcontainers</artifactId>
+            <version>${testcontainers.version}</version>
             <scope>test</scope>
         </dependency>
     </dependencies>

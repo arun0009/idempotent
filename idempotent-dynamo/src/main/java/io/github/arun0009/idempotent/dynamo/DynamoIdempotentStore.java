@@ -98,7 +98,7 @@ public class DynamoIdempotentStore implements IdempotentStore {
             idempotentItem.setStatus(value.status());
             idempotentItem.setExpirationTimeInMilliSeconds(value.expirationTimeInMilliSeconds());
             idempotentItem.setResponse(objectMapper.writeValueAsString(value.response()));
-            idempotentTable.updateItem(idempotentItem);
+            idempotentTable.putItem(idempotentItem);
         } catch (JsonProcessingException e) {
             throw new IdempotentException("error updating idempotent item", e);
         }

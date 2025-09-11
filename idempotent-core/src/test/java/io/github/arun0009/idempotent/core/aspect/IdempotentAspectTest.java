@@ -139,7 +139,7 @@ class IdempotentAspectTest {
         assertEquals("cached response", ((ResponseEntity<?>) response).getBody());
     }
 
-    @Idempotent(key = "'testKey'", ttlInSeconds = 60, hashKey = false)
+    @Idempotent(key = "'testKey'", duration = "PT1M", hashKey = false)
     private ResponseEntity<String> testMethod() {
         return new ResponseEntity<>("response", HttpStatus.OK);
     }

@@ -17,14 +17,14 @@ public class IdempotentController {
         return new IdempotentAspect(new InMemoryIdempotentStore());
     }
 
-    @Idempotent(key = "#asset.id", ttlInSeconds = 60)
+    @Idempotent(key = "#asset.id", duration = "PT1M")
     @PostMapping("/in-memory/assets")
     public IdempotentTest.AssetResponse createAsset(@RequestBody IdempotentTest.Asset asset) {
         return new IdempotentTest.AssetResponse(
                 asset.id(), asset.type(), asset.name(), "https://github.com/arun0009/create/idempotent");
     }
 
-    @Idempotent(key = "#asset.type", ttlInSeconds = 60)
+    @Idempotent(key = "#asset.type", duration = "PT1M")
     @PutMapping("/in-memory/assets")
     public IdempotentTest.AssetResponse updateAsset(@RequestBody IdempotentTest.Asset asset) {
         return new IdempotentTest.AssetResponse(

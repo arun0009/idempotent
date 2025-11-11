@@ -27,6 +27,7 @@
         <module>idempotent-core</module>
         <module>idempotent-redis</module>
         <module>idempotent-dynamo</module>
+        <module>idempotent-nats</module>
     </modules>
 
     <scm>

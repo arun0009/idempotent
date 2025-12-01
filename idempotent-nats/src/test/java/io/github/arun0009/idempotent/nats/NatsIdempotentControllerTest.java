@@ -21,6 +21,7 @@ import java.util.Map;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testcontainers.utility.DockerImageName.parse;
 
 @AutoConfigureMockMvc
@@ -30,7 +31,7 @@ class NatsIdempotentControllerTest {
     private static final NatsContainer NATS_CONTAINER = new NatsContainer(parse("nats:latest"));
     private static final String UPDATE_ID = UUID.randomUUID().toString();
     private static final String CHANGE_TITLE_ID = UUID.randomUUID().toString();
-    private static final String GENERATE_KEY = UUID.randomUUID().toString();
+    private static final String GENERATED_KEY = UUID.randomUUID().toString();
 
     @Autowired
     private MockMvcTester mvcTester;
@@ -46,6 +47,11 @@ class NatsIdempotentControllerTest {
     @BeforeAll
     static void setUp() {
         NATS_CONTAINER.start();
+    }
+
+    @AfterAll
+    static void tearDown() {
+        NATS_CONTAINER.stop();
     }
 
     static void clearStoreIfLast(RepetitionInfo repetitionInfo) {
@@ -84,16 +90,16 @@ class NatsIdempotentControllerTest {
                 // language=json
                 .content(
                         """
-                    {
-                      "isbn": "978-0-385-33312-0",
-                      "category": {
-                        "genre": "Comedy",
-                        "subGenre": "Absurdist"
-                      },
-                      "title": "The Hitchhiker's Guide to the Galaxy",
-                      "author": "Douglas Adams"
-                     }
-                    """)
+            {
+              "isbn": "978-0-385-33312-0",
+              "category": {
+                "genre": "Comedy",
+                "subGenre": "Absurdist"
+              },
+              "title": "The Hitchhiker's Guide to the Galaxy",
+              "author": "Douglas Adams"
+             }
+            """)
                 .exchange()
                 .assertThat()
                 .hasStatusOk()
@@ -108,6 +114,51 @@ class NatsIdempotentControllerTest {
                 .hasPath("category.subGenre");
         assertThat(keyValue().get("978-0-385-33312-0"))
                 .satisfies(kv -> assertThat(kv).isNotNull());
+        assertRepetition(repetitionInfo);
+        clearStoreIfLast(repetitionInfo);
+    }
+
+    @RepeatedTest(MAX_RETRIES)
+    @Execution(ExecutionMode.CONCURRENT)
+    void shouldManageInvalidKey(RepetitionInfo repetitionInfo) throws JetStreamApiException, IOException {
+        String isbn = ".a!sd-.123";
+        mvcTester
+                .post()
+                .uri("/nats/books")
+                .contentType(MediaType.APPLICATION_JSON)
+                // language=json
+                .content(
+                        """
+            {
+              "isbn": "%s",
+              "category": {
+                "genre": "Comedy",
+                "subGenre": "Absurdist"
+              },
+              "title": "The Hitchhiker's Guide to the Galaxy",
+              "author": "Douglas Adams"
+             }
+            """
+                                .formatted(isbn))
+                .exchange()
+                .assertThat()
+                .hasStatusOk()
+                .bodyJson()
+                .hasNoNullFieldsOrProperties()
+                .hasPath("isbn")
+                .hasPath("title")
+                .hasPath("author")
+                .hasPath("createdAt")
+                .hasPath("category")
+                .hasPath("category.genre")
+                .hasPath("category.subGenre");
+        assertThatThrownBy(() -> keyValue().get(isbn))
+                .isInstanceOf(IllegalArgumentException.class)
+                .message()
+                .isNotBlank();
+
+        String encodedIsbn = NatsIdempotentStore.encodeIfNotValid(isbn);
+        assertThat(keyValue().get(encodedIsbn)).satisfies(kv -> assertThat(kv).isNotNull());
         assertRepetition(repetitionInfo);
         clearStoreIfLast(repetitionInfo);
     }
@@ -130,16 +181,16 @@ class NatsIdempotentControllerTest {
                 // language=json
                 .content(
                         """
-                    {
-                     "isbn": "978-0-452-28423-4",
-                     "category": {
-                       "genre": "Science Fiction",
-                       "subGenre": "Dystopian"
-                     },
-                     "title": "1984-%s",
-                     "author": "George Orwell"
-                    }
-                    """
+            {
+             "isbn": "978-0-452-28423-4",
+             "category": {
+               "genre": "Science Fiction",
+               "subGenre": "Dystopian"
+             },
+             "title": "1984-%s",
+             "author": "George Orwell"
+            }
+            """
                                 .formatted(repetitionInfo.getCurrentRepetition()))
                 .assertThat()
                 .hasStatusOk()
@@ -188,7 +239,7 @@ class NatsIdempotentControllerTest {
                 .post()
                 .uri("/nats/books/generate")
                 .contentType(MediaType.APPLICATION_JSON)
-                .header("X-Idempotency-Key", GENERATE_KEY)
+                .header("X-Idempotency-Key", GENERATED_KEY)
                 .assertThat()
                 .hasStatusOk()
                 .bodyJson()

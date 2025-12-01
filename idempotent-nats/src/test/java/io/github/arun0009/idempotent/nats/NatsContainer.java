@@ -5,6 +5,9 @@ import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.containers.wait.strategy.WaitAllStrategy;
 import org.testcontainers.utility.DockerImageName;
 
+import java.util.ArrayList;
+import java.util.List;
+
 /**
  * Testcontainers implementation for Nats.
  *
@@ -19,6 +22,7 @@ class NatsContainer extends GenericContainer<NatsContainer> {
     private static final int CLIENT_PORT = 4222;
     private static final int HTTP_MONITOR_PORT = 8222;
     private final WaitAllStrategy waitAllStrategy = new WaitAllStrategy();
+    private final List<String> extraCommands = new ArrayList<>();
 
     @SuppressWarnings("resource")
     NatsContainer(DockerImageName dockerImageName) {
@@ -26,6 +30,13 @@ class NatsContainer extends GenericContainer<NatsContainer> {
         dockerImageName.assertCompatibleWith(DockerImageName.parse("nats"));
         withExposedPorts(CLIENT_PORT, HTTP_MONITOR_PORT);
         setWaitStrategy(waitAllStrategy);
+        extraCommands.add("--js");
+        extraCommands.add("-m");
+        extraCommands.add(HTTP_MONITOR_PORT + "");
+    }
+
+    void withExtraCommand(String... commands) {
+        extraCommands.addAll(List.of(commands));
     }
 
     @Override
@@ -40,7 +51,7 @@ class NatsContainer extends GenericContainer<NatsContainer> {
 
     @SuppressWarnings("resource")
     private void setupCommandAndEnv() {
-        withCommand("--js", "-m", HTTP_MONITOR_PORT + "");
+        withCommand(extraCommands.toArray(String[]::new));
         waitAllStrategy.withStrategy(
                 Wait.forHttp("/healthz").forPort(HTTP_MONITOR_PORT).forStatusCode(200));
     }

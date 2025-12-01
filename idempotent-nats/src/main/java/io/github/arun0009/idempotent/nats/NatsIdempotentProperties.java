@@ -5,6 +5,7 @@ import io.nats.client.api.KeyValueConfiguration;
 import io.nats.client.api.StorageType;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.lang.Nullable;
+import org.springframework.util.Assert;
 
 import java.time.Duration;
 import java.util.List;
@@ -36,6 +37,8 @@ class NatsIdempotentProperties {
     /** Set the timeout for connection attempts. */
     private Duration connectionTimeout = Options.DEFAULT_CONNECTION_TIMEOUT;
 
+    private final @Nullable AuthUser auth;
+
     private BucketConfig bucketConfig = new BucketConfig();
 
     NatsIdempotentProperties(
@@ -46,6 +49,7 @@ class NatsIdempotentProperties {
             @Nullable Integer maxReconnects,
             @Nullable Duration reconnectWait,
             @Nullable Duration connectionTimeout,
+            @Nullable AuthUser auth,
             @Nullable BucketConfig bucketConfig) {
         if (enable != null) this.enable = enable;
         if (servers != null) this.servers = servers;
@@ -55,6 +59,7 @@ class NatsIdempotentProperties {
         if (reconnectWait != null) this.reconnectWait = reconnectWait;
         if (connectionTimeout != null) this.connectionTimeout = connectionTimeout;
         if (bucketConfig != null) this.bucketConfig = bucketConfig;
+        this.auth = auth;
     }
 
     BucketConfig getBucketConfig() {
@@ -70,11 +75,56 @@ class NatsIdempotentProperties {
                 .maxReconnects(maxReconnects)
                 .reconnectWait(reconnectWait);
         if (verbose) builder.verbose().traceConnection();
+        if (auth != null) {
+            // Options can't have a token and username
+            if (auth.type == AuthUser.Type.TOKEN) {
+                builder.token(auth.token);
+            } else if (auth.type == AuthUser.Type.BASIC) {
+                builder.userInfo(auth.username, auth.password);
+            }
+        }
+
         return builder;
     }
 
     public boolean isEnable() {
         return enable;
+    }
+
+    /**
+     * Authentication properties. Options can't have both a token and username/password, exactly one
+     * type of authentication must be provided.
+     */
+    static class AuthUser {
+        /** Represents the authentication type for a user. */
+        private final @Nullable Type type;
+
+        /** The username to use for authentication. */
+        private final @Nullable char[] username;
+
+        /** The password to use for authentication. */
+        private final @Nullable char[] password;
+
+        /** The token to use for authentication */
+        private final @Nullable char[] token;
+
+        AuthUser(@Nullable Type type, @Nullable char[] username, @Nullable char[] password, @Nullable char[] token) {
+            this.type = type;
+            this.username = username;
+            this.password = password;
+            this.token = token;
+            if (type == Type.BASIC) {
+                Assert.notNull(username, "username cannot be null");
+                Assert.notNull(password, "password cannot be null");
+            } else if (type == Type.TOKEN) {
+                Assert.notNull(token, "token cannot be null");
+            }
+        }
+
+        enum Type {
+            BASIC,
+            TOKEN
+        }
     }
 
     static class BucketConfig {

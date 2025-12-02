@@ -67,6 +67,36 @@ application's configuration file (e.g., application.properties or application.ym
 		Default Value: 2 seconds
 		Description: Set the timeout for connection attempts.
 
+* NATS Connection Timeout
+
+			Property: idempotent.nats.connection-timeout
+			Default Value: 2 seconds
+			Description: Set the timeout for connection attempts.
+
+* NATS Authentication Type
+
+		Property: idempotent.nats.auth.type
+		Default Value: null
+		Description: Type of authentication to use. Can be either BASIC or TOKEN.
+
+* NATS Username
+
+		Property: idempotent.nats.auth.username
+		Default Value: null
+		Description: The username to use for BASIC authentication.
+
+* NATS Password
+
+		Property: idempotent.nats.auth.password
+		Default Value: null
+		Description: The password to use for BASIC authentication.
+
+* NATS Token
+
+		Property: idempotent.nats.auth.token
+		Default Value: null
+		Description: The token to use for TOKEN authentication.
+
 * NATS Bucket Name
 
 		Property: idempotent.nats.bucket-config.name
@@ -91,11 +121,34 @@ application's configuration file (e.g., application.properties or application.ym
 		Default Value: Memory
 		Description: Storage type used for the bucket.
 
+## SSL/TLS Configuration
+
+To use SSL/TLS for secure communication with the NATS server, configure an SSL bundle in Spring Boot,
+see [spring-ssl-documentation](https://docs.spring.io/spring-boot/reference/features/ssl.html).
+The NATS client will automatically use an SSL bundle named **nats-client** defined in the application configuration to
+establish secure connections.
+
+Example:
+
+```properties
+spring.ssl.bundle.jks.nats-client.protocol=TLSv1.3,
+spring.ssl.bundle.jks.nats-client.keystore.location=classpath:client.p12,
+spring.ssl.bundle.jks.nats-client.keystore.password=password,
+spring.ssl.bundle.jks.nats-client.truststore.location=classpath:ca.jks,
+spring.ssl.bundle.jks.nats-client.truststore.password=password
+```
+
 ## Using Custom Nats Configuration
 
 By default, the library will create and configure the Connection and KV using the provided properties. If you need to
 customize the NATS connection, you can define your own Connection bean. The configuration is conditional and will only
 be applied if a Connection bean is not already defined in your application context.
+
+## Key Encoding
+
+NATS KV does not accept all characters as valid keys. The library automatically handles this by validating keys and
+Base64-encoding them when they contain invalid characters. This encoding process is transparent and ensures
+compatibility with NATS key-value storage without requiring any additional configuration.
 
 ## Example Application Configuration
 

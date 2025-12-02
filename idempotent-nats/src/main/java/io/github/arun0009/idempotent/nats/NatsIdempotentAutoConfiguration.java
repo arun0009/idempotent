@@ -11,6 +11,7 @@ import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.boot.ssl.SslBundles;
 import org.springframework.context.annotation.Bean;
 
 import java.io.IOException;
@@ -65,9 +66,14 @@ class NatsIdempotentAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    Connection connection(NatsIdempotentProperties natsProperties, ConnectionListener connectionListener) {
+    Connection connection(
+            NatsIdempotentProperties natsProperties, SslBundles sslBundles, ConnectionListener connectionListener) {
         try {
-            var builder = natsProperties.toOptions().connectionListener(connectionListener);
+            Options.Builder builder = natsProperties.toOptions().connectionListener(connectionListener);
+            if (sslBundles.getBundleNames().contains("nats-client")) {
+                log.info("Using SSL for NATS client");
+                builder.sslContext(sslBundles.getBundle("nats-client").createSslContext());
+            }
             Connection connection = Nats.connect(builder.build());
             log.info("Connected to NATS server at {}", connection.getConnectedUrl());
             log.atDebug().log(() -> "Nats " + connection.getServerInfo());

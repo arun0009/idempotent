@@ -121,7 +121,7 @@ class NatsIdempotentControllerTest {
     @RepeatedTest(MAX_RETRIES)
     @Execution(ExecutionMode.CONCURRENT)
     void shouldManageInvalidKey(RepetitionInfo repetitionInfo) throws JetStreamApiException, IOException {
-        String isbn = ".a!sd-.123";
+        String isbn = " .a!sd-.123";
         mvcTester
                 .post()
                 .uri("/nats/books")

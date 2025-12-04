@@ -1,7 +1,7 @@
 package io.github.arun0009.idempotent.core;
 
-import org.junit.AfterClass;
-import org.junit.BeforeClass;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.RepetitionInfo;
@@ -27,12 +27,12 @@ public class IdempotentControllerTest {
 
     private static final ThreadLocal<Integer> counter = new ThreadLocal<>();
 
-    @BeforeClass
+    @BeforeAll
     public static void beforeClass() {
         counter.set(1); // Initialize counter before tests
     }
 
-    @AfterClass
+    @AfterAll
     public static void afterClass() {
         counter.remove(); // Remove ThreadLocal after tests
     }

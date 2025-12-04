@@ -88,8 +88,7 @@ class NatsIdempotentControllerTest {
                 .uri("/nats/books")
                 .contentType(MediaType.APPLICATION_JSON)
                 // language=json
-                .content(
-                        """
+                .content("""
             {
               "isbn": "978-0-385-33312-0",
               "category": {
@@ -127,8 +126,7 @@ class NatsIdempotentControllerTest {
                 .uri("/nats/books")
                 .contentType(MediaType.APPLICATION_JSON)
                 // language=json
-                .content(
-                        """
+                .content("""
             {
               "isbn": "%s",
               "category": {
@@ -138,8 +136,7 @@ class NatsIdempotentControllerTest {
               "title": "The Hitchhiker's Guide to the Galaxy",
               "author": "Douglas Adams"
              }
-            """
-                                .formatted(isbn))
+            """.formatted(isbn))
                 .exchange()
                 .assertThat()
                 .hasStatusOk()
@@ -179,8 +176,7 @@ class NatsIdempotentControllerTest {
                 .uri("/nats/books/{id}", UPDATE_ID)
                 .contentType(MediaType.APPLICATION_JSON)
                 // language=json
-                .content(
-                        """
+                .content("""
             {
              "isbn": "978-0-452-28423-4",
              "category": {
@@ -190,8 +186,7 @@ class NatsIdempotentControllerTest {
              "title": "1984-%s",
              "author": "George Orwell"
             }
-            """
-                                .formatted(repetitionInfo.getCurrentRepetition()))
+            """.formatted(repetitionInfo.getCurrentRepetition()))
                 .assertThat()
                 .hasStatusOk()
                 .bodyJson()

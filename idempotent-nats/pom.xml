@@ -5,13 +5,16 @@
     <parent>
         <groupId>io.github.arun0009</groupId>
         <artifactId>idempotent</artifactId>
-        <version>1.1.0</version>
+        <version>1.1.1</version>
     </parent>
 
     <artifactId>idempotent-nats</artifactId>
+    <name>idempotent-nats</name>
+    <description>idempotent-nats</description>
+    <url>https://github.com/arun0009/idempotent/tree/main/idempotent-nats</url>
 
     <properties>
-        <jnats.version>2.24.0</jnats.version>
+        <jnats.version>2.24.1</jnats.version>
     </properties>
 
     <dependencies>

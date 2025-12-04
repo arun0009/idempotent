@@ -4,7 +4,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>io.github.arun0009</groupId>
     <artifactId>idempotent</artifactId>
-    <version>1.1.0</version>
+    <version>1.1.1</version>
     <packaging>pom</packaging>
     <name>Idempotent</name>
     <description>Make your APIs Idempotent</description>
@@ -38,18 +38,18 @@
 
     <distributionManagement>
         <repository>
-            <id>central</id>
+            <id>ossrh</id>
             <url>https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/</url>
         </repository>
         <snapshotRepository>
-            <id>central</id>
+            <id>ossrh</id>
             <url>https://s01.oss.sonatype.org/content/repositories/snapshots</url>
         </snapshotRepository>
     </distributionManagement>
 
     <properties>
-        <central-publishing-maven-plugin.version>0.4.0</central-publishing-maven-plugin.version>
-        <idempotent.version>1.1.0</idempotent.version>
+        <central-publishing-maven-plugin.version>0.7.0</central-publishing-maven-plugin.version>
+        <idempotent.version>1.1.1</idempotent.version>
         <java.version>17</java.version>
         <maven-compiler-plugin.version>3.14.0</maven-compiler-plugin.version>
         <maven-gpg-plugin.version>3.2.8</maven-gpg-plugin.version>
@@ -57,7 +57,7 @@
         <maven-javadoc-plugin.version>3.11.3</maven-javadoc-plugin.version>
         <maven-source-plugin.version>3.3.1</maven-source-plugin.version>
         <maven.compiler.release>17</maven.compiler.release>
-        <spotless.version>2.46.1</spotless.version>
+        <spotless.version>3.1.0</spotless.version>
         <spring-boot.version>3.5.5</spring-boot.version>
         <testcontainers.version>1.21.3</testcontainers.version>
     </properties>
@@ -112,33 +112,28 @@
     </dependencies>
 
     <build>
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-jar-plugin</artifactId>
+                    <version>${maven-jar-plugin.version}</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-compiler-plugin</artifactId>
+                    <version>${maven-compiler-plugin.version}</version>
+                    <configuration>
+                        <source>17</source>
+                        <target>17</target>
+                        <compilerArgs>
+                            <arg>-parameters</arg>
+                        </compilerArgs>
+                    </configuration>
+                </plugin>
+            </plugins>
+        </pluginManagement>
         <plugins>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-jar-plugin</artifactId>
-                <version>${maven-jar-plugin.version}</version>
-                <executions>
-                    <execution>
-                        <id>default-jar</id>
-                        <goals>
-                            <goal>jar</goal>
-                        </goals>
-                        <phase>package</phase>
-                    </execution>
-                </executions>
-            </plugin>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-compiler-plugin</artifactId>
-                <version>${maven-compiler-plugin.version}</version>
-                <configuration>
-                    <source>17</source>
-                    <target>17</target>
-                    <compilerArgs>
-                        <arg>-parameters</arg>
-                    </compilerArgs>
-                </configuration>
-            </plugin>
             <plugin>
                 <groupId>com.diffplug.spotless</groupId>
                 <artifactId>spotless-maven-plugin</artifactId>
@@ -240,7 +235,7 @@
                         <version>${central-publishing-maven-plugin.version}</version>
                         <extensions>true</extensions>
                         <configuration>
-                            <publishingServerId>central</publishingServerId>
+                            <publishingServerId>ossrh</publishingServerId>
                             <tokenAuth>true</tokenAuth>
                         </configuration>
                     </plugin>
@@ -256,8 +251,8 @@
                                 </goals>
                                 <phase>verify</phase>
                                 <configuration>
-                                    <keyname>0xC9BAF909</keyname>
-                                    <passphraseServerId>0xC9BAF909</passphraseServerId>
+                                    <keyname>5F829C5ACBEC59A7</keyname>
+                                    <passphraseServerId>ossrh</passphraseServerId>
                                     <gpgArguments>
                                         <arg>--pinentry-mode</arg>
                                         <arg>loopback</arg>

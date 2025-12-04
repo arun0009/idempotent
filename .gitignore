@@ -3,3 +3,4 @@
 *.iml
 settings.xml
 **/.DS_Store
+.vscode/

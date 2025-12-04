@@ -1,8 +1,8 @@
 package io.github.arun0009.idempotent.core.service;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.arun0009.idempotent.core.exception.IdempotentException;
 import io.github.arun0009.idempotent.core.persistence.IdempotentStore;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -14,8 +14,8 @@ import java.util.function.Supplier;
  * Provides programmatic access to idempotency functionality without requiring annotations.
  */
 public class IdempotentService {
-
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper().findAndRegisterModules();
+    private static final JsonMapper JSON_MAPPER =
+            JsonMapper.builder().findAndAddModules().build();
     private final IdempotentStore idempotentStore;
 
     public IdempotentService(IdempotentStore idempotentStore) {
@@ -80,7 +80,7 @@ public class IdempotentService {
             if (IdempotentStore.Status.COMPLETED.name().equals(existingValue.status())) {
                 Object response = existingValue.response();
                 if (response instanceof java.util.Map) {
-                    return OBJECT_MAPPER.convertValue(
+                    return JSON_MAPPER.convertValue(
                             response, (Class<T>) operation.get().getClass());
                 }
                 return (T) response;

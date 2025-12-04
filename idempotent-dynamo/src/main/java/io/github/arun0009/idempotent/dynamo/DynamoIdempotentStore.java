@@ -1,7 +1,5 @@
 package io.github.arun0009.idempotent.dynamo;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.arun0009.idempotent.core.exception.IdempotentException;
 import io.github.arun0009.idempotent.core.persistence.IdempotentStore;
 import software.amazon.awssdk.enhanced.dynamodb.DynamoDbEnhancedClient;
@@ -9,8 +7,8 @@ import software.amazon.awssdk.enhanced.dynamodb.DynamoDbTable;
 import software.amazon.awssdk.enhanced.dynamodb.Key;
 import software.amazon.awssdk.enhanced.dynamodb.TableSchema;
 import software.amazon.awssdk.enhanced.dynamodb.model.DeleteItemEnhancedRequest;
-
-import java.io.IOException;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.json.JsonMapper;
 
 /**
  * Dynamo idempotent store.
@@ -21,7 +19,7 @@ public class DynamoIdempotentStore implements IdempotentStore {
 
     private final String dynamoTableName;
 
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final JsonMapper jsonMapper = JsonMapper.shared();
 
     /**
      * Instantiates a new Dynamo idempotent store.
@@ -53,8 +51,8 @@ public class DynamoIdempotentStore implements IdempotentStore {
             return new Value(
                     idempotentItem.getStatus(),
                     idempotentItem.getExpirationTimeInMilliSeconds(),
-                    objectMapper.reader().readValue(idempotentItem.getResponse(), returnType));
-        } catch (IOException e) {
+                    jsonMapper.readValue(idempotentItem.getResponse(), returnType));
+        } catch (JacksonException e) {
             throw new IdempotentException(
                     String.format("Error getting response from dynamo for key: %s ", idempotentKey.key()), e);
         }
@@ -69,9 +67,9 @@ public class DynamoIdempotentStore implements IdempotentStore {
             idempotentItem.setProcessName(idempotentKey.processName());
             idempotentItem.setStatus(value.status());
             idempotentItem.setExpirationTimeInMilliSeconds(value.expirationTimeInMilliSeconds());
-            idempotentItem.setResponse(objectMapper.writeValueAsString(value.response()));
+            idempotentItem.setResponse(jsonMapper.writeValueAsString(value.response()));
             idempotentTable.putItem(idempotentItem);
-        } catch (JsonProcessingException e) {
+        } catch (JacksonException e) {
             throw new IdempotentException("error storing idempotent item", e);
         }
     }
@@ -97,9 +95,9 @@ public class DynamoIdempotentStore implements IdempotentStore {
             idempotentItem.setProcessName(idempotentKey.processName());
             idempotentItem.setStatus(value.status());
             idempotentItem.setExpirationTimeInMilliSeconds(value.expirationTimeInMilliSeconds());
-            idempotentItem.setResponse(objectMapper.writeValueAsString(value.response()));
+            idempotentItem.setResponse(jsonMapper.writeValueAsString(value.response()));
             idempotentTable.putItem(idempotentItem);
-        } catch (JsonProcessingException e) {
+        } catch (JacksonException e) {
             throw new IdempotentException("error updating idempotent item", e);
         }
     }

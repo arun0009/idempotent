@@ -4,8 +4,6 @@ import io.github.arun0009.idempotent.core.persistence.IdempotentStore;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 
-import static java.util.Collections.unmodifiableMap;
-
 final class ValueConverter {
     private ValueConverter() {}
 
@@ -39,13 +37,15 @@ final class ValueConverter {
                 value.status(),
                 value.expirationTimeInMilliSeconds(),
                 new Wrappers.ResponseEntity<>(
-                        response.getStatusCode().value(), unmodifiableMap(response.getHeaders()), response.getBody()));
+                        response.getStatusCode().value(),
+                        response.getHeaders().toSingleValueMap(),
+                        response.getBody()));
     }
 
     private static IdempotentStore.Value fromEntityWrapper(
             IdempotentStore.Value value, Wrappers.ResponseEntity<?> response) {
         HttpHeaders headers = new HttpHeaders();
-        response.headers().forEach(headers::addAll);
+        headers.setAll(response.headers());
         return new IdempotentStore.Value(
                 value.status(),
                 value.expirationTimeInMilliSeconds(),

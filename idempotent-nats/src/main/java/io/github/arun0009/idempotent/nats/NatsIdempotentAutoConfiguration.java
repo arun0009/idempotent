@@ -1,5 +1,6 @@
 package io.github.arun0009.idempotent.nats;
 
+import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import io.github.arun0009.idempotent.core.aspect.IdempotentAspect;
 import io.github.arun0009.idempotent.core.persistence.IdempotentStore;
 import io.github.arun0009.idempotent.core.service.IdempotentService;
@@ -13,6 +14,10 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.ssl.SslBundles;
 import org.springframework.context.annotation.Bean;
+import tools.jackson.databind.DefaultTyping;
+import tools.jackson.databind.json.JsonMapper;
+import tools.jackson.databind.jsontype.BasicPolymorphicTypeValidator;
+import tools.jackson.databind.jsontype.impl.DefaultTypeResolverBuilder;
 
 import java.io.IOException;
 import java.time.Instant;
@@ -45,23 +50,48 @@ class NatsIdempotentAutoConfiguration {
     }
 
     @Bean
-    IdempotentStore idempotentStore(Connection connection, NatsIdempotentProperties properties) {
+    IdempotentStore idempotentStore(
+            Connection connection,
+            NatsIdempotentProperties properties,
+            IdempotentJacksonJsonBuilderCustomizer jsonBuilderCustomizer) {
         try {
             NatsIdempotentProperties.BucketConfig bucketConfig = properties.getBucketConfig();
             KeyValueManagement context = connection.keyValueManagement();
             KeyValueConfiguration config = bucketConfig.toOptions().build();
             if (existsKv(config.getBucketName(), context)) {
+                log.info("KV bucket {} already exists, updating...", config.getBucketName());
                 context.update(config);
             } else {
+                log.info("Creating KV bucket {}", config.getBucketName());
                 context.create(config);
             }
 
             KeyValueOptions options = KeyValueOptions.builder().build();
             KeyValue keyValue = connection.keyValue(config.getBucketName(), options);
-            return new NatsIdempotentStore(keyValue);
+
+            JsonMapper.Builder jsonBuilder = JsonMapper.builder();
+            jsonBuilderCustomizer.customize(jsonBuilder);
+
+            return new NatsIdempotentStore(keyValue, jsonBuilder.build());
         } catch (JetStreamApiException | IOException e) {
             throw new NatsIdempotentExceptions("Error while creating and configuring KV", e);
         }
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    IdempotentJacksonJsonBuilderCustomizer idempotentJacksonJsonBuilderCustomizer() {
+        return builder -> {
+            log.warn(
+                    "Using an unrestricted polymorphic type validator. Without restrictions of the PolymorphicTypeValidator deserialization is vulnerable to arbitrary code execution when reading from untrusted sources.");
+            BasicPolymorphicTypeValidator ptv = BasicPolymorphicTypeValidator.builder()
+                    .allowIfBaseType(Object.class)
+                    .allowIfSubType((ctx, clazz) -> true)
+                    .build();
+            builder.polymorphicTypeValidator(ptv)
+                    .setDefaultTyping(new DefaultTypeResolverBuilder(
+                            ptv, DefaultTyping.NON_FINAL, JsonTypeInfo.As.PROPERTY, JsonTypeInfo.Id.CLASS, "@class"));
+        };
     }
 
     @Bean
@@ -87,6 +117,7 @@ class NatsIdempotentAutoConfiguration {
     }
 
     @Bean
+    @ConditionalOnMissingBean
     ConnectionListener connectionListener() {
         return new ConnectionListener() {
             public void connectionEvent(Connection conn, Events type) {

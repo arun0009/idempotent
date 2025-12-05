@@ -3,12 +3,11 @@ package io.github.arun0009.idempotent.nats;
 import io.nats.client.Options;
 import io.nats.client.api.KeyValueConfiguration;
 import io.nats.client.api.StorageType;
-import org.springframework.boot.context.properties.ConfigurationProperties;
-import org.springframework.lang.Nullable;
-import org.springframework.util.Assert;
-
 import java.time.Duration;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
+import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.util.Assert;
 
 @ConfigurationProperties(prefix = "idempotent.nats")
 class NatsIdempotentProperties {
@@ -100,15 +99,15 @@ class NatsIdempotentProperties {
         private final @Nullable Type type;
 
         /** The username to use for authentication. */
-        private final @Nullable char[] username;
+        private final char @Nullable [] username;
 
         /** The password to use for authentication. */
-        private final @Nullable char[] password;
+        private final char @Nullable [] password;
 
         /** The token to use for authentication */
-        private final @Nullable char[] token;
+        private final char @Nullable [] token;
 
-        AuthUser(@Nullable Type type, @Nullable char[] username, @Nullable char[] password, @Nullable char[] token) {
+        AuthUser(@Nullable Type type, char @Nullable [] username, char @Nullable [] password, char @Nullable [] token) {
             this.type = type;
             this.username = username;
             this.password = password;

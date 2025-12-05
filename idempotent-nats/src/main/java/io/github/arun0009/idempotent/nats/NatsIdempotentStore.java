@@ -1,12 +1,5 @@
 package io.github.arun0009.idempotent.nats;
 
-import com.fasterxml.jackson.annotation.JsonTypeInfo;
-import com.fasterxml.jackson.databind.DeserializationFeature;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
-import com.fasterxml.jackson.databind.json.JsonMapper;
-import com.fasterxml.jackson.databind.jsontype.impl.LaissezFaireSubTypeValidator;
-import com.fasterxml.jackson.databind.jsontype.impl.StdTypeResolverBuilder;
 import io.github.arun0009.idempotent.core.persistence.IdempotentStore;
 import io.nats.client.JetStreamApiException;
 import io.nats.client.KeyValue;
@@ -15,6 +8,7 @@ import io.nats.client.api.KeyValueEntry;
 import io.nats.client.support.Validator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.io.IOException;
 import java.time.Duration;
@@ -26,19 +20,11 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 class NatsIdempotentStore implements IdempotentStore {
     private static final Logger log = LoggerFactory.getLogger(NatsIdempotentStore.class);
     private final KeyValue kv;
-    private final ObjectMapper mapper;
+    private final JsonMapper mapper;
 
-    NatsIdempotentStore(KeyValue kv) {
+    NatsIdempotentStore(KeyValue kv, JsonMapper jsonMapper) {
         this.kv = kv;
-        this.mapper = JsonMapper.builder()
-                .disable(DeserializationFeature.FAIL_ON_IGNORED_PROPERTIES)
-                .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
-                .activateDefaultTyping(LaissezFaireSubTypeValidator.instance)
-                .setDefaultTyping(new StdTypeResolverBuilder()
-                        .init(JsonTypeInfo.Id.CLASS, null)
-                        .inclusion(JsonTypeInfo.As.PROPERTY))
-                .findAndAddModules()
-                .build();
+        this.mapper = jsonMapper;
     }
 
     private static MessageTtl fromExpirationTimeInMs(long value) {

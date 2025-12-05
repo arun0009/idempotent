@@ -1,6 +1,5 @@
 package io.github.arun0009.idempotent.nats;
 
-import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import io.github.arun0009.idempotent.core.persistence.IdempotentStore;
 import io.nats.client.JetStreamApiException;
 import io.nats.client.KeyValue;
@@ -10,8 +9,6 @@ import io.nats.client.support.Validator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import tools.jackson.databind.json.JsonMapper;
-import tools.jackson.databind.jsontype.BasicPolymorphicTypeValidator;
-import tools.jackson.databind.jsontype.impl.StdTypeResolverBuilder;
 
 import java.io.IOException;
 import java.time.Duration;
@@ -25,16 +22,9 @@ class NatsIdempotentStore implements IdempotentStore {
     private final KeyValue kv;
     private final JsonMapper mapper;
 
-    NatsIdempotentStore(KeyValue kv) {
+    NatsIdempotentStore(KeyValue kv, JsonMapper jsonMapper) {
         this.kv = kv;
-        this.mapper = JsonMapper.builder()
-                .polymorphicTypeValidator(BasicPolymorphicTypeValidator.builder()
-                        // Unsafe!! we should save the type.
-                        .allowIfBaseType(Object.class)
-                        .build())
-                .setDefaultTyping(new StdTypeResolverBuilder(JsonTypeInfo.Id.CLASS, JsonTypeInfo.As.PROPERTY, "_type"))
-                .findAndAddModules()
-                .build();
+        this.mapper = jsonMapper;
     }
 
     private static MessageTtl fromExpirationTimeInMs(long value) {

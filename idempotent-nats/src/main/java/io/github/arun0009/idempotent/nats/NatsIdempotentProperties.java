@@ -3,11 +3,12 @@ package io.github.arun0009.idempotent.nats;
 import io.nats.client.Options;
 import io.nats.client.api.KeyValueConfiguration;
 import io.nats.client.api.StorageType;
-import java.time.Duration;
-import java.util.List;
 import org.jspecify.annotations.Nullable;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.util.Assert;
+
+import java.time.Duration;
+import java.util.List;
 
 @ConfigurationProperties(prefix = "idempotent.nats")
 class NatsIdempotentProperties {

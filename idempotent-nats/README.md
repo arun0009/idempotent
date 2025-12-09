@@ -150,6 +150,30 @@ NATS KV does not accept all characters as valid keys. The library automatically 
 Base64-encoding them when they contain invalid characters. This encoding process is transparent and ensures
 compatibility with NATS key-value storage without requiring any additional configuration.
 
+## Jackson Customization
+
+By default, the library uses a permissive Jackson configuration to ensure compatibility with various return types (like
+List, Map, etc.). This triggers a warning at startup: `Using an unrestricted polymorphic type validator...`
+To secure your application and restrict deserialization to trusted packages, you can provide a bean of type
+IdempotentJacksonJsonBuilderCustomizer[IdempotentJacksonJsonBuilderCustomizer.java](src/main/java/io/github/arun0009/idempotent/nats/IdempotentJacksonJsonBuilderCustomizer.java)
+```java
+@Bean
+IdempotentJacksonJsonBuilderCustomizer myCustomizer() {
+		return builder -> {
+				BasicPolymorphicTypeValidator ptv = BasicPolymorphicTypeValidator.builder()
+								.allowIfBaseType(Object.class)
+								.allowIfSubType("java.")
+								.allowIfSubType("com.mycompany.dto.") // Add your trusted packages here
+								.build();
+
+				builder.polymorphicTypeValidator(ptv)
+								.setDefaultTyping(new DefaultTypeResolverBuilder(
+												ptv, DefaultTyping.NON_FINAL, JsonTypeInfo.As.PROPERTY, JsonTypeInfo.Id.CLASS, "@class"));
+				// Add other customizations here
+		};
+}
+```
+
 ## Example Application Configuration
 
 Here is an example of how you might configure your application using application.properties:

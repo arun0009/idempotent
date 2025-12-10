@@ -2,7 +2,7 @@
 
 Idempotent is a lightweight Java library that provides support for idempotency in APIs, making it easier to handle duplicate
 requests and ensuring reliable operation in distributed systems. This library integrates seamlessly with Spring applications
-and offers idempotency support using Redis and DynamoDB stores.
+and offers idempotency support using Redis, DynamoDB, and NATS stores.
 
 <img src="./idempotent.png" alt="Idempotent">
 
@@ -29,7 +29,7 @@ In API development, idempotency helps in the following ways:
 ## Features
 * **Two API Approaches**: Choose between annotation-based (AOP) or programmatic service-based idempotency depending on your needs.
 * **Integration with Spring**: Seamlessly integrates with Spring applications, providing annotations and utilities to easily add idempotency support to APIs.
-* **Support for [Redis](idempotent-redis/README.md) and [DynamoDB](idempotent-dynamo/README.md)**: Storage adapters for Redis and DynamoDB, allowing developers to choose the backend that best suits their requirements.
+* **Support for [Redis](idempotent-redis/README.md), [DynamoDB](idempotent-dynamo/README.md) or [NATS](idempotent-nats/README.md)**: Storage adapters for Redis, DynamoDB and NATS, allowing developers to choose the backend that best suits their requirements.
 * **Simple Configuration**: Adding idempotency is as simple as annotating methods with [@Idempotent](idempotent-core/src/main/java/io/github/arun0009/idempotent/core/annotation/Idempotent.java) or using the `IdempotentService` programmatically.
 * **Client-Specified or Server-Specified Idempotent Keys**: Clients can dictate what the idempotent key should be via a configurable HTTP header, or the server can specify the idempotency key specified in the @Idempotent annotation configuration.
 * **Handling In-Progress Concurrent/Duplicate Requests**: Concurrent or duplicate requests will wait for the first request to complete (within a given configurable time frame and retries) and return the same response as the first request.
@@ -38,8 +38,8 @@ In API development, idempotency helps in the following ways:
 
 ### Annotation-Based Approach (AOP)
 
-1. Add the Idempotent maven dependency([redis](https://central.sonatype.com/artifact/io.github.arun0009/idempotent-redis) or [dynamo](https://central.sonatype.com/artifact/io.github.arun0009/idempotent-dynamo)) to your project.
-2. Configure the storage backend ([Redis](idempotent-redis/README.md) or [DynamoDB](idempotent-dynamo/README.md)) in your Spring application context.
+1. Add the Idempotent maven dependency([redis](https://central.sonatype.com/artifact/io.github.arun0009/idempotent-redis), [dynamo](https://central.sonatype.com/artifact/io.github.arun0009/idempotent-dynamo) or [nats](https://central.sonatype.com/artifact/io.github.arun0009/idempotent-nats)) to your project.
+2. Configure the storage backend ([Redis](idempotent-redis/README.md), [DynamoDB](idempotent-dynamo/README.md) or [NATS](idempotent-nats/README.md)) in your Spring application context.
 3. Annotate the desired API methods with [@Idempotent](idempotent-core/src/main/java/io/github/arun0009/idempotent/core/annotation/Idempotent.java):
 4. Specify the key, time-to-live (TTL) as a Duration string, and/or if you want to hash the key for idempotent requests.
 

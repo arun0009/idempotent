@@ -137,6 +137,27 @@ public class RedisConfig {
 }
 ```
 
+
+## Jackson Customization
+
+By default, the library uses a permissive Jackson configuration to ensure compatibility with various return types (like
+List, Map, etc.). This triggers a warning at startup: `Using an unrestricted polymorphic type validator...`
+To secure your application and restrict deserialization to trusted packages, you can provide a bean of type
+IdempotentJacksonJsonBuilderCustomizer[IdempotentJacksonJsonBuilderCustomizer.java](src/main/java/io/github/arun0009/idempotent/redis/IdempotentJacksonJsonBuilderCustomizer.java)
+```java
+@Bean
+IdempotentJacksonJsonBuilderCustomizer myCustomizer() {
+		return builder -> {
+				builder.enableDefaultTyping(BasicPolymorphicTypeValidator.builder()
+								.allowIfBaseType(Object.class)
+								.allowIfSubType("java.")
+								.allowIfSubType("com.mycompany.dto.") // Add your trusted packages here
+								.build());
+				// Customize the builder as needed
+		};
+}
+```
+
 ## Example Application Configuration
 
 Here is an example of how you might configure your application using application.properties:

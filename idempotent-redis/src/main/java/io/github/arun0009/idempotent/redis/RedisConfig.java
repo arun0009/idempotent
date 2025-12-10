@@ -3,6 +3,8 @@ package io.github.arun0009.idempotent.redis;
 import io.github.arun0009.idempotent.core.aspect.IdempotentAspect;
 import io.github.arun0009.idempotent.core.exception.IdempotentException;
 import io.github.arun0009.idempotent.core.persistence.IdempotentStore;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.annotation.Bean;
@@ -12,17 +14,18 @@ import org.springframework.data.redis.connection.*;
 import org.springframework.data.redis.connection.jedis.JedisClientConfiguration;
 import org.springframework.data.redis.connection.jedis.JedisConnectionFactory;
 import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.data.redis.serializer.GenericJackson2JsonRedisSerializer;
+import org.springframework.data.redis.serializer.GenericJacksonJsonRedisSerializer;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-/**
- * Redis Configuration for Idempotent store.
- */
+/** Redis Configuration for Idempotent store. */
 @Configuration
 public class RedisConfig {
+
+    private static final Logger log = LoggerFactory.getLogger(RedisConfig.class);
 
     // redis standalone host as "hostname:port" format
     @Value("${idempotent.redis.standalone.host:}")
@@ -65,8 +68,8 @@ public class RedisConfig {
     private String redisSentinelNodes;
 
     /**
-     * Jedis connection factory to connect to Redis standalone, cluster, or sentinel instance. You can pass your
-     * own JedisConnectionFactory with @Bean("IdempotentCache")
+     * Jedis connection factory to connect to Redis standalone, cluster, or sentinel instance. You can
+     * pass your own JedisConnectionFactory with @Bean("IdempotentCache")
      *
      * @return the jedis connection factory
      */
@@ -155,12 +158,29 @@ public class RedisConfig {
      */
     @Bean
     public RedisTemplate<IdempotentStore.IdempotentKey, IdempotentStore.Value> redisTemplate(
-            RedisConnectionFactory connectionFactory) {
+            RedisConnectionFactory connectionFactory,
+            IdempotentJacksonJsonBuilderCustomizer idempotentJacksonJsonBuilderCustomizer) {
         RedisTemplate<IdempotentStore.IdempotentKey, IdempotentStore.Value> template = new RedisTemplate<>();
         template.setConnectionFactory(connectionFactory);
-        template.setKeySerializer(new GenericJackson2JsonRedisSerializer());
-        template.setDefaultSerializer(new GenericJackson2JsonRedisSerializer());
+
+        GenericJacksonJsonRedisSerializer.GenericJacksonJsonRedisSerializerBuilder<JsonMapper.Builder> builder =
+                GenericJacksonJsonRedisSerializer.builder();
+        idempotentJacksonJsonBuilderCustomizer.customize(builder);
+        GenericJacksonJsonRedisSerializer redisSerializer = builder.build();
+
+        template.setKeySerializer(redisSerializer);
+        template.setDefaultSerializer(redisSerializer);
         return template;
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    IdempotentJacksonJsonBuilderCustomizer idempotentJacksonJsonBuilderCustomizer() {
+        return builder -> {
+            log.warn(
+                    "Using an unrestricted polymorphic type validator. Without restrictions of the PolymorphicTypeValidator deserialization is vulnerable to arbitrary code execution when reading from untrusted sources.");
+            builder.enableUnsafeDefaultTyping();
+        };
     }
 
     /**

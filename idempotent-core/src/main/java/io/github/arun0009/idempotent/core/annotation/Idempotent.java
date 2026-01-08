@@ -21,15 +21,6 @@ public @interface Idempotent {
 
     /**
      * TTL (Time To Live) for idempotent item in store (redis/dynamo).
-     * This is kept for backward compatibility. Prefer using the duration() method instead.
-     * @return TTL in seconds
-     * @deprecated Use duration() instead for better time unit flexibility
-     */
-    @Deprecated(since = "2.0.0", forRemoval = true)
-    long ttlInSeconds() default 300L;
-
-    /**
-     * TTL (Time To Live) for idempotent item in store (redis/dynamo).
      * This is a more flexible alternative to ttlInSeconds that allows specifying
      * the duration in any time unit.
      * Defaults to 5 minutes.

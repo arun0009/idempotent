@@ -84,15 +84,7 @@ public class IdempotentAspect {
                 ((MethodSignature) pjp.getSignature()).getMethod().getAnnotation(Idempotent.class);
 
         // Use the duration specified in the annotation (defaults to PT5M if not specified)
-        // For backward compatibility, check if duration is set to default (5 minutes) and ttlInSeconds is explicitly
-        // set
         Duration ttl = Duration.parse(idempotentAnnotation.duration());
-        Duration defaultDuration = Duration.ofMinutes(5);
-
-        if (ttl.equals(defaultDuration) && idempotentAnnotation.ttlInSeconds() != 300L) {
-            // If duration is default (5 minutes) but ttlInSeconds was explicitly set, use ttlInSeconds
-            ttl = Duration.ofSeconds(idempotentAnnotation.ttlInSeconds());
-        }
 
         key = hashKeyIfRequired(key, pjp);
 
@@ -110,6 +102,7 @@ public class IdempotentAspect {
     /**
      * get idempotent key, first preference is to check header so client can dictate what is idempotent or else get
      * it from annotation key.
+     *
      * @param pjp Spring's Proceed Joint Point
      * @return value of key as String
      */
@@ -152,17 +145,18 @@ public class IdempotentAspect {
     }
 
     private String convertToString(Object value) {
-        if (value instanceof String) {
-            return (String) value;
-        } else {
-            // Customize conversion logic as needed
-            return value.toString(); // Fallback conversion
+        if (value instanceof String str) {
+            return str;
         }
+
+        // Customize conversion logic as needed
+        return value.toString(); // Fallback conversion
     }
 
     /**
      * Hash key if hashKey arg is set to true, usually if idempotent key is entire entity it's a good idea to hash
      * the entity key.
+     *
      * @param key key to hash
      * @param pjp Springs Proceed Joint Point
      * @return hashed key as String
@@ -188,6 +182,7 @@ public class IdempotentAspect {
 
     /**
      * check if request is existing request.
+     *
      * @param value idempotent value
      * @return true if its an existing INPROGRESS request.
      */
@@ -200,10 +195,10 @@ public class IdempotentAspect {
      * and retry and get response from first call. If status doesn't change from INPROGRESS
      * fpr a given timeout delete the key.
      *
-     * @param pjp Springs Proceed Joint Point
+     * @param pjp           Springs Proceed Joint Point
      * @param idempotentKey idempotent key for given request
-     * @param value response value along with status and expiry time
-     * @param ttl how long should this idempotent request/response be stored
+     * @param existingValue response value along with status and expiry time
+     * @param ttl           how long should this idempotent request/response be stored
      * @return Object which is the response.
      * @throws IdempotentException idempotent exception with message
      */
@@ -211,8 +206,7 @@ public class IdempotentAspect {
             ProceedingJoinPoint pjp,
             IdempotentStore.IdempotentKey idempotentKey,
             IdempotentStore.Value existingValue,
-            Duration ttl)
-            throws Throwable {
+            Duration ttl) {
         try {
             if (existingValue.status().equals(IdempotentStore.Status.INPROGRESS.name())) {
                 existingValue = waitForCompletion(idempotentKey, existingValue);
@@ -232,7 +226,7 @@ public class IdempotentAspect {
      * If a request is in progress wait for it to complete for a given period before giving up and deleting.
      *
      * @param idempotentKey idempotent key for given request
-     * @param value response value along with status and expiry time
+     * @param value         response value along with status and expiry time
      * @return value response value along with status and expiry time
      * @throws IdempotentException idempotent exception with message
      */
@@ -255,11 +249,11 @@ public class IdempotentAspect {
     /**
      * Handles a new request (with no entry in idempotent table/cache).
      *
-     * @param pjp Spring's ProceedingJoinPoint for method execution
+     * @param pjp           Spring's ProceedingJoinPoint for method execution
      * @param idempotentKey the idempotent key for the request (must not be null)
-     * @param ttl the time to live for the idempotent request/response (must not be null)
+     * @param ttl           the time to live for the idempotent request/response (must not be null)
      * @return the response from the method execution
-     * @throws IdempotentException if an error occurs during request processing
+     * @throws IdempotentException  if an error occurs during request processing
      * @throws NullPointerException if any parameter is null
      */
     private Object handleNewRequest(ProceedingJoinPoint pjp, IdempotentStore.IdempotentKey idempotentKey, Duration ttl)
@@ -283,8 +277,9 @@ public class IdempotentAspect {
 
     /**
      * Update response in memory/table with response, status
-     * @param idempotentKey idempotent key for given request
-     * @param response of downstream api
+     *
+     * @param idempotentKey            idempotent key for given request
+     * @param response                 of downstream api
      * @param expiryTimeInMilliseconds time after which this record/entry can be deleted
      */
     private void updateStoreWithResponse(
@@ -304,6 +299,7 @@ public class IdempotentAspect {
 
     /**
      * get process name which is __ControllerName.methodName()
+     *
      * @param pjp Springs Proceed Joint Point
      * @return process name
      */

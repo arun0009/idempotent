@@ -30,4 +30,10 @@ public class IdempotentController {
         return new IdempotentTest.AssetResponse(
                 asset.id(), asset.type(), asset.name(), "https://github.com/arun0009/update/idempotent");
     }
+
+    @Idempotent(key = "#asset.id", duration = "PT1M")
+    @PutMapping("/in-memory/assets-error")
+    public IdempotentTest.AssetResponse updateAssetError(@RequestBody IdempotentTest.Asset asset) {
+        throw new NotFoundException("Ops... Asset not found!", asset.id());
+    }
 }

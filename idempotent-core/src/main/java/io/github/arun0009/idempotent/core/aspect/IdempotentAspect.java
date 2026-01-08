@@ -206,7 +206,8 @@ public class IdempotentAspect {
             ProceedingJoinPoint pjp,
             IdempotentStore.IdempotentKey idempotentKey,
             IdempotentStore.Value existingValue,
-            Duration ttl) {
+            Duration ttl)
+            throws Throwable {
         try {
             if (existingValue.status().equals(IdempotentStore.Status.INPROGRESS.name())) {
                 existingValue = waitForCompletion(idempotentKey, existingValue);
@@ -257,7 +258,7 @@ public class IdempotentAspect {
      * @throws NullPointerException if any parameter is null
      */
     private Object handleNewRequest(ProceedingJoinPoint pjp, IdempotentStore.IdempotentKey idempotentKey, Duration ttl)
-            throws IdempotentException {
+            throws Throwable {
         long expiryTimeInMilliseconds = Instant.now().plus(ttl).toEpochMilli();
         idempotentStore.store(
                 idempotentKey,
@@ -268,7 +269,7 @@ public class IdempotentAspect {
             response = pjp.proceed();
         } catch (Throwable e) {
             idempotentStore.remove(idempotentKey);
-            throw new IdempotentException("error calling downstream api", e);
+            throw e;
         }
 
         updateStoreWithResponse(idempotentKey, response, expiryTimeInMilliseconds);

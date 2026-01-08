@@ -1,0 +1,88 @@
+{
+  "groups": [
+    {
+      "name": "idempotent.redis",
+      "type": "io.github.arun0009.idempotent.redis.config.RedisConfig",
+      "sourceType": "io.github.arun0009.idempotent.redis.config.RedisConfig"
+    }
+  ],
+  "properties": [
+    {
+      "name": "idempotent.redis.standalone.host",
+      "type": "java.lang.String",
+      "description": "Redis standalone host in 'hostname:port' format.",
+      "sourceType": "io.github.arun0009.idempotent.redis.config.RedisConfig"
+    },
+    {
+      "name": "idempotent.redis.auth.enabled",
+      "type": "java.lang.Boolean",
+      "description": "Enable or disable Redis authentication.",
+      "sourceType": "io.github.arun0009.idempotent.redis.config.RedisConfig",
+      "defaultValue": false
+    },
+    {
+      "name": "idempotent.redis.ssl.enabled",
+      "type": "java.lang.Boolean",
+      "description": "Enable or disable SSL for Redis connections.",
+      "sourceType": "io.github.arun0009.idempotent.redis.config.RedisConfig",
+      "defaultValue": false
+    },
+    {
+      "name": "idempotent.redis.auth.username",
+      "type": "java.lang.String",
+      "description": "Redis username (used only if authentication is enabled).",
+      "sourceType": "io.github.arun0009.idempotent.redis.config.RedisConfig"
+    },
+    {
+      "name": "idempotent.redis.auth.password",
+      "type": "java.lang.String",
+      "description": "Redis password (used only if authentication is enabled).",
+      "sourceType": "io.github.arun0009.idempotent.redis.config.RedisConfig"
+    },
+    {
+      "name": "idempotent.redis.cluster.enabled",
+      "type": "java.lang.Boolean",
+      "description": "Set to true if using Redis in Cluster mode.",
+      "sourceType": "io.github.arun0009.idempotent.redis.config.RedisConfig",
+      "defaultValue": false
+    },
+    {
+      "name": "idempotent.redis.cluster.hosts",
+      "type": "java.lang.String",
+      "description": "Comma-separated list of cluster hosts in 'host:port' format.",
+      "sourceType": "io.github.arun0009.idempotent.redis.config.RedisConfig"
+    },
+    {
+      "name": "idempotent.redis.sentinel.enabled",
+      "type": "java.lang.Boolean",
+      "description": "Set to true if using Redis in Sentinel mode.",
+      "sourceType": "io.github.arun0009.idempotent.redis.config.RedisConfig",
+      "defaultValue": false
+    },
+    {
+      "name": "idempotent.redis.sentinel.master",
+      "type": "java.lang.String",
+      "description": "Redis Sentinel master name.",
+      "sourceType": "io.github.arun0009.idempotent.redis.config.RedisConfig"
+    },
+    {
+      "name": "idempotent.redis.sentinel.nodes",
+      "type": "java.lang.String",
+      "description": "Comma-separated list of sentinel nodes in 'host:port' format.",
+      "sourceType": "io.github.arun0009.idempotent.redis.config.RedisConfig"
+    }
+  ],
+  "hints": [
+    {
+      "name": "idempotent.redis.standalone.host",
+      "values": [
+        {
+          "value": "localhost:6379"
+        }
+      ]
+    }
+  ],
+  "ignored": {
+    "properties": []
+  }
+}

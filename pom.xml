@@ -58,7 +58,7 @@
         <maven-source-plugin.version>3.3.1</maven-source-plugin.version>
         <maven.compiler.release>17</maven.compiler.release>
         <spotless.version>3.1.0</spotless.version>
-        <spring-boot.version>4.0.0</spring-boot.version>
+        <spring-boot.version>4.0.1</spring-boot.version>
     </properties>
 
     <dependencyManagement>

@@ -200,7 +200,7 @@ public class IdempotentAspect {
      * @param existingValue response value along with status and expiry time
      * @param ttl           how long should this idempotent request/response be stored
      * @return Object which is the response.
-     * @throws IdempotentException idempotent exception with message
+     * @throws Throwable if the intercepted method invocation fails (propagated as-is), or if an unexpected error occurs while interacting with the idempotency store.
      */
     private Object handleExistingRequest(
             ProceedingJoinPoint pjp,

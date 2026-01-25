@@ -5,10 +5,9 @@
     <parent>
         <groupId>io.github.arun0009</groupId>
         <artifactId>idempotent</artifactId>
-        <version>2.0.0</version>
+        <version>2.0.1</version>
     </parent>
     <artifactId>idempotent-redis</artifactId>
-    <version>2.0.0</version>
     <packaging>jar</packaging>
     <name>idempotent-redis</name>
     <description>idempotent-redis</description>

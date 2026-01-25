@@ -21,7 +21,6 @@
         <dependency>
             <groupId>io.github.arun0009</groupId>
             <artifactId>idempotent-core</artifactId>
-            <version>${idempotent.version}</version>
         </dependency>
         <dependency>
             <groupId>io.nats</groupId>

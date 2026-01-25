@@ -7,11 +7,11 @@
         <artifactId>idempotent</artifactId>
         <version>2.0.1</version>
     </parent>
+
     <artifactId>idempotent-core</artifactId>
     <packaging>jar</packaging>
     <name>idempotent-core</name>
-    <description>idempotent-core</description>
-    <url>https://github.com/arun0009/idempotent/tree/main/idempotent-core</url>
+
     <dependencies>
         <dependency>
             <groupId>org.aspectj</groupId>

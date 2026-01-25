@@ -55,20 +55,25 @@ class IdempotentControllerTest {
     @RepeatedTest(3)
     @Execution(ExecutionMode.CONCURRENT)
     void createAsset(RepetitionInfo repetitionInfo) throws Exception {
-        new IdempotentTest().validateAssetResponse(mockMvc, repetitionInfo.getCurrentRepetition(), "Create", post("/in-memory/assets"));
+        new IdempotentTest()
+                .validateAssetResponse(
+                        mockMvc, repetitionInfo.getCurrentRepetition(), "Create", post("/in-memory/assets"));
     }
 
     @RepeatedTest(3)
     @Execution(ExecutionMode.CONCURRENT)
     void updateAsset(RepetitionInfo repetitionInfo) throws Exception {
-        new IdempotentTest().validateAssetResponse(mockMvc, repetitionInfo.getCurrentRepetition(), "Update", put("/in-memory/assets"));
+        new IdempotentTest()
+                .validateAssetResponse(
+                        mockMvc, repetitionInfo.getCurrentRepetition(), "Update", put("/in-memory/assets"));
     }
 
     @Test
     void updateAssetError() throws Exception {
-        MockHttpServletResponse response = mockMvc.perform(put("/in-memory/assets-error").contentType(MediaType.APPLICATION_JSON)
-                //language=json
-                .content("""
+        MockHttpServletResponse response = mockMvc.perform(put("/in-memory/assets-error")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        // language=json
+                        .content("""
                         {
                              "id": 1111,
                              "type": {
@@ -77,13 +82,15 @@ class IdempotentControllerTest {
                               },
                              "name": "Asset API-1"
                          }
-                        """)).andReturn().getResponse();
+                        """))
+                .andReturn()
+                .getResponse();
 
         assertEquals(404, response.getStatus());
         assertEquals(MediaType.APPLICATION_PROBLEM_JSON_VALUE, response.getContentType());
 
-        Map<String, String> error = assertDoesNotThrow(() -> JsonMapper.shared().readValue(response.getContentAsByteArray(), new TypeReference<>() {
-        }));
+        Map<String, String> error = assertDoesNotThrow(
+                () -> JsonMapper.shared().readValue(response.getContentAsByteArray(), new TypeReference<>() {}));
         assertNotNull(error);
         assertEquals("1111", error.get("id"));
         assertEquals("404", error.get("status"));

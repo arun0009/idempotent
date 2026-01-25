@@ -8,7 +8,6 @@
         <version>2.0.0</version>
     </parent>
     <artifactId>idempotent-redis</artifactId>
-    <version>2.0.0</version>
     <packaging>jar</packaging>
     <name>idempotent-redis</name>
     <description>idempotent-redis</description>
@@ -17,7 +16,6 @@
         <dependency>
             <groupId>io.github.arun0009</groupId>
             <artifactId>idempotent-core</artifactId>
-            <version>${idempotent.version}</version>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -40,7 +38,6 @@
         <dependency>
             <groupId>io.github.arun0009</groupId>
             <artifactId>idempotent-core</artifactId>
-            <version>${idempotent.version}</version>
             <type>test-jar</type>
             <scope>test</scope>
         </dependency>

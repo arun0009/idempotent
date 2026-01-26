@@ -3,7 +3,7 @@
 #             https://www.jetbrains.com/help/qodana/about-qodana.html           #
 #-------------------------------------------------------------------------------#
 
-name: Qodana
+name: Qodana Scan
 on:
   workflow_dispatch:
   pull_request:

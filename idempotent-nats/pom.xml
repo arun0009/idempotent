@@ -14,7 +14,7 @@
     <url>https://github.com/arun0009/idempotent/tree/main/idempotent-nats</url>
 
     <properties>
-        <jnats.version>2.24.1</jnats.version>
+        <jnats.version>2.25.1</jnats.version>
     </properties>
 
     <dependencies>

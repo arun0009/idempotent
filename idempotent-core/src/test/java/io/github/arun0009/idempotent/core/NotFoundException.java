@@ -7,5 +7,4 @@ class NotFoundException extends RuntimeException {
         super(message);
         this.id = id;
     }
-
 }

@@ -31,7 +31,7 @@ jobs:
       - name: Qodana Scan
         uses: JetBrains/qodana-action@v2025.3
         env:
-          QODANA_TOKEN: ${{ secrets.QODANA_TOKEN }}
+        #QODANA_TOKEN: ${{ secrets.QODANA_TOKEN }}
         with:
           # When pr-mode is set to true, Qodana analyzes only the files that have been changed
           pr-mode: false
@@ -43,7 +43,7 @@ jobs:
           # quick-fixes available in Ultimate and Ultimate Plus plans
           push-fixes: 'none'
 
-          # Upload Qodana SARIF
+      # Upload Qodana SARIF
       - name: Upload Qodana SARIF
         uses: github/codeql-action/upload-sarif@v4
         with:

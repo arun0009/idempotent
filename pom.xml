@@ -39,17 +39,15 @@
 
     <properties>
         <java.version>17</java.version>
-        <jreleaser-maven-plugin.version>1.22.0</jreleaser-maven-plugin.version>
+        <spotless.version>3.1.0</spotless.version>
+        <spring-boot.version>4.0.2</spring-boot.version>
 
         <maven.compiler.release>${java.version}</maven.compiler.release>
+        <jreleaser-maven-plugin.version>1.22.0</jreleaser-maven-plugin.version>
         <maven-compiler-plugin.version>3.14.0</maven-compiler-plugin.version>
-        <maven-gpg-plugin.version>3.2.8</maven-gpg-plugin.version>
         <maven-jar-plugin.version>3.4.2</maven-jar-plugin.version>
         <maven-javadoc-plugin.version>3.11.3</maven-javadoc-plugin.version>
         <maven-source-plugin.version>3.3.1</maven-source-plugin.version>
-
-        <spotless.version>3.1.0</spotless.version>
-        <spring-boot.version>4.0.1</spring-boot.version>
     </properties>
 
     <dependencyManagement>
@@ -142,6 +140,13 @@
                     <version>${maven-compiler-plugin.version}</version>
                     <configuration>
                         <parameters>true</parameters>
+                        <annotationProcessorPaths>
+                            <path>
+                                <groupId>org.springframework.boot</groupId>
+                                <artifactId>spring-boot-configuration-processor</artifactId>
+                                <version>${spring-boot.version}</version>
+                            </path>
+                        </annotationProcessorPaths>
                     </configuration>
                 </plugin>
             </plugins>

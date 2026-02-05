@@ -266,13 +266,10 @@ class NatsIdempotentControllerTest {
     }
 
     @Test
-    void shouldUpdateInsteadCreateEntry() throws InterruptedException {
+    void shouldUpdateInsteadCreateEntry() {
         ExecutorService executor = Executors.newFixedThreadPool(10);
         List<Future<?>> futures = new ArrayList<>();
-        for (int i = 0; i < 2; i++) {
-            if (i == 1) {
-                Thread.sleep(30);
-            }
+        for (int i = 0; i < 10; i++) {
             Future<?> future = executor.submit(() -> mvcTester
                     .post()
                     .uri("/nats/books/heavy")

@@ -22,11 +22,11 @@ final class ValueConverter {
         Object response = value.response();
         if (response == null) return value;
 
-        if (response instanceof ResponseEntity) {
-            return toEntityWrapper(value, (ResponseEntity<?>) response);
+        if (response instanceof ResponseEntity<?> ve) {
+            return toEntityWrapper(value, ve);
         }
-        if (response instanceof Wrappers.ResponseEntity) {
-            return fromEntityWrapper(value, (Wrappers.ResponseEntity<?>) response);
+        if (response instanceof Wrappers.ResponseEntity<?> wre) {
+            return fromEntityWrapper(value, wre);
         }
 
         return value;

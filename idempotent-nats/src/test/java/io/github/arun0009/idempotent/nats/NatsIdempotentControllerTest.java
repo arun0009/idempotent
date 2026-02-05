@@ -1,9 +1,14 @@
 package io.github.arun0009.idempotent.nats;
 
+import io.github.arun0009.idempotent.core.persistence.IdempotentStore;
 import io.nats.client.Connection;
 import io.nats.client.JetStreamApiException;
 import io.nats.client.KeyValue;
-import org.junit.jupiter.api.*;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.RepeatedTest;
+import org.junit.jupiter.api.RepetitionInfo;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -16,12 +21,17 @@ import org.springframework.test.web.servlet.assertj.MockMvcTester;
 
 import java.io.IOException;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.testcontainers.utility.DockerImageName.parse;
 
 @AutoConfigureMockMvc
@@ -111,7 +121,9 @@ class NatsIdempotentControllerTest {
                 .hasPath("category")
                 .hasPath("category.genre")
                 .hasPath("category.subGenre");
-        assertThat(keyValue().get("978-0-385-33312-0"))
+
+        var ik = new IdempotentStore.IdempotentKey("978-0-385-33312-0", "__NatsIdempotentController.create()");
+        assertThat(keyValue().get(NatsIdempotentStore.encodeIfNotValid(ik)))
                 .satisfies(kv -> assertThat(kv).isNotNull());
         assertRepetition(repetitionInfo);
         clearStoreIfLast(repetitionInfo);
@@ -154,7 +166,8 @@ class NatsIdempotentControllerTest {
                 .message()
                 .isNotBlank();
 
-        String encodedIsbn = NatsIdempotentStore.encodeIfNotValid(isbn);
+        var ik = new IdempotentStore.IdempotentKey(isbn, "__NatsIdempotentController.create()");
+        String encodedIsbn = NatsIdempotentStore.encodeIfNotValid(ik);
         assertThat(keyValue().get(encodedIsbn)).satisfies(kv -> assertThat(kv).isNotNull());
         assertRepetition(repetitionInfo);
         clearStoreIfLast(repetitionInfo);
@@ -250,5 +263,27 @@ class NatsIdempotentControllerTest {
         assertRepetition(repetitionInfo);
         assertThat(getStore().size()).isEqualTo(3);
         clearStoreIfLast(repetitionInfo);
+    }
+
+    @Test
+    void shouldUpdateInsteadCreateEntry() throws InterruptedException {
+        ExecutorService executor = Executors.newFixedThreadPool(10);
+        List<Future<?>> futures = new ArrayList<>();
+        for (int i = 0; i < 2; i++) {
+            if (i == 1) {
+                Thread.sleep(30);
+            }
+            Future<?> future = executor.submit(() -> mvcTester
+                    .post()
+                    .uri("/nats/books/heavy")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .header("X-Idempotency-Key", "heavy-operation-id")
+                    .assertThat()
+                    .hasStatusOk());
+            futures.add(future);
+        }
+        for (Future<?> future : futures) {
+            assertDoesNotThrow(() -> future.get());
+        }
     }
 }

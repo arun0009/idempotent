@@ -9,9 +9,8 @@ final class Wrappers {
 
     record ResponseEntity<T>(int status, Map<String, String> headers, T body) {}
 
-    record Value(IdempotentStore.Value value, String processName) {
-        Value(IdempotentStore.Value value, String processName) {
-            this.processName = processName;
+    record Value(IdempotentStore.Value value) {
+        Value(IdempotentStore.Value value) {
             this.value = ValueConverter.convert(value);
         }
     }

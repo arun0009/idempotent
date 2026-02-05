@@ -7,6 +7,8 @@ import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
 import org.aspectj.lang.reflect.MethodSignature;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.expression.ExpressionParser;
 import org.springframework.expression.spel.standard.SpelExpressionParser;
@@ -27,6 +29,7 @@ import java.util.concurrent.TimeUnit;
 @Aspect
 public class IdempotentAspect {
 
+    private static final Logger log = LoggerFactory.getLogger(IdempotentAspect.class);
     // header in request to check for idempotent key
     @Value("${idempotent.key.header:X-Idempotency-Key}")
     private String idempotentKeyHeader;
@@ -93,9 +96,11 @@ public class IdempotentAspect {
                 idempotentStore.getValue(idempotentKey, ((MethodSignature) pjp.getSignature()).getReturnType());
 
         if (isExistingRequest(value)) {
+            log.atDebug().log("Idempotent key {} already exists", key);
             return handleExistingRequest(pjp, idempotentKey, value, ttl);
         }
 
+        log.atDebug().log("Idempotent key {} does not exist, creating new entry", key);
         return handleNewRequest(pjp, idempotentKey, ttl);
     }
 

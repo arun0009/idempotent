@@ -4,9 +4,15 @@ import io.github.arun0009.idempotent.core.annotation.Idempotent;
 import org.springframework.boot.Banner;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.builder.SpringApplicationBuilder;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.time.Instant;
 import java.util.List;
@@ -89,11 +95,22 @@ class NatsTestApplication {
 
         @PatchMapping("/{id}")
         @Idempotent(key = "#id", duration = "PT5S")
-        @ResponseStatus(HttpStatus.NO_CONTENT)
         ResponseEntity<Void> changeTitle(@PathVariable String id, @RequestParam String title) {
             sleep();
             STORE.computeIfPresent(id, (k, v) -> v.withTitle(title));
             return ResponseEntity.noContent().header("X-Total-Count", "1").build();
+        }
+
+        @Idempotent
+        @PostMapping("heavy")
+        Book heavyOperation() throws InterruptedException {
+            TimeUnit.SECONDS.sleep(1);
+            return new Book(
+                    "1234567890",
+                    new Category("Fiction", "Mystery"),
+                    "The Mystery of the Lost Key",
+                    "Arun",
+                    Instant.now());
         }
 
         record Book(String isbn, Category category, String title, String author, Instant createdAt) {

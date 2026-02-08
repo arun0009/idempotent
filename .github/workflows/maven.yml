@@ -12,26 +12,34 @@ on:
   push:
     branches:
       - main
-      - feature/actions-workflow #FIXME remove
   pull_request:
     branches:
       - main
 
+permissions:
+  contents: write
+  security-events: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        java-version:
+          - 17.x
+          - 21.x
+          - 25.x
 
     steps:
       - uses: actions/checkout@v6
-      - name: Set up JDK 25
+      - name: Set up JDK ${{ matrix.java-version }}
         uses: actions/setup-java@v5
         with:
-          java-version: '25'
+          java-version: ${{ matrix.java-version }}
           distribution: 'liberica'
           cache: maven
       - name: Build with Maven
         run: ./mvnw -B package --file pom.xml
 
-      # Optional: Uploads the full dependency graph to GitHub to improve the quality of Dependabot alerts this repository can receive
       - name: Update dependency graph
-        uses: advanced-security/maven-dependency-submission-action@v3
+        uses: advanced-security/maven-dependency-submission-action@v5

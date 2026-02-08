@@ -51,7 +51,7 @@ jobs:
       - name: Commit & Push changes
         uses: actions-js/push@master
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+          github_token: ${{ secrets.github_token }}
           message: Perform release v${{ env.VERSION }}
 
       - name: Create GitHub Release
@@ -60,7 +60,8 @@ jobs:
           tag_name: ${{ github.ref_name }}
           name: Release ${{ env.VERSION }}
           generate_release_notes: true
-          files: target/**/*
+          files: target/*.jar
+          draft: false
 
       - name: Set next version
         run: ./mvnw --no-transfer-progress --batch-mode build-helper:parse-version versions:set -DnewVersion=\${parsedVersion.majorVersion}.\${parsedVersion.minorVersion}.\${parsedVersion.nextIncrementalVersion}-SNAPSHOT versions:commit
@@ -68,6 +69,5 @@ jobs:
       - name: Commit & Push changes
         uses: actions-js/push@master
         with:
-          github_token: ${{ secrets.JRELEASER_GITHUB_TOKEN }}
+          github_token: ${{ secrets.github_token }}
           message: Prepare for next release
-      

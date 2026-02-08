@@ -37,23 +37,25 @@ class NatsIdempotentStore implements IdempotentStore {
      * validation logic defined in `Validator.notWildcardKvKey`. If the key is valid, it is returned
      * unchanged.
      *
-     * @param key the key to be validated and potentially encoded
+     * @param ik the key to be validated and potentially encoded
      * @return the original key if it is valid, otherwise the Base64-encoded version of the key
      */
-    static String encodeIfNotValid(String key) {
+    static String encodeIfNotValid(IdempotentKey ik) {
+        String key = ik.key();
+        Base64.Encoder encoder = Base64.getEncoder();
         if (Validator.notWildcardKvKey(key)) {
             log.atDebug().log("Key '{}' is not valid, encoding it", key);
-            return Base64.getEncoder().encodeToString(key.getBytes(UTF_8));
+            key = encoder.encodeToString(key.getBytes(UTF_8));
         }
-
-        return key;
+        // processName always includes characters that are not allowed
+        return key + "." + encoder.encodeToString(ik.processName().getBytes(UTF_8));
     }
 
     @Override
     public Value getValue(IdempotentKey idemKey, Class<?> returnType) {
         try {
             log.atDebug().log("Getting key {}", idemKey);
-            var key = encodeIfNotValid(idemKey.key());
+            var key = encodeIfNotValid(idemKey);
             KeyValueEntry entry = kv.get(key);
             if (entry == null) return null;
 
@@ -69,13 +71,29 @@ class NatsIdempotentStore implements IdempotentStore {
     public void store(IdempotentKey idemKey, Value value) {
         try {
             log.atDebug().log("Storing key {}", idemKey);
-            var key = encodeIfNotValid(idemKey.key());
+            var key = encodeIfNotValid(idemKey);
             log.atTrace().log(value::toString);
-            byte[] content = mapper.writeValueAsBytes(new Wrappers.Value(value, idemKey.processName()));
+
+            byte[] content = mapper.writeValueAsBytes(new Wrappers.Value(value));
             MessageTtl messageTtl = fromExpirationTimeInMs(value.expirationTimeInMilliSeconds());
-            kv.create(key, content, messageTtl);
+
+            createOrUpdate(key, content, messageTtl);
         } catch (IOException | JetStreamApiException e) {
             throw new NatsIdempotentExceptions("Error storing value in nats", e);
+        }
+    }
+
+    private void createOrUpdate(String key, byte[] value, MessageTtl ttl) throws JetStreamApiException, IOException {
+        try {
+            kv.create(key, value, ttl);
+        } catch (JetStreamApiException e) {
+            // Wrong last sequence, the key already exists.
+            if (e.getApiErrorCode() == 10071) {
+                kv.put(key, value);
+                log.atTrace().log("Updated key {}", key);
+                return;
+            }
+            throw e;
         }
     }
 
@@ -83,7 +101,7 @@ class NatsIdempotentStore implements IdempotentStore {
     public void remove(IdempotentKey idemKey) {
         try {
             log.atDebug().log("Removing key {}", idemKey);
-            var key = encodeIfNotValid(idemKey.key());
+            var key = encodeIfNotValid(idemKey);
             kv.delete(key);
         } catch (JetStreamApiException | IOException e) {
             throw new NatsIdempotentExceptions("Error removing value from nats store", e);
@@ -95,8 +113,8 @@ class NatsIdempotentStore implements IdempotentStore {
         try {
             log.atDebug().log("Updating key {} with status {}", idemKey, value.status());
             log.atTrace().log(value::toString);
-            var key = encodeIfNotValid(idemKey.key());
-            byte[] content = mapper.writeValueAsBytes(new Wrappers.Value(value, idemKey.processName()));
+            var key = encodeIfNotValid(idemKey);
+            byte[] content = mapper.writeValueAsBytes(new Wrappers.Value(value));
             kv.put(key, content);
         } catch (IOException | JetStreamApiException e) {
             throw new NatsIdempotentExceptions("Error storing value in nats", e);

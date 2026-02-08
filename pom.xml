@@ -211,30 +211,6 @@
                     </execution>
                 </executions>
             </plugin>
-            <plugin>
-                <groupId>org.jreleaser</groupId>
-                <artifactId>jreleaser-maven-plugin</artifactId>
-                <version>${jreleaser-maven-plugin.version}</version>
-                <configuration>
-                    <jreleaser>
-                        <signing>
-                            <active>ALWAYS</active>
-                            <armored>true</armored>
-                        </signing>
-                        <deploy>
-                            <maven>
-                                <mavenCentral>
-                                    <sonatype>
-                                        <active>ALWAYS</active>
-                                        <url>https://central.sonatype.com/api/v1/publisher</url>
-                                        <stagingRepositories>target/staging-deploy</stagingRepositories>
-                                    </sonatype>
-                                </mavenCentral>
-                            </maven>
-                        </deploy>
-                    </jreleaser>
-                </configuration>
-            </plugin>
         </plugins>
     </build>
 
@@ -246,6 +222,32 @@
             </properties>
             <build>
                 <plugins>
+                    <plugin>
+                        <groupId>org.jreleaser</groupId>
+                        <artifactId>jreleaser-maven-plugin</artifactId>
+                        <version>${jreleaser-maven-plugin.version}</version>
+                        <inherited>false</inherited>
+                        <configuration>
+                            <jreleaser>
+                                <signing>
+                                    <active>ALWAYS</active>
+                                    <armored>true</armored>
+                                </signing>
+                                <deploy>
+                                    <maven>
+                                        <mavenCentral>
+                                            <sonatype>
+                                                <active>ALWAYS</active>
+                                                <url>https://central.sonatype.com/api/v1/publisher</url>
+                                                <stagingRepositories>target/staging-deploy</stagingRepositories>
+                                            </sonatype>
+                                        </mavenCentral>
+                                    </maven>
+                                </deploy>
+                            </jreleaser>
+                        </configuration>
+                    </plugin>
+
                     <plugin>
                         <artifactId>maven-source-plugin</artifactId>
                         <version>${maven-source-plugin.version}</version>

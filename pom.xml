@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+        xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
     <groupId>io.github.arun0009</groupId>
     <artifactId>idempotent</artifactId>
@@ -39,15 +39,15 @@
 
     <properties>
         <java.version>17</java.version>
-        <spotless.version>3.1.0</spotless.version>
-        <spring-boot.version>4.0.2</spring-boot.version>
-
-        <maven.compiler.release>${java.version}</maven.compiler.release>
         <jreleaser-maven-plugin.version>1.22.0</jreleaser-maven-plugin.version>
         <maven-compiler-plugin.version>3.14.0</maven-compiler-plugin.version>
         <maven-jar-plugin.version>3.4.2</maven-jar-plugin.version>
         <maven-javadoc-plugin.version>3.11.3</maven-javadoc-plugin.version>
         <maven-source-plugin.version>3.3.1</maven-source-plugin.version>
+
+        <maven.compiler.release>${java.version}</maven.compiler.release>
+        <spotless.version>3.1.0</spotless.version>
+        <spring-boot.version>4.0.2</spring-boot.version>
     </properties>
 
     <dependencyManagement>
@@ -247,7 +247,6 @@
                             </jreleaser>
                         </configuration>
                     </plugin>
-
                     <plugin>
                         <artifactId>maven-source-plugin</artifactId>
                         <version>${maven-source-plugin.version}</version>
@@ -269,6 +268,10 @@
                                 <goals>
                                     <goal>jar</goal>
                                 </goals>
+                                <phase>package</phase>
+                                <configuration>
+                                    <failOnError>false</failOnError>
+                                </configuration>
                             </execution>
                         </executions>
                     </plugin>

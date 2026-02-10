@@ -1,6 +1,5 @@
 package io.github.arun0009.idempotent.redis;
 
-import io.github.arun0009.idempotent.core.aspect.IdempotentAspect;
 import io.github.arun0009.idempotent.core.exception.IdempotentException;
 import io.github.arun0009.idempotent.core.persistence.IdempotentStore;
 import org.slf4j.Logger;
@@ -10,7 +9,11 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
-import org.springframework.data.redis.connection.*;
+import org.springframework.data.redis.connection.RedisClusterConfiguration;
+import org.springframework.data.redis.connection.RedisConnectionFactory;
+import org.springframework.data.redis.connection.RedisNode;
+import org.springframework.data.redis.connection.RedisSentinelConfiguration;
+import org.springframework.data.redis.connection.RedisStandaloneConfiguration;
 import org.springframework.data.redis.connection.jedis.JedisClientConfiguration;
 import org.springframework.data.redis.connection.jedis.JedisConnectionFactory;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -21,7 +24,9 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-/** Redis Configuration for Idempotent store. */
+/**
+ * Redis Configuration for Idempotent store.
+ */
 @Configuration
 public class RedisConfig {
 
@@ -193,16 +198,5 @@ public class RedisConfig {
     public IdempotentStore redisIdempotentStore(
             RedisTemplate<IdempotentStore.IdempotentKey, IdempotentStore.Value> redisTemplate) {
         return new RedisIdempotentStore(redisTemplate);
-    }
-
-    /**
-     * Idempotent aspect idempotent aspect.
-     *
-     * @param idempotentStore idempotent store to use
-     * @return IdempotentAspect idempotent aspect
-     */
-    @Bean
-    public IdempotentAspect idempotentAspect(IdempotentStore idempotentStore) {
-        return new IdempotentAspect(idempotentStore);
     }
 }

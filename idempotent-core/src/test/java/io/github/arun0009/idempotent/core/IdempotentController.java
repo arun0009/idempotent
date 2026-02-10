@@ -1,9 +1,6 @@
 package io.github.arun0009.idempotent.core;
 
 import io.github.arun0009.idempotent.core.annotation.Idempotent;
-import io.github.arun0009.idempotent.core.aspect.IdempotentAspect;
-import io.github.arun0009.idempotent.core.persistence.InMemoryIdempotentStore;
-import org.springframework.context.annotation.Bean;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -11,11 +8,6 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 public class IdempotentController {
-
-    @Bean
-    public IdempotentAspect idempotentAspect() {
-        return new IdempotentAspect(new InMemoryIdempotentStore());
-    }
 
     @Idempotent(key = "#asset.id", duration = "PT1M")
     @PostMapping("/in-memory/assets")

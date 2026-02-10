@@ -41,7 +41,7 @@ class ConfigurationProcessorTest {
                 Set.of(
                         "idempotent.key.header",
                         "idempotent.inprogress.max.retries",
-                        "idempotent.inprogress.retry.initial.intervalMillis",
+                        "idempotent.inprogress.retry.initial.intervalMillis", // FIXME --> idempotent.inprogress.retry.initial.interval-millis breaking change
                         "idempotent.inprogress.retry.multiplier"),
                 names);
     }

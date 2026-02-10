@@ -10,7 +10,9 @@ import java.time.Duration;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
  * Test for IdempotentService
@@ -89,9 +91,7 @@ class IdempotentServiceTest {
         };
 
         // Should throw IdempotentException and not cache the result
-        assertThrows(IdempotentException.class, () -> {
-            idempotentService.execute("test-key", operation, Duration.ofSeconds(300));
-        });
+        assertThrows(IdempotentException.class, () -> idempotentService.execute("test-key", operation, Duration.ofSeconds(300)));
 
         // Verify the key was removed after exception
         IdempotentStore.IdempotentKey key = new IdempotentStore.IdempotentKey("test-key", "default");

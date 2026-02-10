@@ -1,5 +1,6 @@
 package io.github.arun0009.idempotent.core.aspect;
 
+import io.github.arun0009.idempotent.core.IdempotentProperties;
 import io.github.arun0009.idempotent.core.IdempotentTest;
 import io.github.arun0009.idempotent.core.annotation.Idempotent;
 import io.github.arun0009.idempotent.core.persistence.IdempotentStore;
@@ -13,18 +14,21 @@ import org.mockito.MockitoAnnotations;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.test.util.ReflectionTestUtils;
 
 import java.lang.reflect.Method;
 import java.time.Instant;
 
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class IdempotentAspectTest {
-
     @Mock
     private IdempotentStore idempotentStore;
 
@@ -36,11 +40,7 @@ class IdempotentAspectTest {
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
-        idempotentAspect = new IdempotentAspect(idempotentStore);
-        ReflectionTestUtils.setField(idempotentAspect, "idempotentKeyHeader", "X-Idempotency-Key");
-        ReflectionTestUtils.setField(idempotentAspect, "inprogressMaxRetries", 5);
-        ReflectionTestUtils.setField(idempotentAspect, "inprogressRetryInterval", 100);
-        ReflectionTestUtils.setField(idempotentAspect, "inprogressRetryMultiplier", 2);
+        idempotentAspect = new IdempotentAspect(idempotentStore, new IdempotentProperties());
     }
 
     @Test

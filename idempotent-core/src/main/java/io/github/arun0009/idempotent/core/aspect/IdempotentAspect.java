@@ -192,6 +192,16 @@ public class IdempotentAspect {
      * @throws Throwable if the intercepted method invocation fails (propagated as-is), or if an unexpected error occurs while interacting with the idempotency store.
      */
     private Object handleExistingRequest(ProceedingJoinPoint pjp, IdempotentStore.IdempotentKey idempotentKey, IdempotentStore.Value existingValue, Duration ttl) throws Throwable {
+        if (IdempotentStore.Status.INPROGRESS.is(existingValue.status())) {
+            existingValue = completionAwaiter.wait(idempotentKey, existingValue);
+        }
+
+        if (IdempotentStore.Status.COMPLETED.is(existingValue.status())) {
+            return existingValue.response();
+        }
+
+        idempotentStore.remove(idempotentKey);
+        return handleNewRequest(pjp, idempotentKey, ttl);
     }
 
     /**

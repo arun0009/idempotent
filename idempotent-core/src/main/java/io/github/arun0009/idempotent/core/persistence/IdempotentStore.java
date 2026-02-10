@@ -75,8 +75,13 @@ public interface IdempotentStore {
             this.status = status;
         }
 
+        @Override
         public String toString() {
             return status;
+        }
+
+        public boolean is(String status) {
+            return this.status.equals(status);
         }
     }
 }

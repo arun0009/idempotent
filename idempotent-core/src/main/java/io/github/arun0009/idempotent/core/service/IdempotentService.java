@@ -14,6 +14,9 @@ import java.time.Instant;
 import java.util.Objects;
 import java.util.function.Supplier;
 
+import static io.github.arun0009.idempotent.core.persistence.IdempotentStore.Status.COMPLETED;
+import static io.github.arun0009.idempotent.core.persistence.IdempotentStore.Status.INPROGRESS;
+
 /**
  * Service-based API for idempotent operations.
  * Provides programmatic access to idempotency functionality without requiring annotations.

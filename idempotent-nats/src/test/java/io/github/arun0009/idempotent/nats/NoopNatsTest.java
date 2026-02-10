@@ -20,9 +20,7 @@ class NoopNatsTest {
     @Test
     void loadContext() {
         assertNotNull(idempotentStore);
-        assertNull(idempotentStore.getValue(
-                new IdempotentStore.IdempotentKey("test-key", "default")
-                , String.class));
+        assertNull(idempotentStore.getValue(new IdempotentStore.IdempotentKey("test-key", "default"), String.class));
         assertInstanceOf(InMemoryIdempotentStore.class, idempotentStore);
     }
 }

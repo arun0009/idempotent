@@ -70,8 +70,7 @@ public class DynamoIdempotentStore implements IdempotentStore {
             idempotentItem.setExpirationTimeInMilliSeconds(value.expirationTimeInMilliSeconds());
             idempotentItem.setResponse(jsonMapper.writeValueAsString(value.response()));
 
-            PutItemEnhancedRequest<IdempotentItem> putRequest = PutItemEnhancedRequest
-                    .builder(IdempotentItem.class)
+            PutItemEnhancedRequest<IdempotentItem> putRequest = PutItemEnhancedRequest.builder(IdempotentItem.class)
                     .item(idempotentItem)
                     .conditionExpression(Expression.builder()
                             .expression("attribute_not_exists(#pk) AND attribute_not_exists(#sk)")

@@ -25,8 +25,6 @@ public class IdempotentProperties {
     @Name("key.header")
     private String keyHeader = "X-Idempotency-Key";
 
-
-
     /**
      * Configuration for handling in-progress requests (duplicate concurrent requests).
      */

@@ -1,5 +1,6 @@
 package io.github.arun0009.idempotent.nats;
 
+import io.github.arun0009.idempotent.core.exception.IdempotentKeyConflictException;
 import io.github.arun0009.idempotent.core.persistence.IdempotentStore;
 import io.nats.client.JetStreamApiException;
 import io.nats.client.KeyValue;
@@ -69,31 +70,20 @@ class NatsIdempotentStore implements IdempotentStore {
 
     @Override
     public void store(IdempotentKey idemKey, Value value) {
+        log.atDebug().log("Storing key {}", idemKey);
+        var key = encodeIfNotValid(idemKey);
         try {
-            log.atDebug().log("Storing key {}", idemKey);
-            var key = encodeIfNotValid(idemKey);
-            log.atTrace().log(value::toString);
-
             byte[] content = mapper.writeValueAsBytes(new Wrappers.Value(value));
             MessageTtl messageTtl = fromExpirationTimeInMs(value.expirationTimeInMilliSeconds());
-
-            createOrUpdate(key, content, messageTtl);
-        } catch (IOException | JetStreamApiException e) {
-            throw new NatsIdempotentExceptions("Error storing value in nats", e);
-        }
-    }
-
-    private void createOrUpdate(String key, byte[] value, MessageTtl ttl) throws JetStreamApiException, IOException {
-        try {
-            kv.create(key, value, ttl);
+            kv.create(key, content, messageTtl);
         } catch (JetStreamApiException e) {
             // Wrong last sequence, the key already exists.
             if (e.getApiErrorCode() == 10071) {
-                kv.put(key, value);
-                log.atTrace().log("Updated key {}", key);
-                return;
+                throw new IdempotentKeyConflictException("NATS Key already exists: " + key, idemKey);
             }
-            throw e;
+            throw new NatsIdempotentExceptions("Api error storing value in nats", e);
+        } catch (IOException e) {
+            throw new NatsIdempotentExceptions("Error storing value in nats", e);
         }
     }
 

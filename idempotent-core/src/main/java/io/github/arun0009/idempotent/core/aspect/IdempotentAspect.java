@@ -2,6 +2,7 @@ package io.github.arun0009.idempotent.core.aspect;
 
 import io.github.arun0009.idempotent.core.annotation.Idempotent;
 import io.github.arun0009.idempotent.core.exception.IdempotentException;
+import io.github.arun0009.idempotent.core.exception.IdempotentKeyConflictException;
 import io.github.arun0009.idempotent.core.persistence.IdempotentStore;
 import io.github.arun0009.idempotent.core.retry.IdempotentCompletionAwaiter;
 import io.github.arun0009.idempotent.core.retry.WaitStrategy;
@@ -101,8 +102,14 @@ public class IdempotentAspect {
             return handleExistingRequest(pjp, idempotentKey, value, ttl);
         }
 
-        log.atDebug().log("Idempotent key {} does not exist, creating new entry", key);
-        return handleNewRequest(pjp, idempotentKey, ttl);
+        try {
+            log.atDebug().log("Idempotent key {} does not exist, creating new entry", key);
+            return handleNewRequest(pjp, idempotentKey, ttl);
+        } catch (IdempotentKeyConflictException e) {
+            log.info("Key conflict for: {}. Refetching value to handle as existing request", e.getKey());
+            value = idempotentStore.getValue(idempotentKey, ((MethodSignature) pjp.getSignature()).getReturnType());
+            return handleExistingRequest(pjp, idempotentKey, value, ttl);
+        }
     }
 
     /**

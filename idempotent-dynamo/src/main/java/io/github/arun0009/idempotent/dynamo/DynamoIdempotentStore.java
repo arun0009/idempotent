@@ -1,12 +1,16 @@
 package io.github.arun0009.idempotent.dynamo;
 
 import io.github.arun0009.idempotent.core.exception.IdempotentException;
+import io.github.arun0009.idempotent.core.exception.IdempotentKeyConflictException;
 import io.github.arun0009.idempotent.core.persistence.IdempotentStore;
 import software.amazon.awssdk.enhanced.dynamodb.DynamoDbEnhancedClient;
 import software.amazon.awssdk.enhanced.dynamodb.DynamoDbTable;
+import software.amazon.awssdk.enhanced.dynamodb.Expression;
 import software.amazon.awssdk.enhanced.dynamodb.Key;
 import software.amazon.awssdk.enhanced.dynamodb.TableSchema;
 import software.amazon.awssdk.enhanced.dynamodb.model.DeleteItemEnhancedRequest;
+import software.amazon.awssdk.enhanced.dynamodb.model.PutItemEnhancedRequest;
+import software.amazon.awssdk.services.dynamodb.model.ConditionalCheckFailedException;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -14,11 +18,8 @@ import tools.jackson.databind.json.JsonMapper;
  * Dynamo idempotent store.
  */
 public class DynamoIdempotentStore implements IdempotentStore {
-
     private final DynamoDbEnhancedClient dynamoEnhancedClient;
-
     private final String dynamoTableName;
-
     private final JsonMapper jsonMapper = JsonMapper.shared();
 
     /**
@@ -68,7 +69,19 @@ public class DynamoIdempotentStore implements IdempotentStore {
             idempotentItem.setStatus(value.status());
             idempotentItem.setExpirationTimeInMilliSeconds(value.expirationTimeInMilliSeconds());
             idempotentItem.setResponse(jsonMapper.writeValueAsString(value.response()));
-            idempotentTable.putItem(idempotentItem);
+
+            PutItemEnhancedRequest<IdempotentItem> putRequest = PutItemEnhancedRequest
+                    .builder(IdempotentItem.class)
+                    .item(idempotentItem)
+                    .conditionExpression(Expression.builder()
+                            .expression("attribute_not_exists(#pk) AND attribute_not_exists(#sk)")
+                            .putExpressionName("#pk", "key")
+                            .putExpressionName("#sk", "processName")
+                            .build())
+                    .build();
+            idempotentTable.putItem(putRequest);
+        } catch (ConditionalCheckFailedException e) {
+            throw new IdempotentKeyConflictException("Idempotent key already exists in DynamoDB", idempotentKey);
         } catch (JacksonException e) {
             throw new IdempotentException("error storing idempotent item", e);
         }

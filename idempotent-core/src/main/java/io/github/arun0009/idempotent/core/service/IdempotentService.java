@@ -131,6 +131,10 @@ public class IdempotentService {
             idempotentStore.update(idempotentKey, completedValue);
 
             return result;
+        } catch (IdempotentKeyConflictException e) {
+            log.info("Idempotent key conflict detected for key: {}", idempotentKey.key());
+            IdempotentStore.Value value = idempotentStore.getValue(idempotentKey, Object.class);
+            return handleExistingOperation(idempotentKey, value, operation);
         } catch (Exception e) {
             // Clean up on error
             idempotentStore.remove(idempotentKey);

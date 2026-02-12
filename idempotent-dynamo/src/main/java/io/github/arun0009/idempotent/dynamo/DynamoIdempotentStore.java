@@ -12,7 +12,9 @@ import software.amazon.awssdk.enhanced.dynamodb.model.DeleteItemEnhancedRequest;
 import software.amazon.awssdk.enhanced.dynamodb.model.PutItemEnhancedRequest;
 import software.amazon.awssdk.services.dynamodb.model.ConditionalCheckFailedException;
 import tools.jackson.core.JacksonException;
+import tools.jackson.databind.DefaultTyping;
 import tools.jackson.databind.json.JsonMapper;
+import tools.jackson.databind.jsontype.BasicPolymorphicTypeValidator;
 
 /**
  * Dynamo idempotent store.
@@ -20,7 +22,7 @@ import tools.jackson.databind.json.JsonMapper;
 public class DynamoIdempotentStore implements IdempotentStore {
     private final DynamoDbEnhancedClient dynamoEnhancedClient;
     private final String dynamoTableName;
-    private final JsonMapper jsonMapper = JsonMapper.shared();
+    private final JsonMapper jsonMapper;
 
     /**
      * Instantiates a new Dynamo idempotent store.
@@ -31,6 +33,13 @@ public class DynamoIdempotentStore implements IdempotentStore {
     public DynamoIdempotentStore(DynamoDbEnhancedClient dynamoEnhancedClient, String dynamoTableName) {
         this.dynamoEnhancedClient = dynamoEnhancedClient;
         this.dynamoTableName = dynamoTableName;
+        this.jsonMapper = JsonMapper.builder()
+                .activateDefaultTyping(
+                        BasicPolymorphicTypeValidator.builder()
+                                .allowIfBaseType(Object.class)
+                                .build(),
+                        DefaultTyping.NON_FINAL)
+                .build();
     }
 
     private DynamoDbTable<IdempotentItem> getTable() {

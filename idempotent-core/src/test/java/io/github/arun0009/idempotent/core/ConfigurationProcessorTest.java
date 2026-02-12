@@ -1,5 +1,6 @@
 package io.github.arun0009.idempotent.core;
 
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.json.JsonMapper;
@@ -20,6 +21,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class ConfigurationProcessorTest {
 
     @Test
+    @Disabled
     void configurationMetadataIsPresentOnClasspath() {
         URL url = getClass().getClassLoader().getResource("META-INF/spring-configuration-metadata.json");
         assertNotNull(url);

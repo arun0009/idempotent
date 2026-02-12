@@ -7,7 +7,6 @@ import io.github.arun0009.idempotent.core.retry.IdempotentCompletionAwaiter;
 import io.github.arun0009.idempotent.core.retry.WaitStrategy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import tools.jackson.databind.json.JsonMapper;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -23,7 +22,6 @@ import static io.github.arun0009.idempotent.core.persistence.IdempotentStore.Sta
  */
 public class IdempotentService {
     private static final Logger log = LoggerFactory.getLogger(IdempotentService.class);
-    private final JsonMapper jsonMapper;
     private final IdempotentStore idempotentStore;
     private final IdempotentCompletionAwaiter completionAwaiter;
 
@@ -33,7 +31,6 @@ public class IdempotentService {
 
     public IdempotentService(IdempotentStore idempotentStore, WaitStrategy waitStrategy) {
         this.idempotentStore = idempotentStore;
-        this.jsonMapper = JsonMapper.shared();
         this.completionAwaiter = new IdempotentCompletionAwaiter(idempotentStore, waitStrategy);
     }
 
@@ -82,7 +79,6 @@ public class IdempotentService {
      * @return the result of the operation
      * @throws NullPointerException if any parameter is null
      */
-    @SuppressWarnings("unchecked")
     public <T> T execute(IdempotentStore.IdempotentKey idempotentKey, Supplier<T> operation, Duration ttl) {
         Objects.requireNonNull(idempotentKey, "idempotentKey cannot be null");
         Objects.requireNonNull(operation, "operation cannot be null");
@@ -90,7 +86,7 @@ public class IdempotentService {
         // Check if the operation already exists
         IdempotentStore.Value existingValue = idempotentStore.getValue(idempotentKey, Object.class);
         if (existingValue != null) {
-            return handleExistingOperation(idempotentKey, existingValue, operation);
+            return handleExistingOperation(idempotentKey, existingValue);
         }
 
         // Execute the operation
@@ -98,15 +94,10 @@ public class IdempotentService {
     }
 
     @SuppressWarnings("unchecked")
-    private <T> T handleExistingOperation(
-            IdempotentStore.IdempotentKey idempotentKey, IdempotentStore.Value value, Supplier<T> operation) {
+    private <T> T handleExistingOperation(IdempotentStore.IdempotentKey idempotentKey, IdempotentStore.Value value) {
         // Return a cached result if completed
         if (COMPLETED.is(value.status())) {
-            Object response = value.response();
-            if (response instanceof java.util.Map<?, ?> m) {
-                return jsonMapper.convertValue(m, (Class<T>) operation.get().getClass());
-            }
-            return (T) response;
+            return (T) value.response();
         }
 
         // If in progress, wait with exponential backoff, then check again
@@ -137,7 +128,7 @@ public class IdempotentService {
         } catch (IdempotentKeyConflictException e) {
             log.info("Idempotent key conflict detected for key: {}", idempotentKey.key());
             IdempotentStore.Value value = idempotentStore.getValue(idempotentKey, Object.class);
-            return handleExistingOperation(idempotentKey, value, operation);
+            return handleExistingOperation(idempotentKey, value);
         } catch (Exception e) {
             // Clean up on error
             idempotentStore.remove(idempotentKey);

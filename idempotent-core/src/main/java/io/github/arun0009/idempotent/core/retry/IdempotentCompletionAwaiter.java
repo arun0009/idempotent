@@ -35,7 +35,7 @@ public class IdempotentCompletionAwaiter {
             try {
                 long delay = waitStrategy
                         .delay()
-                        .plusMillis((long) Math.pow(waitStrategy.backoffMultiplier(), attempt))
+                        .multipliedBy((long) Math.pow(waitStrategy.backoffMultiplier(), attempt))
                         .toMillis();
                 log.atTrace()
                         .log("Waiting for idempotent operation to complete. Attempt: {}, Delay: {}ms", attempt, delay);

@@ -31,10 +31,10 @@ public class IdempotentService {
         this(idempotentStore, WaitStrategy.withDefaults());
     }
 
-    public IdempotentService(IdempotentStore idempotentStore, WaitStrategy retryArgs) {
+    public IdempotentService(IdempotentStore idempotentStore, WaitStrategy waitStrategy) {
         this.idempotentStore = idempotentStore;
         this.jsonMapper = JsonMapper.shared();
-        this.completionAwaiter = new IdempotentCompletionAwaiter(idempotentStore, retryArgs);
+        this.completionAwaiter = new IdempotentCompletionAwaiter(idempotentStore, waitStrategy);
     }
 
     /**

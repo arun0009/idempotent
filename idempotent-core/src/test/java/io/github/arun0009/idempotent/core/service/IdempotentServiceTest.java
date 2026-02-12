@@ -5,6 +5,9 @@ import io.github.arun0009.idempotent.core.persistence.IdempotentStore;
 import io.github.arun0009.idempotent.core.persistence.InMemoryIdempotentStore;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.test.context.SpringBootTest;
 
 import java.time.Duration;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -14,19 +17,18 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-/**
- * Test for IdempotentService
- */
+@SpringBootTest
+@SpringBootApplication(scanBasePackages = "io.github.arun0009.idempotent.core")
 class IdempotentServiceTest {
-
+    @Autowired
     private IdempotentService idempotentService;
-    private InMemoryIdempotentStore store;
+
+    @Autowired
+    private IdempotentStore store;
 
     @BeforeEach
     void setUp() {
-        store = new InMemoryIdempotentStore();
-        idempotentService = new IdempotentService(store);
-        store.clear();
+        ((InMemoryIdempotentStore) store).clear();
     }
 
     @Test
@@ -153,13 +155,5 @@ class IdempotentServiceTest {
     }
 
     // Helper class for testing complex objects
-    private static class TestObject {
-        public final String name;
-        public final int value;
-
-        public TestObject(String name, int value) {
-            this.name = name;
-            this.value = value;
-        }
-    }
+    private record TestObject(String name, int value) {}
 }

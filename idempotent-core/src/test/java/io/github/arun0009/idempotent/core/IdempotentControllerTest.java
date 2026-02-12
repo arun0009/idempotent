@@ -1,5 +1,6 @@
 package io.github.arun0009.idempotent.core;
 
+import io.github.arun0009.idempotent.core.service.IdempotentService;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -27,11 +28,14 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 
-@SpringBootApplication(scanBasePackages = "io.github.arun0009.idempotent.core")
 @SpringBootTest
+@SpringBootApplication(scanBasePackages = "io.github.arun0009.idempotent.core")
 class IdempotentControllerTest {
     @Autowired
     private WebApplicationContext webApplicationContext;
+
+    @Autowired
+    private IdempotentService idempotentService;
 
     private MockMvc mockMvc;
 

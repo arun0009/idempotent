@@ -63,7 +63,7 @@ public class IdempotentProperties {
          * Initial interval in milliseconds between retry attempts.
          * This is the base delay before applying the exponential backoff multiplier.
          */
-        @Name("retry.initial.intervalMillis")
+        @Name("retry.initial.interval-millis")
         private int retryInitialIntervalMillis = 100;
 
         /**

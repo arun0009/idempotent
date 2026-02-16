@@ -1,6 +1,5 @@
 package io.github.arun0009.idempotent.core;
 
-import io.github.arun0009.idempotent.core.service.IdempotentService;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -10,7 +9,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockHttpServletResponse;
@@ -28,14 +26,10 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 
-@SpringBootTest
-@SpringBootApplication(scanBasePackages = "io.github.arun0009.idempotent.core")
+@SpringBootTest(classes = TestApplication.class)
 class IdempotentControllerTest {
     @Autowired
     private WebApplicationContext webApplicationContext;
-
-    @Autowired
-    private IdempotentService idempotentService;
 
     private MockMvc mockMvc;
 

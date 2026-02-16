@@ -11,7 +11,6 @@ import org.slf4j.LoggerFactory;
 import tools.jackson.databind.json.JsonMapper;
 
 import java.io.IOException;
-import java.time.Duration;
 import java.time.Instant;
 import java.util.Base64;
 
@@ -28,8 +27,9 @@ class NatsIdempotentStore implements IdempotentStore {
     }
 
     private static MessageTtl fromExpirationTimeInMs(long value) {
-        int ttl = (int) Duration.ofMillis(value - Instant.now().toEpochMilli()).toSeconds();
-        return MessageTtl.seconds(ttl + 1);
+        long ttlMillis = value - Instant.now().toEpochMilli();
+        int ttlSeconds = (int) Math.max(1, (ttlMillis + 999) / 1000); // Round up, min 1 second
+        return MessageTtl.seconds(ttlSeconds);
     }
 
     /**
@@ -60,7 +60,14 @@ class NatsIdempotentStore implements IdempotentStore {
             if (entry == null) return null;
 
             Wrappers.Value wrapperValue = mapper.readValue(entry.getValue(), Wrappers.Value.class);
-            return wrapperValue.value();
+            Value value = wrapperValue.value();
+
+            // Check expiration using JVM time
+            if (value.isExpired()) {
+                return null;
+            }
+
+            return value;
         } catch (IOException | JetStreamApiException e) {
             log.error("Error reading value from nats store", e);
             return null;
@@ -76,24 +83,16 @@ class NatsIdempotentStore implements IdempotentStore {
 
             byte[] content = mapper.writeValueAsBytes(new Wrappers.Value(value));
             MessageTtl messageTtl = fromExpirationTimeInMs(value.expirationTimeInMilliSeconds());
-
-            createOrUpdate(key, content, messageTtl);
-        } catch (IOException | JetStreamApiException e) {
-            throw new NatsIdempotentExceptions("Error storing value in nats", e);
-        }
-    }
-
-    private void createOrUpdate(String key, byte[] value, MessageTtl ttl) throws JetStreamApiException, IOException {
-        try {
-            kv.create(key, value, ttl);
+            // Try atomic create - will fail with 10071 if key already exists
+            kv.create(key, content, messageTtl);
         } catch (JetStreamApiException e) {
-            // Wrong last sequence, the key already exists.
             if (e.getApiErrorCode() == 10071) {
-                kv.put(key, value);
-                log.atTrace().log("Updated key {}", key);
+                // key already exists - silent fail (race condition)
                 return;
             }
-            throw e;
+            throw new NatsIdempotentExceptions("Error storing value in nats", e);
+        } catch (IOException e) {
+            throw new NatsIdempotentExceptions("Error storing value in nats", e);
         }
     }
 
@@ -112,12 +111,18 @@ class NatsIdempotentStore implements IdempotentStore {
     public void update(IdempotentKey idemKey, Value value) {
         try {
             log.atDebug().log("Updating key {} with status {}", idemKey, value.status());
-            log.atTrace().log(value::toString);
             var key = encodeIfNotValid(idemKey);
+            KeyValueEntry entry = kv.get(key);
+            if (entry == null) return; // key doesn't exist, silent fail
             byte[] content = mapper.writeValueAsBytes(new Wrappers.Value(value));
-            kv.put(key, content);
-        } catch (IOException | JetStreamApiException e) {
-            throw new NatsIdempotentExceptions("Error storing value in nats", e);
+            kv.update(key, content, entry.getRevision()); // Atomic CAS update
+        } catch (JetStreamApiException e) {
+            if (e.getApiErrorCode() == 10071) {
+                return; // CAS failed, silent fail
+            }
+            throw new NatsIdempotentExceptions("Error updating value in nats", e);
+        } catch (IOException e) {
+            throw new NatsIdempotentExceptions("Error updating value in nats", e);
         }
     }
 }

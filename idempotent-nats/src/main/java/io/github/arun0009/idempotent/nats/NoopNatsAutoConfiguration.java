@@ -28,12 +28,16 @@ class NoopNatsAutoConfiguration {
         }
 
         @Override
-        public void store(IdempotentKey key, Value value) {}
+        public void store(IdempotentKey key, Value value) {
+            // No-op store
+        }
 
         @Override
         public void remove(IdempotentKey key) {}
 
         @Override
-        public void update(IdempotentKey key, Value value) {}
+        public void update(IdempotentKey key, Value value) {
+            // No-op update
+        }
     }
 }

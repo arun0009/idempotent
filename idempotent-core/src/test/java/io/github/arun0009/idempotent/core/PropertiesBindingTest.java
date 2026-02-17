@@ -13,10 +13,10 @@ class PropertiesBindingTest {
     @SpringBootTest(
             classes = TestApplication.class,
             properties = {
-                    "idempotent.key.header=X-Camel-Key-Interval-Millis",
-                    "idempotent.inprogress.max.retries=21",
-                    "idempotent.inprogress.retry.initial.intervalMillis=111",
-                    "idempotent.inprogress.retry.multiplier=4"
+                "idempotent.key.header=X-Camel-Key-Interval-Millis",
+                "idempotent.inprogress.max.retries=21",
+                "idempotent.inprogress.retry.initial.intervalMillis=111",
+                "idempotent.inprogress.retry.multiplier=4"
             })
     class CamelCaseBinding {
         @Autowired
@@ -36,10 +36,10 @@ class PropertiesBindingTest {
     @SpringBootTest(
             classes = TestApplication.class,
             properties = {
-                    "idempotent.key.header=X-Kebab-Key-Interval-Millis",
-                    "idempotent.inprogress.max.retries=33",
-                    "idempotent.inprogress.retry.initial.interval-millis=222",
-                    "idempotent.inprogress.retry.multiplier=5"
+                "idempotent.key.header=X-Kebab-Key-Interval-Millis",
+                "idempotent.inprogress.max.retries=33",
+                "idempotent.inprogress.retry.initial.interval-millis=222",
+                "idempotent.inprogress.retry.multiplier=5"
             })
     class KebabCaseBinding {
         @Autowired

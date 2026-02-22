@@ -11,6 +11,7 @@ import org.testcontainers.containers.MySQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.utility.DockerImageName;
+import tools.jackson.databind.json.JsonMapper;
 
 import javax.sql.DataSource;
 
@@ -46,7 +47,7 @@ public class RdsMySQLTestConfig {
 
     @Bean
     public IdempotentStore idempotentStore(JdbcTemplate jdbcTemplate) {
-        return new RdsIdempotentStore(jdbcTemplate, "idempotent");
+        return new RdsIdempotentStore(jdbcTemplate, "idempotent", JsonMapper.shared());
     }
 
     @Bean

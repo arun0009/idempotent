@@ -14,6 +14,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
+import tools.jackson.databind.json.JsonMapper;
 
 import javax.sql.DataSource;
 
@@ -28,7 +29,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
  */
 @ExtendWith(SpringExtension.class)
 @ContextConfiguration(classes = RdsIdempotentStoreH2Test.H2TestConfig.class)
-@TestPropertySource(properties = {"idempotent.rds.table.name=idempotent"})
+@TestPropertySource(properties = {"idempotent.rds.table-name=idempotent"})
 public class RdsIdempotentStoreH2Test {
 
     @Autowired
@@ -59,7 +60,7 @@ public class RdsIdempotentStoreH2Test {
 
         @Bean
         public IdempotentStore idempotentStore(JdbcTemplate jdbcTemplate) {
-            return new RdsIdempotentStore(jdbcTemplate, "idempotent");
+            return new RdsIdempotentStore(jdbcTemplate, "idempotent", JsonMapper.shared());
         }
 
         @Bean
@@ -74,15 +75,15 @@ public class RdsIdempotentStoreH2Test {
     public void setUp() {
         // Create table for H2
         jdbcTemplate.update("""
-            CREATE TABLE IF NOT EXISTS idempotent (
-                key_id VARCHAR(255) NOT NULL,
-                process_name VARCHAR(255) NOT NULL,
-                status VARCHAR(50),
-                expiration_time_millis BIGINT,
-                response TEXT,
-                PRIMARY KEY (key_id, process_name)
-            )
-        """);
+                CREATE TABLE IF NOT EXISTS idempotent (
+                    key_id VARCHAR(255) NOT NULL,
+                    process_name VARCHAR(255) NOT NULL,
+                    status VARCHAR(50),
+                    expiration_time_millis BIGINT,
+                    response TEXT,
+                    PRIMARY KEY (key_id, process_name)
+                )
+                """);
 
         jdbcTemplate.update("CREATE INDEX IF NOT EXISTS idx_expiration_time ON idempotent(expiration_time_millis)");
         jdbcTemplate.update("DELETE FROM idempotent");

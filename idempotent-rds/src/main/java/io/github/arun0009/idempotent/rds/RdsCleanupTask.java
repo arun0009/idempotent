@@ -3,7 +3,6 @@ package io.github.arun0009.idempotent.rds;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.scheduling.annotation.Scheduled;
 
 public class RdsCleanupTask {
 
@@ -20,7 +19,6 @@ public class RdsCleanupTask {
         this.batchSize = batchSize;
     }
 
-    @Scheduled(fixedDelayString = "${idempotent.rds.cleanup.fixedDelay:60000}")
     public void cleanup() {
         long now = System.currentTimeMillis();
         int totalDeleted = 0;
@@ -37,23 +35,26 @@ public class RdsCleanupTask {
     }
 
     private int deleteBatch(long now) {
-        String sql;
-        if (dialect == RdsDialect.MYSQL) {
-            sql = """
-                    DELETE FROM %s WHERE expiration_time_millis < ? LIMIT ?
-                    """.formatted(tableName);
-            return jdbcTemplate.update(sql, now, batchSize);
-        } else if (dialect == RdsDialect.POSTGRES) {
-            sql = """
-                    DELETE FROM %s WHERE ctid IN (SELECT ctid FROM %s WHERE expiration_time_millis < ? LIMIT ?)
-                    """.formatted(tableName, tableName);
-            return jdbcTemplate.update(sql, now, batchSize);
-        } else {
-            // Generic or H2 (H2 in MySQL mode supports LIMIT)
-            sql = """
-                    DELETE FROM %s WHERE expiration_time_millis < ? LIMIT ?
-                    """.formatted(tableName);
-            return jdbcTemplate.update(sql, now, batchSize);
-        }
+        return switch (dialect) {
+            case MYSQL -> {
+                String sql = """
+                        DELETE FROM %s WHERE expiration_time_millis < ? LIMIT ?
+                        """.formatted(tableName);
+                yield jdbcTemplate.update(sql, now, batchSize);
+            }
+            case POSTGRES -> {
+                String sql = """
+                        DELETE FROM %s WHERE ctid IN (SELECT ctid FROM %s WHERE expiration_time_millis < ? LIMIT ?)
+                        """.formatted(tableName, tableName);
+                yield jdbcTemplate.update(sql, now, batchSize);
+            }
+            case H2, GENERIC -> {
+                // H2 in MySQL mode supports LIMIT
+                String sql = """
+                        DELETE FROM %s WHERE expiration_time_millis < ? LIMIT ?
+                        """.formatted(tableName);
+                yield jdbcTemplate.update(sql, now, batchSize);
+            }
+        };
     }
 }

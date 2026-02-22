@@ -21,7 +21,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 
 @ExtendWith(SpringExtension.class)
 @ContextConfiguration(classes = RdsPostgreSQLTestConfig.class)
-@TestPropertySource(properties = {"idempotent.rds.table.name=idempotent"})
+@TestPropertySource(properties = {"idempotent.rds.table-name=idempotent"})
 public class RdsIdempotentStorePostgreSQLTest {
 
     @Autowired
@@ -37,15 +37,15 @@ public class RdsIdempotentStorePostgreSQLTest {
     public void setUp() {
         // Create the table for PostgreSQL
         jdbcTemplate.update("""
-            CREATE TABLE IF NOT EXISTS idempotent (
-                key_id VARCHAR(255) NOT NULL,
-                process_name VARCHAR(255) NOT NULL,
-                status VARCHAR(50),
-                expiration_time_millis BIGINT,
-                response TEXT,
-                PRIMARY KEY (key_id, process_name)
-            )
-        """);
+                    CREATE TABLE IF NOT EXISTS idempotent (
+                        key_id VARCHAR(255) NOT NULL,
+                        process_name VARCHAR(255) NOT NULL,
+                        status VARCHAR(50),
+                        expiration_time_millis BIGINT,
+                        response TEXT,
+                        PRIMARY KEY (key_id, process_name)
+                    )
+                """);
 
         jdbcTemplate.update("CREATE INDEX IF NOT EXISTS idx_expiration_time ON idempotent(expiration_time_millis)");
 

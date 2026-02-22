@@ -21,7 +21,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 
 @ExtendWith(SpringExtension.class)
 @ContextConfiguration(classes = RdsMySQLTestConfig.class)
-@TestPropertySource(properties = {"idempotent.rds.table.name=idempotent"})
+@TestPropertySource(properties = {"idempotent.rds.table-name=idempotent"})
 public class RdsIdempotentStoreMySQLTest {
 
     @Autowired
@@ -37,15 +37,15 @@ public class RdsIdempotentStoreMySQLTest {
     public void setUp() {
         // Create the table for MySQL
         jdbcTemplate.update("""
-            CREATE TABLE IF NOT EXISTS idempotent (
-                key_id VARCHAR(255) NOT NULL,
-                process_name VARCHAR(255) NOT NULL,
-                status VARCHAR(50),
-                expiration_time_millis BIGINT,
-                response TEXT,
-                PRIMARY KEY (key_id, process_name)
-            )
-        """);
+                CREATE TABLE IF NOT EXISTS idempotent (
+                    key_id VARCHAR(255) NOT NULL,
+                    process_name VARCHAR(255) NOT NULL,
+                    status VARCHAR(50),
+                    expiration_time_millis BIGINT,
+                    response TEXT,
+                    PRIMARY KEY (key_id, process_name)
+                )
+                """);
 
         // MySQL doesn't support CREATE INDEX IF NOT EXISTS, so we check first
         try {

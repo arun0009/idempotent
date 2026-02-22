@@ -13,18 +13,20 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 
 /**
- * RDS idempotent store using JdbcTemplate with atomic race condition protection.
+ * RDS idempotent store using JdbcTemplate with atomic race condition
+ * protection.
  */
 public class RdsIdempotentStore implements IdempotentStore {
 
     private final JdbcTemplate jdbcTemplate;
     private final String tableName;
-    private final JsonMapper jsonMapper = JsonMapper.shared();
+    private final JsonMapper jsonMapper;
     private final RdsDialect dialect;
 
-    public RdsIdempotentStore(JdbcTemplate jdbcTemplate, String tableName) {
+    public RdsIdempotentStore(JdbcTemplate jdbcTemplate, String tableName, JsonMapper jsonMapper) {
         this.jdbcTemplate = jdbcTemplate;
         this.tableName = tableName;
+        this.jsonMapper = jsonMapper;
         this.dialect = RdsDialect.detect(jdbcTemplate);
     }
 
@@ -80,12 +82,10 @@ public class RdsIdempotentStore implements IdempotentStore {
             String responseJson = value.response() != null ? jsonMapper.writeValueAsString(value.response()) : null;
             long now = System.currentTimeMillis();
 
-            if (dialect == RdsDialect.POSTGRES) {
-                storePostgres(key, value, responseJson, now);
-            } else if (dialect == RdsDialect.MYSQL) {
-                storeMySQL(key, value, responseJson, now);
-            } else {
-                storeGeneric(key, value, responseJson, now);
+            switch (dialect) {
+                case POSTGRES -> storePostgres(key, value, responseJson, now);
+                case MYSQL -> storeMySQL(key, value, responseJson, now);
+                case H2, GENERIC -> storeGeneric(key, value, responseJson, now);
             }
 
         } catch (JacksonException e) {

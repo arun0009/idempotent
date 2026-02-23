@@ -2,7 +2,6 @@ package io.github.arun0009.idempotent.rds;
 
 import io.github.arun0009.idempotent.core.exception.IdempotentException;
 import io.github.arun0009.idempotent.core.persistence.IdempotentStore;
-import org.springframework.dao.DuplicateKeyException;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
@@ -36,7 +35,7 @@ public class RdsIdempotentStore implements IdempotentStore {
                 SELECT status, expiration_time_millis, response FROM %s WHERE key_id = ? AND process_name = ?
                 """.formatted(tableName);
         try {
-            Value value = jdbcTemplate.queryForObject(
+            return jdbcTemplate.queryForObject(
                     sql,
                     new RowMapper<Value>() {
                         @Override
@@ -52,12 +51,7 @@ public class RdsIdempotentStore implements IdempotentStore {
                                 if (responseJson != null) {
                                     response = jsonMapper.readValue(responseJson, returnType);
                                 }
-                                Value result = new Value(status, expirationTime, response);
-                                // Check expiration using JVM time
-                                if (result.isExpired()) {
-                                    return null; // Treat expired as not found
-                                }
-                                return result;
+                                return new Value(status, expirationTime, response);
                             } catch (JacksonException e) {
                                 throw new IdempotentException("Error deserializing response", e);
                             }
@@ -65,12 +59,6 @@ public class RdsIdempotentStore implements IdempotentStore {
                     },
                     key.key(),
                     key.processName());
-
-            // Additional expiration check
-            if (value != null && value.isExpired()) {
-                return null;
-            }
-            return value;
         } catch (EmptyResultDataAccessException e) {
             return null;
         }
@@ -80,12 +68,11 @@ public class RdsIdempotentStore implements IdempotentStore {
     public void store(IdempotentKey key, Value value) {
         try {
             String responseJson = value.response() != null ? jsonMapper.writeValueAsString(value.response()) : null;
-            long now = System.currentTimeMillis();
 
             switch (dialect) {
-                case POSTGRES -> storePostgres(key, value, responseJson, now);
-                case MYSQL -> storeMySQL(key, value, responseJson, now);
-                case H2, GENERIC -> storeGeneric(key, value, responseJson, now);
+                case POSTGRES -> storePostgres(key, value, responseJson);
+                case MYSQL -> storeMySQL(key, value, responseJson);
+                case H2, GENERIC -> storeGeneric(key, value, responseJson);
             }
 
         } catch (JacksonException e) {
@@ -93,78 +80,29 @@ public class RdsIdempotentStore implements IdempotentStore {
         }
     }
 
-    private void storePostgres(IdempotentKey key, Value value, String responseJson, long now) {
-        // Postgres: use ON CONFLICT with conditional WHERE clause
+    private void storePostgres(IdempotentKey key, Value value, String responseJson) {
         String sql = """
                 INSERT INTO %s (key_id, process_name, status, expiration_time_millis, response)
                 VALUES (?, ?, ?, ?, ?)
-                ON CONFLICT (key_id, process_name)
-                DO UPDATE SET
-                    status = EXCLUDED.status,
-                    expiration_time_millis = EXCLUDED.expiration_time_millis,
-                    response = EXCLUDED.response
-                WHERE %s.expiration_time_millis < ?
-                """.formatted(tableName, tableName);
-        jdbcTemplate.update(
-                sql,
-                key.key(),
-                key.processName(),
-                value.status(),
-                value.expirationTimeInMilliSeconds(),
-                responseJson,
-                now);
-    }
-
-    private void storeMySQL(IdempotentKey key, Value value, String responseJson, long now) {
-        // MySQL: use ON DUPLICATE KEY UPDATE with IF() condition
-        String insertSql = """
-                INSERT INTO %s (key_id, process_name, status, expiration_time_millis, response) VALUES (?, ?, ?, ?, ?)
-                ON DUPLICATE KEY UPDATE
-                status = IF(expiration_time_millis < ?, VALUES(status), status),
-                expiration_time_millis = IF(expiration_time_millis < ?, VALUES(expiration_time_millis), expiration_time_millis),
-                response = IF(expiration_time_millis < ?, VALUES(response), response)
                 """.formatted(tableName);
         jdbcTemplate.update(
-                insertSql,
-                key.key(),
-                key.processName(),
-                value.status(),
-                value.expirationTimeInMilliSeconds(),
-                responseJson,
-                now,
-                now,
-                now);
+                sql, key.key(), key.processName(), value.status(), value.expirationTimeInMilliSeconds(), responseJson);
     }
 
-    private void storeGeneric(IdempotentKey key, Value value, String response, long now) {
-        // Generic H2: INSERT first, if duplicate then try UPDATE with WHERE clause
-        try {
-            String insertSQL = """
-                    INSERT INTO %s (key_id, process_name, status, expiration_time_millis, response) VALUES (?, ?, ?, ?, ?)
-                    """.formatted(tableName);
-            jdbcTemplate.update(
-                    insertSQL,
-                    key.key(),
-                    key.processName(),
-                    value.status(),
-                    value.expirationTimeInMilliSeconds(),
-                    response);
-        } catch (DuplicateKeyException e) {
-            // Key exists, try to update only if expired
-            String updateSql = """
-                    UPDATE %s SET status = ?, expiration_time_millis = ?, response = ?
-                    WHERE key_id = ? AND process_name = ? AND expiration_time_millis < ?
-                    """.formatted(tableName);
-            jdbcTemplate.update(
-                    updateSql,
-                    value.status(),
-                    value.expirationTimeInMilliSeconds(),
-                    response,
-                    key.key(),
-                    key.processName(),
-                    now);
-            // IF UPDATE affects 0 rows, key exists but not expired - silent fail
-        }
+    private void storeMySQL(IdempotentKey key, Value value, String responseJson) {
+        String sql = """
+                INSERT INTO %s (key_id, process_name, status, expiration_time_millis, response) VALUES (?, ?, ?, ?, ?)
+                """.formatted(tableName);
+        jdbcTemplate.update(
+                sql, key.key(), key.processName(), value.status(), value.expirationTimeInMilliSeconds(), responseJson);
+    }
+
+    private void storeGeneric(IdempotentKey key, Value value, String response) {
+        String sql = """
+                INSERT INTO %s (key_id, process_name, status, expiration_time_millis, response) VALUES (?, ?, ?, ?, ?)
+                """.formatted(tableName);
+        jdbcTemplate.update(
+                sql, key.key(), key.processName(), value.status(), value.expirationTimeInMilliSeconds(), response);
     }
 
     @Override

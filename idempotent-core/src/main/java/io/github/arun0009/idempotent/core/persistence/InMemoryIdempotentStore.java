@@ -23,14 +23,7 @@ public class InMemoryIdempotentStore implements IdempotentStore {
 
     @Override
     public void store(IdempotentKey idempotentKey, Value value) {
-        map.compute(idempotentKey, (k, v) -> {
-            if (v == null || v.isExpired()) {
-                return value;
-            }
-            // Race condition - key already exists and not expired
-            // Silent fail as per void interface contract
-            return v;
-        });
+        map.put(idempotentKey, value);
     }
 
     @Override
@@ -40,16 +33,7 @@ public class InMemoryIdempotentStore implements IdempotentStore {
 
     @Override
     public void update(IdempotentKey idempotentKey, Value value) {
-        map.compute(idempotentKey, (k, v) -> {
-            if (v == null
-                    || v.isExpired()
-                    || IdempotentStore.Status.INPROGRESS.name().equals(v.status())) {
-                return value;
-            }
-            // Race condition - key not in correct state for update
-            // Silent fail as per void interface contract
-            return v;
-        });
+        map.replace(idempotentKey, value);
     }
 
     /**

@@ -7,6 +7,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.TestPropertySource;
@@ -18,6 +19,7 @@ import java.util.Map;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 @ExtendWith(SpringExtension.class)
 @ContextConfiguration(classes = RdsPostgreSQLTestConfig.class)
@@ -83,20 +85,19 @@ public class RdsIdempotentStorePostgreSQLTest {
     }
 
     @Test
-    public void testDuplicateStoreDoesNotOverwrite() {
+    public void testDuplicateStoreThrowsException() {
         IdempotentKey key = new IdempotentKey("dup-key", "dup-process");
         Value value1 = new Value("INPROGRESS", System.currentTimeMillis() + 10000, null);
         idempotentStore.store(key, value1);
 
         Value value2 = new Value("COMPLETED", System.currentTimeMillis() + 20000, Map.of("data", "overwritten"));
 
-        // With race condition protection, this should NOT overwrite value1
-        idempotentStore.store(key, value2);
+        // With strict insert, this should throw DuplicateKeyException
+        assertThrows(DuplicateKeyException.class, () -> idempotentStore.store(key, value2));
 
         Value retrieved = idempotentStore.getValue(key, Map.class);
         assertNotNull(retrieved);
-        assertEquals("INPROGRESS", retrieved.status()); // Should still be the original value
-        assertNull(retrieved.response()); // Original value had null response
+        assertEquals("INPROGRESS", retrieved.status()); // Should still be original
     }
 
     @Test

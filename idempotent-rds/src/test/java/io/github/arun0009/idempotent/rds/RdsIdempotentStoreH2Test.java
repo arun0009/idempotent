@@ -10,6 +10,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.jdbc.DataSourceBuilder;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.TestPropertySource;
@@ -20,7 +21,7 @@ import javax.sql.DataSource;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
  * Fast H2-based tests for development.
@@ -110,18 +111,17 @@ public class RdsIdempotentStoreH2Test {
     }
 
     @Test
-    public void testRaceConditionProtection() {
+    public void testDuplicateStoreThrowsException() {
         IdempotentKey key = new IdempotentKey("race-key", "race-process");
         Value value1 = new Value("INPROGRESS", System.currentTimeMillis() + 10000, null);
         idempotentStore.store(key, value1);
 
         Value value2 = new Value("COMPLETED", System.currentTimeMillis() + 20000, "overwritten");
-        // This should NOT overwrite value1 due to race condition protection
-        idempotentStore.store(key, value2);
+        // This should throw DuplicateKeyException
+        assertThrows(DuplicateKeyException.class, () -> idempotentStore.store(key, value2));
 
         Value retrieved = idempotentStore.getValue(key, String.class);
         assertNotNull(retrieved);
         assertEquals("INPROGRESS", retrieved.status()); // Should still be original
-        assertNull(retrieved.response()); // Original had null response
     }
 }

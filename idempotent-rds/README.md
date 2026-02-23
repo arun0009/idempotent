@@ -59,13 +59,14 @@ See main [README](../README.md) for general idempotent configuration.
 		Default Value: `1000`
 		Description: Number of expired keys to delete in each batch to prevent long-running database locks.
 
-## Distributed Systems Support
+## Cleanup
 
-This module is designed to work in a distributed environment with multiple application instances.
+Unlike Redis or DynamoDb, RDS does not support native TTL for records. This module includes a `RdsCleanupTask` that:
 
-1.  **Atomic Operations**: It relies on the database's primary key constraints (`key_id`, `process_name`) to ensure that only one instance can successfully `INSERT` (lock) a specific key.
-2.  **Concurrency**: If multiple containers try to process the same request simultaneously, the database will reject duplicate inserts with a constraint violation. The application handles this by identifying it as a duplicate request.
-3.  **Cleanup**: The `RdsCleanupTask` runs on all instances by default. It executes batched `DELETE` statements for expired rows to prevent long-running database locks. This is safe to run concurrently as database transactions ensure consistency (deleting an already deleted row is a no-op).
+1.  **Scheduled Execution**: Runs on a configurable schedule on all application instances.
+2.  **Batch Deletion**: Efficiently removes expired records in batches to avoid long-running locks.
+3.  **Safe Concurrency**: It is safe to run on multiple instances; database transactions ensure that a row is deleted exactly once.
+
 
 ## Dependencies
 

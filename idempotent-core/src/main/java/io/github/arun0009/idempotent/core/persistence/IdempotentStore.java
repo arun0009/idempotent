@@ -54,11 +54,7 @@ public interface IdempotentStore {
      * @param expirationTimeInMilliSeconds expiry time of idempotent entry from store
      * @param response this is response received from downstream apis.
      */
-    record Value(String status, Long expirationTimeInMilliSeconds, Object response) implements Serializable {
-        public boolean isExpired() {
-            return expirationTimeInMilliSeconds != null && expirationTimeInMilliSeconds < System.currentTimeMillis();
-        }
-    }
+    record Value(String status, Long expirationTimeInMilliSeconds, Object response) implements Serializable {}
 
     /**
      * The enum Status.

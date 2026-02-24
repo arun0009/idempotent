@@ -47,7 +47,7 @@
 
         <maven.compiler.release>${java.version}</maven.compiler.release>
         <spotless.version>3.2.1</spotless.version>
-        <spring-boot.version>4.0.2</spring-boot.version>
+        <spring-boot.version>4.0.3</spring-boot.version>
     </properties>
 
     <dependencyManagement>

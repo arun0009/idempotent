@@ -11,8 +11,7 @@
     <packaging>jar</packaging>
     <name>idempotent-rds</name>
     <description>idempotent-rds</description>
-    <url>https://github.com/arun0009/idempotent/tree/main/idempotent-rds</url>
-
+    <url>https://github.com/arun0009/idempotent</url>
     <dependencies>
         <dependency>
             <groupId>io.github.arun0009</groupId>

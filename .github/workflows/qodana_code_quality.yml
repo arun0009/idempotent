@@ -20,7 +20,7 @@ jobs:
       contents: write
       pull-requests: write
       checks: write
-      security-events: read
+      security-events: write
     steps:
       - uses: actions/checkout@v6
         with:

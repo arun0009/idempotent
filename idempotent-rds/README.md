@@ -1,0 +1,92 @@
+# Idempotent Cache with RDS Storage (JDBC)
+
+To integrate the idempotent cache with RDS (JDBC) storage into your project, add the following dependency to your pom.xml file:
+
+```xml
+<dependency>
+		<groupId>io.github.arun0009</groupId>
+		<artifactId>idempotent-rds</artifactId>
+		<version>${idempotent.version}</version>
+</dependency>
+```
+
+## Overview
+
+This module provides an idempotent request handling mechanism using a Relational Database (via JDBC/JdbcTemplate) for storage. It requires a database table to be created.
+
+## Database Schema
+
+You must create a table for storing idempotent keys. The default table name is `idempotent`.
+
+**MySQL / PostgreSQL Example:**
+
+```sql
+CREATE TABLE idempotent (
+		key_id VARCHAR(255) NOT NULL,
+		process_name VARCHAR(255) NOT NULL,
+		status VARCHAR(50),
+		expiration_time_millis BIGINT,
+		response TEXT,
+		PRIMARY KEY (key_id, process_name)
+);
+
+CREATE INDEX idx_expiration_time ON idempotent(expiration_time_millis);
+```
+
+## Configuration Properties
+
+### General Properties
+
+See main [README](../README.md) for general idempotent configuration.
+
+### RDS Configuration
+
+*   Table Name
+
+		Property: `idempotent.rds.table-name`
+		Default Value: `idempotent`
+		Description: The name of the database table to use.
+
+*   Cleanup Schedule
+
+		Property: `idempotent.rds.cleanup.fixed-delay`
+		Default Value: `60000` (1 minute)
+		Description: Fixed delay in milliseconds for the cleanup task that removes expired keys.
+
+*   Cleanup Batch Size
+
+		Property: `idempotent.rds.cleanup.batch-size`
+		Default Value: `1000`
+		Description: Number of expired keys to delete in each batch to prevent long-running database locks.
+
+## Cleanup
+
+Unlike Redis or DynamoDb, RDS does not support native TTL for records. This module includes a `RdsCleanupTask` that:
+
+1.  **Scheduled Execution**: Runs on a configurable schedule on all application instances.
+2.  **Batch Deletion**: Efficiently removes expired records in batches to avoid long-running locks.
+3.  **Safe Concurrency**: It is safe to run on multiple instances; database transactions ensure that a row is deleted exactly once.
+
+
+## Dependencies
+
+This module provides the core JDBC logic but does **not** bundle a connection pool or database drivers. You must provide them in your application:
+
+**The Recommended Way (via Spring Boot Starter):**
+1.  Add `spring-boot-starter-jdbc` to your application (this automatically provides `HikariCP` and configures the `DataSource` bean).
+2.  Add the JDBC driver for your database (e.g., `mysql-connector-j` or `postgresql`).
+3.  Configure your `DataSource` as per standard Spring Boot configuration (e.g., `spring.datasource.url`).
+
+**Manual Setup:**
+If you prefer not to use the starter, you must manually provide a `DataSource` bean, a connection pool library (like `HikariCP`), and your database driver.
+
+## Performance Tuning
+
+Since this implementation relies on a relational database, performance is critical. Here are some tips to ensure low latency:
+
+1.  **Indexes**: The provided schema uses a composite Primary Key `(key_id, process_name)`. This creates a clustered index (in MySQL/InnoDB) which is the fastest way to look up records. **Do not remove this.**
+2.  **Connection Pooling**: Use a production-grade connection pool like HikariCP (default in Spring Boot).
+		*   Set `maximum-pool-size` appropriately for your concurrency level.
+		*   Set `minimum-idle` to keep connections warm.
+3.  **Payload Size**: The `response` column stores the JSON response. If your responses are very large (MBs), retrieving them will add latency. Consider keeping responses concise or using a hybrid approach if payloads are massive.
+4.  **Database Hardware**: Ensure your RDS instance has sufficient IOPS, as idempotency checks involve frequent reads and writes.

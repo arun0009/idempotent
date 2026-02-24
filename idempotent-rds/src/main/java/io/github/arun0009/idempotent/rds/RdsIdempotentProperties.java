@@ -1,62 +1,20 @@
 package io.github.arun0009.idempotent.rds;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.boot.context.properties.bind.DefaultValue;
 
 @ConfigurationProperties(prefix = "idempotent.rds")
-public class RdsIdempotentProperties {
+public record RdsIdempotentProperties(
+        /** Name of the database table for idempotent keys. */
+        @DefaultValue("idempotent") String tableName, Cleanup cleanup) {
 
-    /** Name of the database table for idempotent keys. */
-    private String tableName = "idempotent";
+    public record Cleanup(
+            /** Whether the cleanup task is enabled. Set to false for CDS or AOT cache runs. */
+            @DefaultValue("true") boolean enabled,
 
-    private final Cleanup cleanup = new Cleanup();
+            /** Number of expired records to delete per batch. */
+            @DefaultValue("1000") int batchSize,
 
-    public String getTableName() {
-        return tableName;
-    }
-
-    public void setTableName(String tableName) {
-        this.tableName = tableName;
-    }
-
-    public Cleanup getCleanup() {
-        return cleanup;
-    }
-
-    public static class Cleanup {
-
-        /**
-         * Whether the cleanup task is enabled. Set to false for CDS or AOT cache runs.
-         */
-        private boolean enabled = true;
-
-        /** Number of expired records to delete per batch. */
-        private int batchSize = 1000;
-
-        /** Fixed delay in milliseconds between cleanup runs. */
-        private long fixedDelay = 60000;
-
-        public boolean isEnabled() {
-            return enabled;
-        }
-
-        public void setEnabled(boolean enabled) {
-            this.enabled = enabled;
-        }
-
-        public int getBatchSize() {
-            return batchSize;
-        }
-
-        public void setBatchSize(int batchSize) {
-            this.batchSize = batchSize;
-        }
-
-        public long getFixedDelay() {
-            return fixedDelay;
-        }
-
-        public void setFixedDelay(long fixedDelay) {
-            this.fixedDelay = fixedDelay;
-        }
-    }
+            /** Fixed delay in milliseconds between cleanup runs. */
+            @DefaultValue("60000") long fixedDelay) {}
 }

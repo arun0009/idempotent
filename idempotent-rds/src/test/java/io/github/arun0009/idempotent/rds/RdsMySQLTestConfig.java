@@ -1,7 +1,7 @@
 package io.github.arun0009.idempotent.rds;
 
+import com.zaxxer.hikari.HikariDataSource;
 import io.github.arun0009.idempotent.core.persistence.IdempotentStore;
-import org.springframework.boot.jdbc.DataSourceBuilder;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -32,12 +32,12 @@ public class RdsMySQLTestConfig {
 
     @Bean
     public DataSource dataSource() {
-        return DataSourceBuilder.create()
-                .url(mysql.getJdbcUrl())
-                .driverClassName(mysql.getDriverClassName())
-                .username(mysql.getUsername())
-                .password(mysql.getPassword())
-                .build();
+        HikariDataSource ds = new HikariDataSource();
+        ds.setJdbcUrl(mysql.getJdbcUrl());
+        ds.setDriverClassName(mysql.getDriverClassName());
+        ds.setUsername(mysql.getUsername());
+        ds.setPassword(mysql.getPassword());
+        return ds;
     }
 
     @Bean

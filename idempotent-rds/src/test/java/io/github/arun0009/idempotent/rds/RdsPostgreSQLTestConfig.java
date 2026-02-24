@@ -1,7 +1,7 @@
 package io.github.arun0009.idempotent.rds;
 
+import com.zaxxer.hikari.HikariDataSource;
 import io.github.arun0009.idempotent.core.persistence.IdempotentStore;
-import org.springframework.boot.jdbc.DataSourceBuilder;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -32,12 +32,12 @@ public class RdsPostgreSQLTestConfig {
 
     @Bean
     public DataSource dataSource() {
-        return DataSourceBuilder.create()
-                .url(postgres.getJdbcUrl())
-                .driverClassName(postgres.getDriverClassName())
-                .username(postgres.getUsername())
-                .password(postgres.getPassword())
-                .build();
+        HikariDataSource ds = new HikariDataSource();
+        ds.setJdbcUrl(postgres.getJdbcUrl());
+        ds.setDriverClassName(postgres.getDriverClassName());
+        ds.setUsername(postgres.getUsername());
+        ds.setPassword(postgres.getPassword());
+        return ds;
     }
 
     @Bean

@@ -70,7 +70,9 @@ public class RdsIdempotentStoreMySQLTest {
         Value retrieved = idempotentStore.getValue(key, Map.class);
         assertNotNull(retrieved);
         assertEquals("COMPLETED", retrieved.status());
-        assertEquals("success", ((Map) retrieved.response()).get("result"));
+        @SuppressWarnings("unchecked")
+        Map<String, Object> response = (Map<String, Object>) retrieved.response();
+        assertEquals("success", response.get("result"));
     }
 
     @Test

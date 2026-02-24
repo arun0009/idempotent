@@ -31,7 +31,7 @@ public class RdsIdempotentStore implements IdempotentStore {
 
     @Override
     public Value getValue(IdempotentKey key, Class<?> returnType) {
-        String sql = """
+        var sql = """
                 SELECT status, expiration_time_millis, response FROM %s WHERE key_id = ? AND process_name = ?
                 """.formatted(tableName);
         try {
@@ -67,7 +67,7 @@ public class RdsIdempotentStore implements IdempotentStore {
     @Override
     public void store(IdempotentKey key, Value value) {
         try {
-            String responseJson = value.response() != null ? jsonMapper.writeValueAsString(value.response()) : null;
+            var responseJson = value.response() != null ? jsonMapper.writeValueAsString(value.response()) : null;
 
             switch (dialect) {
                 case POSTGRES -> storePostgres(key, value, responseJson);
@@ -81,7 +81,7 @@ public class RdsIdempotentStore implements IdempotentStore {
     }
 
     private void storePostgres(IdempotentKey key, Value value, String responseJson) {
-        String sql = """
+        var sql = """
                 INSERT INTO %s (key_id, process_name, status, expiration_time_millis, response)
                 VALUES (?, ?, ?, ?, ?)
                 """.formatted(tableName);
@@ -90,7 +90,7 @@ public class RdsIdempotentStore implements IdempotentStore {
     }
 
     private void storeMySQL(IdempotentKey key, Value value, String responseJson) {
-        String sql = """
+        var sql = """
                 INSERT INTO %s (key_id, process_name, status, expiration_time_millis, response) VALUES (?, ?, ?, ?, ?)
                 """.formatted(tableName);
         jdbcTemplate.update(
@@ -98,7 +98,7 @@ public class RdsIdempotentStore implements IdempotentStore {
     }
 
     private void storeGeneric(IdempotentKey key, Value value, String response) {
-        String sql = """
+        var sql = """
                 INSERT INTO %s (key_id, process_name, status, expiration_time_millis, response) VALUES (?, ?, ?, ?, ?)
                 """.formatted(tableName);
         jdbcTemplate.update(
@@ -107,7 +107,7 @@ public class RdsIdempotentStore implements IdempotentStore {
 
     @Override
     public void remove(IdempotentKey key) {
-        String sql = """
+        var sql = """
                 DELETE FROM %s WHERE key_id = ? AND process_name = ?
                 """.formatted(tableName);
         jdbcTemplate.update(sql, key.key(), key.processName());
@@ -116,9 +116,9 @@ public class RdsIdempotentStore implements IdempotentStore {
     @Override
     public void update(IdempotentKey key, Value value) {
         try {
-            String responseJson = value.response() != null ? jsonMapper.writeValueAsString(value.response()) : null;
+            var responseJson = value.response() != null ? jsonMapper.writeValueAsString(value.response()) : null;
             // Simple UPDATE - trust the caller's contract that this is for INPROGRESS keys
-            String updateSql = """
+            var updateSql = """
                     UPDATE %s SET status = ?, expiration_time_millis = ?, response = ?
                     WHERE key_id = ? AND process_name = ?
                     """.formatted(tableName);

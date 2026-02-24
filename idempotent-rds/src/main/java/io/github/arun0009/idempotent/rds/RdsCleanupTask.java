@@ -20,8 +20,8 @@ public class RdsCleanupTask {
     }
 
     public void cleanup() {
-        long now = System.currentTimeMillis();
-        int totalDeleted = 0;
+        var now = System.currentTimeMillis();
+        var totalDeleted = 0;
         int batchDeleted;
 
         do {

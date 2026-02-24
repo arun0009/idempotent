@@ -43,19 +43,19 @@ See main [README](../README.md) for general idempotent configuration.
 
 *   Table Name
 
-		Property: `idempotent.rds.table.name`
+		Property: `idempotent.rds.table-name`
 		Default Value: `idempotent`
 		Description: The name of the database table to use.
 
 *   Cleanup Schedule
 
-		Property: `idempotent.rds.cleanup.fixedDelay`
+		Property: `idempotent.rds.cleanup.fixed-delay`
 		Default Value: `60000` (1 minute)
 		Description: Fixed delay in milliseconds for the cleanup task that removes expired keys.
 
 *   Cleanup Batch Size
 
-		Property: `idempotent.rds.cleanup.batch.size`
+		Property: `idempotent.rds.cleanup.batch-size`
 		Default Value: `1000`
 		Description: Number of expired keys to delete in each batch to prevent long-running database locks.
 
@@ -70,7 +70,15 @@ Unlike Redis or DynamoDb, RDS does not support native TTL for records. This modu
 
 ## Dependencies
 
-This module relies on `spring-boot-starter-jdbc`. You must configure your `DataSource` as per standard Spring Boot configuration (e.g., `spring.datasource.url`, etc.).
+This module provides the core JDBC logic but does **not** bundle a connection pool or database drivers. You must provide them in your application:
+
+**The Recommended Way (via Spring Boot Starter):**
+1.  Add `spring-boot-starter-jdbc` to your application (this automatically provides `HikariCP` and configures the `DataSource` bean).
+2.  Add the JDBC driver for your database (e.g., `mysql-connector-j` or `postgresql`).
+3.  Configure your `DataSource` as per standard Spring Boot configuration (e.g., `spring.datasource.url`).
+
+**Manual Setup:**
+If you prefer not to use the starter, you must manually provide a `DataSource` bean, a connection pool library (like `HikariCP`), and your database driver.
 
 ## Performance Tuning
 

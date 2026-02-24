@@ -11,7 +11,7 @@
     <packaging>jar</packaging>
     <name>idempotent-dynamo</name>
     <description>idempotent-dynamo</description>
-    <url>https://github.com/arun0009/idempotent/tree/main/idempotent-dynamo</url>
+    <url>https://github.com/arun0009/idempotent</url>
     <properties>
         <dynamo-enhanced.version>2.41.34</dynamo-enhanced.version>
     </properties>

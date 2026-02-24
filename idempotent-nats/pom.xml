@@ -11,8 +11,7 @@
     <artifactId>idempotent-nats</artifactId>
     <name>idempotent-nats</name>
     <description>idempotent-nats</description>
-    <url>https://github.com/arun0009/idempotent/tree/main/idempotent-nats</url>
-
+    <url>https://github.com/arun0009/idempotent</url>
     <properties>
         <jnats.version>2.25.1</jnats.version>
     </properties>

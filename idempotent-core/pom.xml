@@ -11,6 +11,8 @@
     <artifactId>idempotent-core</artifactId>
     <packaging>jar</packaging>
     <name>idempotent-core</name>
+    <description>Core module for the Idempotent library</description>
+    <url>https://github.com/arun0009/idempotent</url>
 
     <dependencies>
         <dependency>

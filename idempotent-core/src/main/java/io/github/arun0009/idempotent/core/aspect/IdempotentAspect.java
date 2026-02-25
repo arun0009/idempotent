@@ -1,15 +1,18 @@
 package io.github.arun0009.idempotent.core.aspect;
 
+import io.github.arun0009.idempotent.core.IdempotentProperties;
 import io.github.arun0009.idempotent.core.annotation.Idempotent;
 import io.github.arun0009.idempotent.core.exception.IdempotentException;
+import io.github.arun0009.idempotent.core.exception.IdempotentKeyConflictException;
 import io.github.arun0009.idempotent.core.persistence.IdempotentStore;
+import io.github.arun0009.idempotent.core.retry.IdempotentCompletionAwaiter;
+import io.github.arun0009.idempotent.core.retry.WaitStrategy;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
 import org.aspectj.lang.reflect.MethodSignature;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.expression.ExpressionParser;
 import org.springframework.expression.spel.standard.SpelExpressionParser;
 import org.springframework.expression.spel.support.StandardEvaluationContext;
@@ -21,47 +24,34 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.concurrent.TimeUnit;
 
 /**
  * Idempotent aspect Implementation
  */
 @Aspect
 public class IdempotentAspect {
-
     private static final Logger log = LoggerFactory.getLogger(IdempotentAspect.class);
-    // header in request to check for idempotent key
-    @Value("${idempotent.key.header:X-Idempotency-Key}")
-    private String idempotentKeyHeader;
-
-    // in progress request max reties to try (useful if duplicate requests are made concurrently, only lets one win)
-    // defaults to 5.
-    @Value("${idempotent.inprogress.max.retries:5}")
-    private int inprogressMaxRetries;
-
-    // in progress status check retry initial interval, defaults to 100 ms.
-    @Value("${idempotent.inprogress.retry.initial.intervalMillis:100}")
-    private int inprogressRetryInterval;
-
-    // in progress retry multiplier for exponential backoff retries, default 2
-    @Value("${idempotent.inprogress.retry.multiplier:2}")
-    private int inprogressRetryMultiplier;
-
+    private final IdempotentCompletionAwaiter completionAwaiter;
+    private final ExpressionParser parser;
     private final IdempotentStore idempotentStore;
+    private final String idempotentKeyHeader;
 
     /**
-     * Create the SpEL parser.
-     */
-    private final ExpressionParser parser = new SpelExpressionParser();
-
-    /**
-     * Instantiates a new Idempotent aspect with a given store (look at idempotent-redis and idempotent-dynamo implementations).
-     * You can also create your own store and pass it to this Aspect.
+     * Instantiates a new Idempotent aspect with a given store and configuration.
      *
      * @param idempotentStore the idempotent store
+     * @param properties      core properties
      */
-    public IdempotentAspect(IdempotentStore idempotentStore) {
+    public IdempotentAspect(IdempotentStore idempotentStore, IdempotentProperties properties) {
+        this.idempotentKeyHeader = properties.getKeyHeader();
         this.idempotentStore = idempotentStore;
+        this.parser = new SpelExpressionParser();
+        this.completionAwaiter = new IdempotentCompletionAwaiter(
+                idempotentStore,
+                new WaitStrategy(
+                        properties.getInprogress().getMaxRetries(),
+                        Duration.ofMillis(properties.getInprogress().getRetryInitialIntervalMillis()),
+                        properties.getInprogress().getRetryMultiplier()));
     }
 
     /**
@@ -100,8 +90,14 @@ public class IdempotentAspect {
             return handleExistingRequest(pjp, idempotentKey, value, ttl);
         }
 
-        log.atDebug().log("Idempotent key {} does not exist, creating new entry", key);
-        return handleNewRequest(pjp, idempotentKey, ttl);
+        try {
+            log.atDebug().log("Idempotent key {} does not exist, creating new entry", key);
+            return handleNewRequest(pjp, idempotentKey, ttl);
+        } catch (IdempotentKeyConflictException e) {
+            log.info("Key conflict for: {}. Refetching value to handle as existing request", e.getKey());
+            value = idempotentStore.getValue(idempotentKey, ((MethodSignature) pjp.getSignature()).getReturnType());
+            return handleExistingRequest(pjp, idempotentKey, value, ttl);
+        }
     }
 
     /**
@@ -213,43 +209,16 @@ public class IdempotentAspect {
             IdempotentStore.Value existingValue,
             Duration ttl)
             throws Throwable {
-        try {
-            if (existingValue.status().equals(IdempotentStore.Status.INPROGRESS.name())) {
-                existingValue = waitForCompletion(idempotentKey, existingValue);
-            }
-            if (existingValue.status().equals(IdempotentStore.Status.COMPLETED.name())) {
-                return existingValue.response();
-            } else {
-                idempotentStore.remove(idempotentKey);
-            }
-            return handleNewRequest(pjp, idempotentKey, ttl);
-        } catch (Exception e) {
-            throw new IdempotentException("error handling existing request", e);
+        if (IdempotentStore.Status.INPROGRESS.is(existingValue.status())) {
+            existingValue = completionAwaiter.wait(idempotentKey, existingValue);
         }
-    }
 
-    /**
-     * If a request is in progress wait for it to complete for a given period before giving up and deleting.
-     *
-     * @param idempotentKey idempotent key for given request
-     * @param value         response value along with status and expiry time
-     * @return value response value along with status and expiry time
-     * @throws IdempotentException idempotent exception with message
-     */
-    private IdempotentStore.Value waitForCompletion(
-            IdempotentStore.IdempotentKey idempotentKey, IdempotentStore.Value value) throws IdempotentException {
-        int retries = 0;
-        while (retries < inprogressMaxRetries && !value.status().equals(IdempotentStore.Status.COMPLETED.name())) {
-            try {
-                TimeUnit.MILLISECONDS.sleep(
-                        (long) inprogressRetryInterval * (int) Math.pow(inprogressRetryMultiplier, retries));
-            } catch (InterruptedException e) {
-                throw new IdempotentException("error waiting for completion", e);
-            }
-            retries++;
-            value = idempotentStore.getValue(idempotentKey, value.getClass());
+        if (IdempotentStore.Status.COMPLETED.is(existingValue.status())) {
+            return existingValue.response();
         }
-        return value;
+
+        idempotentStore.remove(idempotentKey);
+        return handleNewRequest(pjp, idempotentKey, ttl);
     }
 
     /**
@@ -269,16 +238,14 @@ public class IdempotentAspect {
                 idempotentKey,
                 new IdempotentStore.Value(IdempotentStore.Status.INPROGRESS.name(), expiryTimeInMilliseconds, null));
 
-        Object response;
         try {
-            response = pjp.proceed();
+            Object response = pjp.proceed();
+            updateStoreWithResponse(idempotentKey, response, expiryTimeInMilliseconds);
+            return response;
         } catch (Throwable e) {
             idempotentStore.remove(idempotentKey);
             throw e;
         }
-
-        updateStoreWithResponse(idempotentKey, response, expiryTimeInMilliseconds);
-        return response;
     }
 
     /**

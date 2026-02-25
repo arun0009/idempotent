@@ -1,5 +1,6 @@
 package io.github.arun0009.idempotent.rds;
 
+import io.github.arun0009.idempotent.core.exception.IdempotentKeyConflictException;
 import io.github.arun0009.idempotent.core.persistence.IdempotentStore;
 import io.github.arun0009.idempotent.core.persistence.IdempotentStore.IdempotentKey;
 import io.github.arun0009.idempotent.core.persistence.IdempotentStore.Value;
@@ -24,7 +25,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 @ExtendWith(SpringExtension.class)
 @ContextConfiguration(classes = RdsPostgreSQLTestConfig.class)
 @TestPropertySource(properties = {"idempotent.rds.table-name=idempotent"})
-public class RdsIdempotentStorePostgreSQLTest {
+class RdsIdempotentStorePostgreSQLTest {
 
     @Autowired
     private IdempotentStore idempotentStore;
@@ -36,7 +37,7 @@ public class RdsIdempotentStorePostgreSQLTest {
     private JdbcTemplate jdbcTemplate;
 
     @BeforeEach
-    public void setUp() {
+    void setUp() {
         // Create the table for PostgreSQL
         jdbcTemplate.update("""
                     CREATE TABLE IF NOT EXISTS idempotent (
@@ -56,7 +57,7 @@ public class RdsIdempotentStorePostgreSQLTest {
     }
 
     @Test
-    public void testStoreAndGet() {
+    void testStoreAndGet() {
         IdempotentKey key = new IdempotentKey("test-key", "test-process");
         Value value = new Value("COMPLETED", System.currentTimeMillis() + 5000, Map.of("result", "success"));
 
@@ -71,7 +72,7 @@ public class RdsIdempotentStorePostgreSQLTest {
     }
 
     @Test
-    public void testUpdate() {
+    void testUpdate() {
         IdempotentKey key = new IdempotentKey("test-key-update", "test-process");
         Value value = new Value("INPROGRESS", System.currentTimeMillis() + 10000, null);
 
@@ -87,15 +88,15 @@ public class RdsIdempotentStorePostgreSQLTest {
     }
 
     @Test
-    public void testDuplicateStoreThrowsException() {
+    void testDuplicateStoreThrowsException() {
         IdempotentKey key = new IdempotentKey("dup-key", "dup-process");
         Value value1 = new Value("INPROGRESS", System.currentTimeMillis() + 10000, null);
         idempotentStore.store(key, value1);
 
         Value value2 = new Value("COMPLETED", System.currentTimeMillis() + 20000, Map.of("data", "overwritten"));
 
-        // With strict insert, this should throw DuplicateKeyException
-        assertThrows(DuplicateKeyException.class, () -> idempotentStore.store(key, value2));
+        // With strict insert, this should throw IdempotentKeyConflictException
+        assertThrows(IdempotentKeyConflictException.class, () -> idempotentStore.store(key, value2));
 
         Value retrieved = idempotentStore.getValue(key, Map.class);
         assertNotNull(retrieved);
@@ -103,7 +104,7 @@ public class RdsIdempotentStorePostgreSQLTest {
     }
 
     @Test
-    public void testCleanup() {
+    void testCleanup() {
         IdempotentKey key1 = new IdempotentKey("test-key-cleanup-1", "test-process");
         // Expired
         Value value1 = new Value("COMPLETED", System.currentTimeMillis() - 10000, Map.of("data", "expired"));
@@ -122,7 +123,7 @@ public class RdsIdempotentStorePostgreSQLTest {
     }
 
     @Test
-    public void testComplexPojoSerialization() {
+    void testComplexPojoSerialization() {
         IdempotentKey key = new IdempotentKey("complex-key", "complex-process");
         Map<String, Object> complexData = Map.of(
                 "id",
@@ -148,7 +149,7 @@ public class RdsIdempotentStorePostgreSQLTest {
     }
 
     @Test
-    public void testPostgreSQLDialectDetection() {
+    void testPostgreSQLDialectDetection() {
         // Verify that PostgreSQL dialect is detected correctly with real PostgreSQL
         RdsDialect dialect = RdsDialect.detect(jdbcTemplate);
         assertEquals(RdsDialect.POSTGRES, dialect);

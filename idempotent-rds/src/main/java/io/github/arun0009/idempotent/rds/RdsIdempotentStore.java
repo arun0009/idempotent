@@ -1,7 +1,9 @@
 package io.github.arun0009.idempotent.rds;
 
 import io.github.arun0009.idempotent.core.exception.IdempotentException;
+import io.github.arun0009.idempotent.core.exception.IdempotentKeyConflictException;
 import io.github.arun0009.idempotent.core.persistence.IdempotentStore;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
@@ -68,15 +70,15 @@ public class RdsIdempotentStore implements IdempotentStore {
     public void store(IdempotentKey key, Value value) {
         try {
             var responseJson = value.response() != null ? jsonMapper.writeValueAsString(value.response()) : null;
-
             switch (dialect) {
                 case POSTGRES -> storePostgres(key, value, responseJson);
                 case MYSQL -> storeMySQL(key, value, responseJson);
                 case H2, GENERIC -> storeGeneric(key, value, responseJson);
             }
-
         } catch (JacksonException e) {
-            throw new IdempotentException("Error serializing response", e);
+            throw new IdempotentException("Error serializing value response", e);
+        } catch (DuplicateKeyException e) {
+            throw new IdempotentKeyConflictException("Idempotent key already exists in " + dialect, key);
         }
     }
 

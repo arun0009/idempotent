@@ -1,6 +1,7 @@
 package io.github.arun0009.idempotent.rds;
 
 import com.zaxxer.hikari.HikariDataSource;
+import io.github.arun0009.idempotent.core.exception.IdempotentKeyConflictException;
 import io.github.arun0009.idempotent.core.persistence.IdempotentStore;
 import io.github.arun0009.idempotent.core.persistence.IdempotentStore.IdempotentKey;
 import io.github.arun0009.idempotent.core.persistence.IdempotentStore.Value;
@@ -10,7 +11,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.TestPropertySource;
@@ -31,13 +31,10 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 @ExtendWith(SpringExtension.class)
 @ContextConfiguration(classes = RdsIdempotentStoreH2Test.H2TestConfig.class)
 @TestPropertySource(properties = {"idempotent.rds.table-name=idempotent"})
-public class RdsIdempotentStoreH2Test {
+class RdsIdempotentStoreH2Test {
 
     @Autowired
     private IdempotentStore idempotentStore;
-
-    @Autowired
-    private RdsCleanupTask rdsCleanupTask;
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
@@ -73,7 +70,7 @@ public class RdsIdempotentStoreH2Test {
     }
 
     @BeforeEach
-    public void setUp() {
+    void setUp() {
         // Create table for H2
         jdbcTemplate.update("""
                 CREATE TABLE IF NOT EXISTS idempotent (
@@ -91,7 +88,7 @@ public class RdsIdempotentStoreH2Test {
     }
 
     @Test
-    public void testStoreAndGet() {
+    void testStoreAndGet() {
         IdempotentKey key = new IdempotentKey("test-key", "test-process");
         Value value = new Value("COMPLETED", System.currentTimeMillis() + 5000, "success");
 
@@ -104,21 +101,21 @@ public class RdsIdempotentStoreH2Test {
     }
 
     @Test
-    public void testDialectDetection() {
+    void testDialectDetection() {
         // Verify H2 dialect is detected correctly
         RdsDialect dialect = RdsDialect.detect(jdbcTemplate);
         assertEquals(RdsDialect.H2, dialect);
     }
 
     @Test
-    public void testDuplicateStoreThrowsException() {
+    void testDuplicateStoreThrowsException() {
         IdempotentKey key = new IdempotentKey("race-key", "race-process");
         Value value1 = new Value("INPROGRESS", System.currentTimeMillis() + 10000, null);
         idempotentStore.store(key, value1);
 
         Value value2 = new Value("COMPLETED", System.currentTimeMillis() + 20000, "overwritten");
-        // This should throw DuplicateKeyException
-        assertThrows(DuplicateKeyException.class, () -> idempotentStore.store(key, value2));
+        // This should throw IdempotentKeyConflictException
+        assertThrows(IdempotentKeyConflictException.class, () -> idempotentStore.store(key, value2));
 
         Value retrieved = idempotentStore.getValue(key, String.class);
         assertNotNull(retrieved);

@@ -13,7 +13,7 @@
     <description>idempotent-dynamo</description>
     <url>https://github.com/arun0009/idempotent</url>
     <properties>
-        <dynamo-enhanced.version>2.42.0</dynamo-enhanced.version>
+        <dynamo-enhanced.version>2.42.2</dynamo-enhanced.version>
     </properties>
     <dependencies>
         <dependency>

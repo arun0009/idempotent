@@ -30,7 +30,7 @@ class IdempotentCoreAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean(IdempotentService.class)
-    IdempotentService idempotentProperties(IdempotentStore idempotentStore) {
+    IdempotentService idempotentService(IdempotentStore idempotentStore) {
         return new IdempotentService(idempotentStore);
     }
 }

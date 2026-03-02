@@ -68,7 +68,7 @@ public class IdempotentProperties {
 
         /**
          * Multiplier for exponential backoff between retry attempts.
-         * Each subsequent retry will wait: initialInterval + (multiplier ^ attemptNumber) ms.
+         * Each subsequent retry will wait: delay + (backoffMultiplier ^ attempt) ms.
          */
         @Name("retry.multiplier")
         private int retryMultiplier = 2;

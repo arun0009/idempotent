@@ -2,9 +2,11 @@ package io.github.arun0009.idempotent.core.service;
 
 import io.github.arun0009.idempotent.core.exception.IdempotentException;
 import io.github.arun0009.idempotent.core.exception.IdempotentKeyConflictException;
+import io.github.arun0009.idempotent.core.exception.IdempotentWaitExhaustedException;
 import io.github.arun0009.idempotent.core.persistence.IdempotentStore;
 import io.github.arun0009.idempotent.core.retry.IdempotentCompletionAwaiter;
 import io.github.arun0009.idempotent.core.retry.WaitStrategy;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -41,10 +43,12 @@ public class IdempotentService {
      * @param operation the operation to execute (must not be null)
      * @param ttl       the time to live for the idempotent result (must not be null)
      * @param <T>       the return type of the operation
-     * @return the result of the operation
+     * @return the result of the operation if completed, or {@code null} if not completed, the wait times out, or the entry has expired
      * @throws NullPointerException if any parameter is null
+     * @throws IdempotentException  if there is an error executing the operation
+     * @throws IdempotentWaitExhaustedException if the wait times out
      */
-    public <T> T execute(String key, Supplier<T> operation, Duration ttl) {
+    public <T> @Nullable T execute(String key, Supplier<T> operation, Duration ttl) {
         return execute(key, "default", operation, ttl);
     }
 
@@ -56,10 +60,12 @@ public class IdempotentService {
      * @param operation   the operation to execute (must not be null)
      * @param ttl         the time to live for the idempotent result (must not be null)
      * @param <T>         the return type of the operation
-     * @return the result of the operation
+     * @return the result of the operation if completed, or {@code null} if not completed, the wait times out, or the entry has expired
      * @throws NullPointerException if any parameter is null
+     * @throws IdempotentException  if there is an error executing the operation
+     * @throws IdempotentWaitExhaustedException if the wait times out
      */
-    public <T> T execute(String key, String processName, Supplier<T> operation, Duration ttl) {
+    public <T> @Nullable T execute(String key, String processName, Supplier<T> operation, Duration ttl) {
         Objects.requireNonNull(key, "key cannot be null");
         Objects.requireNonNull(processName, "processName cannot be null");
         Objects.requireNonNull(operation, "operation cannot be null");
@@ -76,10 +82,12 @@ public class IdempotentService {
      * @param operation     the operation to execute (must not be null)
      * @param ttl           the time to live for the idempotent result (must not be null)
      * @param <T>           the return type
-     * @return the result of the operation
+     * @return the result of the operation if completed, or {@code null} if not completed, the wait times out, or the entry has expired
      * @throws NullPointerException if any parameter is null
+     * @throws IdempotentException  if there is an error executing the operation
+     * @throws IdempotentWaitExhaustedException if the wait times out
      */
-    public <T> T execute(IdempotentStore.IdempotentKey idempotentKey, Supplier<T> operation, Duration ttl) {
+    public <T> @Nullable T execute(IdempotentStore.IdempotentKey idempotentKey, Supplier<T> operation, Duration ttl) {
         Objects.requireNonNull(idempotentKey, "idempotentKey cannot be null");
         Objects.requireNonNull(operation, "operation cannot be null");
         Objects.requireNonNull(ttl, "ttl cannot be null");
@@ -94,7 +102,8 @@ public class IdempotentService {
     }
 
     @SuppressWarnings("unchecked")
-    private <T> T handleExistingOperation(IdempotentStore.IdempotentKey idempotentKey, IdempotentStore.Value value) {
+    private <T> @Nullable T handleExistingOperation(
+            IdempotentStore.IdempotentKey idempotentKey, IdempotentStore.Value value) {
         // Return a cached result if completed
         if (COMPLETED.is(value.status())) {
             return (T) value.response();
@@ -107,7 +116,10 @@ public class IdempotentService {
                 return (T) value.response();
             }
         }
-        return null;
+
+        idempotentStore.remove(idempotentKey);
+        throw new IdempotentWaitExhaustedException(
+                "Operation wait exhausted in progress after multiple retries", idempotentKey);
     }
 
     private <T> T handleNewOperation(IdempotentStore.IdempotentKey idempotentKey, Supplier<T> operation, Duration ttl) {

@@ -72,15 +72,15 @@ class IdempotentControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         // language=json
                         .content("""
-                        {
-                             "id": 1111,
-                             "type": {
-                                 "category": "error test API",
-                                 "version" : "1"
-                              },
-                             "name": "Asset API-1"
-                         }
-                        """))
+                                {
+                                     "id": 1111,
+                                     "type": {
+                                         "category": "error test API",
+                                         "version" : "1"
+                                      },
+                                     "name": "Asset API-1"
+                                 }
+                                """))
                 .andReturn()
                 .getResponse();
 

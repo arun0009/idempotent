@@ -29,9 +29,10 @@ public class RedisIdempotentStore implements IdempotentStore {
 
     @Override
     public void store(IdempotentKey key, Value value) {
-        Long ttl = value.expirationTimeInMilliSeconds();
+        var timeout = remainingTtlMillis(value.expirationTimeInMilliSeconds());
         // the key should not exist
-        if (!redisTemplate.opsForValue().setIfAbsent(key, value, ttl, TimeUnit.MILLISECONDS)) {
+        var exists = !redisTemplate.opsForValue().setIfAbsent(key, value, timeout, TimeUnit.MILLISECONDS);
+        if (exists) {
             throw new IdempotentKeyConflictException("Idempotent key already exists in Redis", key);
         }
     }
@@ -43,7 +44,11 @@ public class RedisIdempotentStore implements IdempotentStore {
 
     @Override
     public void update(IdempotentKey key, Value value) {
-        Long ttl = value.expirationTimeInMilliSeconds();
-        redisTemplate.opsForValue().set(key, value, ttl, TimeUnit.MILLISECONDS);
+        var timeout = remainingTtlMillis(value.expirationTimeInMilliSeconds());
+        redisTemplate.opsForValue().set(key, value, timeout, TimeUnit.MILLISECONDS);
+    }
+
+    private static long remainingTtlMillis(long expirationTimeInMs) {
+        return Math.max(0, expirationTimeInMs - System.currentTimeMillis());
     }
 }

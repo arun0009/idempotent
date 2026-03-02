@@ -266,11 +266,11 @@ class NatsIdempotentControllerTest {
     }
 
     @Test
-    void shouldUpdateInsteadCreateEntry() {
+    void shouldNotManageKeyConflict() {
         ExecutorService executor = Executors.newFixedThreadPool(10);
         List<Future<?>> futures = new ArrayList<>();
-        for (int i = 0; i < 10; i++) {
-            Future<?> future = executor.submit(() -> mvcTester
+        for (var i = 0; i < 10; i++) {
+            var future = executor.submit(() -> mvcTester
                     .post()
                     .uri("/nats/books/heavy")
                     .contentType(MediaType.APPLICATION_JSON)
@@ -279,7 +279,7 @@ class NatsIdempotentControllerTest {
                     .hasStatusOk());
             futures.add(future);
         }
-        for (Future<?> future : futures) {
+        for (var future : futures) {
             assertDoesNotThrow(() -> future.get());
         }
     }

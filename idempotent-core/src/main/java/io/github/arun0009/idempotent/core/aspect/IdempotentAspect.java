@@ -4,6 +4,7 @@ import io.github.arun0009.idempotent.core.IdempotentProperties;
 import io.github.arun0009.idempotent.core.annotation.Idempotent;
 import io.github.arun0009.idempotent.core.exception.IdempotentException;
 import io.github.arun0009.idempotent.core.exception.IdempotentKeyConflictException;
+import io.github.arun0009.idempotent.core.exception.IdempotentWaitExhaustedException;
 import io.github.arun0009.idempotent.core.persistence.IdempotentStore;
 import io.github.arun0009.idempotent.core.retry.IdempotentCompletionAwaiter;
 import io.github.arun0009.idempotent.core.retry.WaitStrategy;
@@ -87,7 +88,7 @@ public class IdempotentAspect {
 
         if (isExistingRequest(value)) {
             log.atDebug().log("Idempotent key {} already exists", key);
-            return handleExistingRequest(pjp, idempotentKey, value, ttl);
+            return handleExistingRequest(idempotentKey, value);
         }
 
         try {
@@ -96,7 +97,12 @@ public class IdempotentAspect {
         } catch (IdempotentKeyConflictException e) {
             log.info("Key conflict for: {}. Refetching value to handle as existing request", e.getKey());
             value = idempotentStore.getValue(idempotentKey, ((MethodSignature) pjp.getSignature()).getReturnType());
-            return handleExistingRequest(pjp, idempotentKey, value, ttl);
+            if (value == null) {
+                // Possible race condition: key expired in the meantime
+                return handleNewRequest(pjp, idempotentKey, ttl);
+            }
+
+            return handleExistingRequest(idempotentKey, value);
         }
     }
 
@@ -196,29 +202,24 @@ public class IdempotentAspect {
      * and retry and get response from first call. If status doesn't change from INPROGRESS
      * fpr a given timeout delete the key.
      *
-     * @param pjp           Springs Proceed Joint Point
      * @param idempotentKey idempotent key for given request
      * @param existingValue response value along with status and expiry time
-     * @param ttl           how long should this idempotent request/response be stored
      * @return Object which is the response.
-     * @throws Throwable if the intercepted method invocation fails (propagated as-is), or if an unexpected error occurs while interacting with the idempotency store.
+     * @throws IdempotentWaitExhaustedException if wait times out
      */
     private Object handleExistingRequest(
-            ProceedingJoinPoint pjp,
-            IdempotentStore.IdempotentKey idempotentKey,
-            IdempotentStore.Value existingValue,
-            Duration ttl)
-            throws Throwable {
+            IdempotentStore.IdempotentKey idempotentKey, IdempotentStore.Value existingValue) {
         if (IdempotentStore.Status.INPROGRESS.is(existingValue.status())) {
             existingValue = completionAwaiter.wait(idempotentKey, existingValue);
         }
 
-        if (IdempotentStore.Status.COMPLETED.is(existingValue.status())) {
+        if (existingValue != null && IdempotentStore.Status.COMPLETED.is(existingValue.status())) {
             return existingValue.response();
         }
 
         idempotentStore.remove(idempotentKey);
-        return handleNewRequest(pjp, idempotentKey, ttl);
+        throw new IdempotentWaitExhaustedException(
+                "Operation wait exhausted in progress after multiple retries", idempotentKey);
     }
 
     /**

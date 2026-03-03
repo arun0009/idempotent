@@ -13,7 +13,7 @@
     <description>idempotent-nats</description>
     <url>https://github.com/arun0009/idempotent</url>
     <properties>
-        <jnats.version>2.25.1</jnats.version>
+        <jnats.version>2.25.2</jnats.version>
     </properties>
 
     <dependencies>

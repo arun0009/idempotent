@@ -1,10 +1,16 @@
 package io.github.arun0009.idempotent.nats;
 
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
-import io.github.arun0009.idempotent.core.aspect.IdempotentAspect;
 import io.github.arun0009.idempotent.core.persistence.IdempotentStore;
 import io.github.arun0009.idempotent.core.service.IdempotentService;
-import io.nats.client.*;
+import io.nats.client.Connection;
+import io.nats.client.ConnectionListener;
+import io.nats.client.JetStreamApiException;
+import io.nats.client.KeyValue;
+import io.nats.client.KeyValueManagement;
+import io.nats.client.KeyValueOptions;
+import io.nats.client.Nats;
+import io.nats.client.Options;
 import io.nats.client.api.KeyValueConfiguration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -42,11 +48,6 @@ class NatsIdempotentAutoConfiguration {
     @ConditionalOnMissingBean(IdempotentService.class)
     IdempotentService idempotentService(IdempotentStore idempotentStore) {
         return new IdempotentService(idempotentStore);
-    }
-
-    @Bean
-    IdempotentAspect idempotentAspect(IdempotentStore idempotentStore) {
-        return new IdempotentAspect(idempotentStore);
     }
 
     @Bean

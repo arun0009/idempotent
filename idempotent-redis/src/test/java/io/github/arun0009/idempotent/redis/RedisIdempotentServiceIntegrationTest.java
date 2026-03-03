@@ -89,19 +89,17 @@ class RedisIdempotentServiceIntegrationTest {
     @Test
     void testServiceConcurrentExecution() throws Exception {
         AtomicInteger executionCount = new AtomicInteger(0);
-        String expectedResult = "result-" + (executionCount.incrementAndGet());
-
         Supplier<String> operation = () -> {
             try {
-                Thread.sleep(100); // Simulate work
-                return expectedResult; // Always return the same result
+                Thread.sleep(100);
+                return "result-" + executionCount.incrementAndGet();
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 throw new RuntimeException(e);
             }
         };
 
-        // Execute same operation concurrently
+        // Execute the same operation concurrently
         int numThreads = 5;
         @SuppressWarnings("unchecked")
         CompletableFuture<String>[] futures = new CompletableFuture[numThreads];
@@ -174,7 +172,7 @@ class RedisIdempotentServiceIntegrationTest {
     }
 
     @Test
-    void testServiceWithCustomTtl() throws Exception {
+    void testServiceWithCustomTtl() {
         Supplier<TestData> operation = () -> new TestData("test-name", 42);
 
         TestData result1 = idempotentService.execute("complex-key-1", operation, Duration.ofSeconds(300));

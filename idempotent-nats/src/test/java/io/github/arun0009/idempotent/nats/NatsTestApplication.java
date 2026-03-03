@@ -104,7 +104,7 @@ class NatsTestApplication {
         @Idempotent
         @PostMapping("heavy")
         Book heavyOperation() throws InterruptedException {
-            TimeUnit.SECONDS.sleep(1);
+            TimeUnit.MILLISECONDS.sleep(500);
             return new Book(
                     "1234567890",
                     new Category("Fiction", "Mystery"),

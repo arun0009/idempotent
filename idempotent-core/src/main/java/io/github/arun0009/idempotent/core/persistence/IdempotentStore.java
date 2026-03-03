@@ -17,10 +17,16 @@ public interface IdempotentStore {
     Value getValue(IdempotentKey key, Class<?> returnType);
 
     /**
-     * Store idempotent key and value which contains response
+     * Store idempotent key and value which contains response.
+     * <p>
+     * Implementations must perform a strict insert operation. If the key already exists
+     * in the store, the implementation must throw an {@link io.github.arun0009.idempotent.core.exception.IdempotentKeyConflictException}
+     * instead of overwriting the existing value.
      *
      * @param key   the idempotentKey
-     * @param value the value which contains response
+     * @param value the value which contains the response
+     * @throws io.github.arun0009.idempotent.core.exception.IdempotentKeyConflictException if the key already exists in the store
+     * @throws io.github.arun0009.idempotent.core.exception.IdempotentException if there is any other error
      */
     void store(IdempotentKey key, Value value);
 
@@ -75,8 +81,13 @@ public interface IdempotentStore {
             this.status = status;
         }
 
+        @Override
         public String toString() {
             return status;
+        }
+
+        public boolean is(String status) {
+            return this.status.equals(status);
         }
     }
 }

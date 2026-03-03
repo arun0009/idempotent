@@ -1,5 +1,6 @@
 package io.github.arun0009.idempotent.redis;
 
+import io.github.arun0009.idempotent.core.exception.IdempotentKeyConflictException;
 import io.github.arun0009.idempotent.core.persistence.IdempotentStore;
 import org.springframework.data.redis.core.RedisTemplate;
 
@@ -28,9 +29,11 @@ public class RedisIdempotentStore implements IdempotentStore {
 
     @Override
     public void store(IdempotentKey key, Value value) {
-        redisTemplate.opsForValue().set(key, value);
-        if (value.expirationTimeInMilliSeconds() != null) {
-            redisTemplate.expire(key, value.expirationTimeInMilliSeconds(), TimeUnit.MILLISECONDS);
+        var timeout = remainingTtlMillis(value.expirationTimeInMilliSeconds());
+        // the key should not exist
+        var exists = !redisTemplate.opsForValue().setIfAbsent(key, value, timeout, TimeUnit.MILLISECONDS);
+        if (exists) {
+            throw new IdempotentKeyConflictException("Idempotent key already exists in Redis", key);
         }
     }
 
@@ -41,9 +44,11 @@ public class RedisIdempotentStore implements IdempotentStore {
 
     @Override
     public void update(IdempotentKey key, Value value) {
-        redisTemplate.opsForValue().set(key, value);
-        if (value.expirationTimeInMilliSeconds() != null) {
-            redisTemplate.expire(key, value.expirationTimeInMilliSeconds(), TimeUnit.MILLISECONDS);
-        }
+        var timeout = remainingTtlMillis(value.expirationTimeInMilliSeconds());
+        redisTemplate.opsForValue().set(key, value, timeout, TimeUnit.MILLISECONDS);
+    }
+
+    private static long remainingTtlMillis(long expirationTimeInMs) {
+        return Math.max(0, expirationTimeInMs - System.currentTimeMillis());
     }
 }

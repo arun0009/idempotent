@@ -17,7 +17,7 @@ import javax.sql.DataSource;
 
 @Testcontainers
 @Configuration
-public class RdsPostgreSQLTestConfig {
+class RdsPostgreSQLTestConfig {
 
     @Container
     static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>(DockerImageName.parse("postgres:15-alpine"))
@@ -31,7 +31,7 @@ public class RdsPostgreSQLTestConfig {
     }
 
     @Bean
-    public DataSource dataSource() {
+    DataSource dataSource() {
         HikariDataSource ds = new HikariDataSource();
         ds.setJdbcUrl(postgres.getJdbcUrl());
         ds.setDriverClassName(postgres.getDriverClassName());
@@ -41,17 +41,17 @@ public class RdsPostgreSQLTestConfig {
     }
 
     @Bean
-    public JdbcTemplate jdbcTemplate(DataSource dataSource) {
+    JdbcTemplate jdbcTemplate(DataSource dataSource) {
         return new JdbcTemplate(dataSource);
     }
 
     @Bean
-    public IdempotentStore idempotentStore(JdbcTemplate jdbcTemplate) {
+    IdempotentStore idempotentStore(JdbcTemplate jdbcTemplate) {
         return new RdsIdempotentStore(jdbcTemplate, "idempotent", JsonMapper.shared());
     }
 
     @Bean
-    public RdsCleanupTask rdsCleanupTask(JdbcTemplate jdbcTemplate) {
+    RdsCleanupTask rdsCleanupTask(JdbcTemplate jdbcTemplate) {
         RdsDialect dialect = RdsDialect.detect(jdbcTemplate);
         int batchSize = 1000; // Default batch size for tests
         return new RdsCleanupTask(jdbcTemplate, "idempotent", dialect, batchSize);

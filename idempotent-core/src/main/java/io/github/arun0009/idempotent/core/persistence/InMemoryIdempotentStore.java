@@ -1,5 +1,7 @@
 package io.github.arun0009.idempotent.core.persistence;
 
+import io.github.arun0009.idempotent.core.exception.IdempotentKeyConflictException;
+
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -23,7 +25,9 @@ public class InMemoryIdempotentStore implements IdempotentStore {
 
     @Override
     public void store(IdempotentKey idempotentKey, Value value) {
-        map.put(idempotentKey, value);
+        if (map.putIfAbsent(idempotentKey, value) != null) {
+            throw new IdempotentKeyConflictException("Idempotent key already exists in Memory", idempotentKey);
+        }
     }
 
     @Override

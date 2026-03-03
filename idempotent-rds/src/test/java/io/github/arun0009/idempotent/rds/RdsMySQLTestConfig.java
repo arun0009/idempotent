@@ -17,7 +17,7 @@ import javax.sql.DataSource;
 
 @Testcontainers
 @Configuration
-public class RdsMySQLTestConfig {
+class RdsMySQLTestConfig {
 
     @Container
     static MySQLContainer<?> mysql = new MySQLContainer<>(DockerImageName.parse("mysql:8.0"))
@@ -31,7 +31,7 @@ public class RdsMySQLTestConfig {
     }
 
     @Bean
-    public DataSource dataSource() {
+    DataSource dataSource() {
         HikariDataSource ds = new HikariDataSource();
         ds.setJdbcUrl(mysql.getJdbcUrl());
         ds.setDriverClassName(mysql.getDriverClassName());
@@ -41,17 +41,17 @@ public class RdsMySQLTestConfig {
     }
 
     @Bean
-    public JdbcTemplate jdbcTemplate(DataSource dataSource) {
+    JdbcTemplate jdbcTemplate(DataSource dataSource) {
         return new JdbcTemplate(dataSource);
     }
 
     @Bean
-    public IdempotentStore idempotentStore(JdbcTemplate jdbcTemplate) {
+    IdempotentStore idempotentStore(JdbcTemplate jdbcTemplate) {
         return new RdsIdempotentStore(jdbcTemplate, "idempotent", JsonMapper.shared());
     }
 
     @Bean
-    public RdsCleanupTask rdsCleanupTask(JdbcTemplate jdbcTemplate) {
+    RdsCleanupTask rdsCleanupTask(JdbcTemplate jdbcTemplate) {
         RdsDialect dialect = RdsDialect.detect(jdbcTemplate);
         int batchSize = 1000; // Default batch size for tests
         return new RdsCleanupTask(jdbcTemplate, "idempotent", dialect, batchSize);

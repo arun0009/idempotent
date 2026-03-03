@@ -1,6 +1,5 @@
 package io.github.arun0009.idempotent.dynamo;
 
-import io.github.arun0009.idempotent.core.aspect.IdempotentAspect;
 import io.github.arun0009.idempotent.core.persistence.IdempotentStore;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -102,15 +101,5 @@ public class DynamoConfig {
     @Bean
     public IdempotentStore dynamoIdempotentStore(DynamoDbEnhancedClient dynamoEnhancedClient) {
         return new DynamoIdempotentStore(dynamoEnhancedClient, dynamoTableName);
-    }
-
-    /**
-     *
-     * @param idempotentStore DynamoDB IdempotentStore
-     * @return IdempotentAspect which uses dynamo for store
-     */
-    @Bean
-    public IdempotentAspect idempotentAspect(IdempotentStore idempotentStore) {
-        return new IdempotentAspect(idempotentStore);
     }
 }

@@ -2,6 +2,7 @@ name: Release
 
 permissions:
   contents: write
+  pull-requests: write
 
 on:
   push:
@@ -47,13 +48,7 @@ jobs:
           JRELEASER_MAVENCENTRAL_TOKEN: ${{ secrets.JRELEASER_MAVENCENTRAL_TOKEN }}
         run: ./mvnw --no-transfer-progress --batch-mode --non-recursive -Prelease jreleaser:deploy
 
-      - name: Commit & Push changes
-        uses: actions-js/push@master
-        with:
-          github_token: ${{ secrets.github_token }}
-          message: Perform release v${{ env.VERSION }}
-        
-        # Keep jars only for GitHub Release
+      # Keep jars only for GitHub Release
       - name: Package plain jars for GitHub Release
         run: ./mvnw clean package -DskipTests
 
@@ -69,8 +64,15 @@ jobs:
       - name: Set next version
         run: ./mvnw --no-transfer-progress --batch-mode build-helper:parse-version versions:set -DnewVersion=\${parsedVersion.majorVersion}.\${parsedVersion.minorVersion}.\${parsedVersion.nextIncrementalVersion}-SNAPSHOT versions:commit
 
-      - name: Commit & Push changes
-        uses: actions-js/push@master
+      - name: Create pull request for next version
+        uses: peter-evans/create-pull-request@v7
         with:
-          github_token: ${{ secrets.github_token }}
-          message: Prepare for next release
+          token: ${{ secrets.github_token }}
+          branch: chore/prepare-next-release-v${{ env.VERSION }}
+          base: main
+          commit-message: Prepare for next release
+          title: Prepare for next release
+          body: |
+            This PR updates project versions after releasing `v${{ env.VERSION }}`.
+          delete-branch: true
+

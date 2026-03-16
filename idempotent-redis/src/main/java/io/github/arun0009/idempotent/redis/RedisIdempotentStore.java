@@ -2,6 +2,7 @@ package io.github.arun0009.idempotent.redis;
 
 import io.github.arun0009.idempotent.core.exception.IdempotentKeyConflictException;
 import io.github.arun0009.idempotent.core.persistence.IdempotentStore;
+import org.jspecify.annotations.Nullable;
 import org.springframework.data.redis.core.RedisTemplate;
 
 import java.util.concurrent.TimeUnit;
@@ -23,7 +24,7 @@ public class RedisIdempotentStore implements IdempotentStore {
     }
 
     @Override
-    public Value getValue(IdempotentKey key, Class<?> returnType) {
+    public @Nullable Value getValue(IdempotentKey key, Class<?> returnType) {
         return redisTemplate.opsForValue().get(key);
     }
 

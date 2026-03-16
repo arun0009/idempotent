@@ -122,7 +122,8 @@ public class IdempotentService {
                 "Operation wait exhausted in progress after multiple retries", idempotentKey);
     }
 
-    private <T> T handleNewOperation(IdempotentStore.IdempotentKey idempotentKey, Supplier<T> operation, Duration ttl) {
+    private <T> @Nullable T handleNewOperation(
+            IdempotentStore.IdempotentKey idempotentKey, Supplier<T> operation, Duration ttl) {
         try {
             // Mark as in progress
             long expirationTime = Instant.now().plus(ttl).toEpochMilli();
@@ -140,6 +141,10 @@ public class IdempotentService {
         } catch (IdempotentKeyConflictException e) {
             log.info("Idempotent key conflict detected for key: {}", idempotentKey.key());
             IdempotentStore.Value value = idempotentStore.getValue(idempotentKey, Object.class);
+            if (value == null) {
+                throw new IdempotentException(
+                        "Idempotent entry disappeared after conflict for key: " + idempotentKey.key(), e);
+            }
             return handleExistingOperation(idempotentKey, value);
         } catch (Exception e) {
             // Clean up on error

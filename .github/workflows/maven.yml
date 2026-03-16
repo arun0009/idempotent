@@ -26,8 +26,6 @@ jobs:
     strategy:
       matrix:
         java-version:
-          - 17.x
-          - 21.x
           - 25.x
 
     steps:

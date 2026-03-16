@@ -7,6 +7,7 @@ import io.nats.client.KeyValue;
 import io.nats.client.MessageTtl;
 import io.nats.client.api.KeyValueEntry;
 import io.nats.client.support.Validator;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import tools.jackson.databind.json.JsonMapper;
@@ -53,7 +54,7 @@ class NatsIdempotentStore implements IdempotentStore {
     }
 
     @Override
-    public Value getValue(IdempotentKey idemKey, Class<?> returnType) {
+    public @Nullable Value getValue(IdempotentKey idemKey, Class<?> returnType) {
         try {
             log.atDebug().log("Getting key {}", idemKey);
             var key = encodeIfNotValid(idemKey);

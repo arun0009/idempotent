@@ -22,7 +22,9 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 @SpringBootTest
 @ContextConfiguration(classes = RedisTestConfig.class, initializers = RedisTestConfig.Initializer.class)
@@ -38,6 +40,7 @@ class RedisIdempotentServiceIntegrationTest {
     private ExecutorService executor;
 
     // A static class to initialize the Spring context with the Testcontainers properties
+    @SuppressWarnings("unused")
     public static class Initializer implements ApplicationContextInitializer<ConfigurableApplicationContext> {
         @Override
         public void initialize(ConfigurableApplicationContext context) {
@@ -76,12 +79,12 @@ class RedisIdempotentServiceIntegrationTest {
         Supplier<String> operation = () -> "result-" + counter.incrementAndGet();
 
         // First execution
-        String result1 = idempotentService.execute("test-key", operation, Duration.ofSeconds(300));
+        String result1 = idempotentService.execute("test-key", operation, Duration.ofMinutes(5));
         assertEquals("result-1", result1);
         assertEquals(1, counter.get());
 
-        // Second execution should return cached result
-        String result2 = idempotentService.execute("test-key", operation, Duration.ofSeconds(300));
+        // Second execution should return a cached result
+        String result2 = idempotentService.execute("test-key", operation, Duration.ofMinutes(5));
         assertEquals("result-1", result2);
         assertEquals(1, counter.get()); // Counter should not increment
     }
@@ -105,7 +108,7 @@ class RedisIdempotentServiceIntegrationTest {
         CompletableFuture<String>[] futures = new CompletableFuture[numThreads];
         for (int i = 0; i < numThreads; i++) {
             futures[i] = CompletableFuture.supplyAsync(
-                    () -> idempotentService.execute("concurrent-key", operation, Duration.ofSeconds(300)), executor);
+                    () -> idempotentService.execute("concurrent-key", operation, Duration.ofMinutes(5)), executor);
         }
 
         // Wait for all to complete
@@ -130,44 +133,42 @@ class RedisIdempotentServiceIntegrationTest {
         Supplier<String> operation = () -> "result-" + counter.incrementAndGet();
 
         // Test 1: First call with process-1 should execute and increment counter to 1
-        String result1 = idempotentService.execute(key, "process-1", operation, Duration.ofSeconds(300));
+        String result1 = idempotentService.execute(key, "process-1", operation, Duration.ofMinutes(5));
         assertEquals("result-1", result1);
         assertEquals(1, counter.get(), "First call should execute the operation once");
 
         // Test 2: Same key and same process should return cached result without executing
-        String result2 = idempotentService.execute(key, "process-1", operation, Duration.ofSeconds(300));
+        String result2 = idempotentService.execute(key, "process-1", operation, Duration.ofMinutes(5));
         assertEquals("result-1", result2, "Same key and process should return cached result");
         assertEquals(1, counter.get(), "Counter should remain 1 for same key and process");
 
         // Test 3: Same key but different process name should execute again and increment counter to 2
-        String result3 = idempotentService.execute(key, "process-2", operation, Duration.ofSeconds(300));
+        String result3 = idempotentService.execute(key, "process-2", operation, Duration.ofMinutes(5));
         assertEquals("result-2", result3, "Different process should execute again");
         assertEquals(2, counter.get(), "Counter should increment to 2 for different process");
 
         // Test 4: Back to first process name should still return cached result
-        String result4 = idempotentService.execute(key, "process-1", operation, Duration.ofSeconds(300));
+        String result4 = idempotentService.execute(key, "process-1", operation, Duration.ofMinutes(5));
         assertEquals("result-1", result4, "Original process should still get cached result");
         assertEquals(2, counter.get(), "Counter should remain at 2");
     }
 
     @Test
-    void testServiceWithException() throws Exception {
+    void testServiceWithException() {
         Supplier<String> failingOperation = () -> {
             throw new RuntimeException("Simulated failure");
         };
 
         // First call should fail
         assertThrows(
-                Exception.class,
-                () -> idempotentService.execute("error-key", failingOperation, Duration.ofSeconds(300)));
+                Exception.class, () -> idempotentService.execute("error-key", failingOperation, Duration.ofMinutes(5)));
 
         // Second call should also fail (no caching of errors)
         assertThrows(
-                Exception.class,
-                () -> idempotentService.execute("error-key", failingOperation, Duration.ofSeconds(300)));
+                Exception.class, () -> idempotentService.execute("error-key", failingOperation, Duration.ofMinutes(5)));
 
         // Successful operation after failures should work
-        String result = idempotentService.execute("test-key-1", () -> "success", Duration.ofSeconds(300));
+        String result = idempotentService.execute("test-key-1", () -> "success", Duration.ofMinutes(5));
         assertEquals("success", result);
     }
 
@@ -175,44 +176,16 @@ class RedisIdempotentServiceIntegrationTest {
     void testServiceWithCustomTtl() {
         Supplier<TestData> operation = () -> new TestData("test-name", 42);
 
-        TestData result1 = idempotentService.execute("complex-key-1", operation, Duration.ofSeconds(300));
+        TestData result1 = idempotentService.execute("complex-key-1", operation, Duration.ofMinutes(5));
         assertNotNull(result1);
         assertEquals("test-name", result1.name);
         assertEquals(42, result1.value);
 
-        TestData result2 = idempotentService.execute("complex-key-2", operation, Duration.ofSeconds(300));
+        TestData result2 = idempotentService.execute("complex-key-2", operation, Duration.ofMinutes(5));
         assertNotNull(result2);
         assertEquals("test-name", result2.name);
         assertEquals(42, result2.value);
     }
 
-    public static class TestData {
-        public String name;
-        public int value;
-
-        public TestData() {
-            // Default constructor for Jackson
-        }
-
-        public TestData(String name, int value) {
-            this.name = name;
-            this.value = value;
-        }
-
-        public String getName() {
-            return name;
-        }
-
-        public void setName(String name) {
-            this.name = name;
-        }
-
-        public int getValue() {
-            return value;
-        }
-
-        public void setValue(int value) {
-            this.value = value;
-        }
-    }
+    public record TestData(String name, int value) {}
 }

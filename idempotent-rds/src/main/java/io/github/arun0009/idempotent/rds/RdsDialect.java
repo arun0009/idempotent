@@ -6,6 +6,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
+import java.util.Locale;
 
 public enum RdsDialect {
     POSTGRES,
@@ -19,7 +20,7 @@ public enum RdsDialect {
         try {
             return jdbcTemplate.execute((Connection conn) -> {
                 DatabaseMetaData metaData = conn.getMetaData();
-                String databaseProductName = metaData.getDatabaseProductName().toLowerCase();
+                String databaseProductName = metaData.getDatabaseProductName().toLowerCase(Locale.ROOT);
                 if (databaseProductName.contains("postgresql")) {
                     return POSTGRES;
                 } else if (databaseProductName.contains("mysql") || databaseProductName.contains("mariadb")) {

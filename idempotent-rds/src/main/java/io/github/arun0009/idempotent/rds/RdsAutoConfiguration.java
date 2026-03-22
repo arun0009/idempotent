@@ -66,6 +66,7 @@ public class RdsAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
+    @SuppressWarnings("FutureReturnValueIgnored")
     @ConditionalOnProperty(prefix = "idempotent.rds.cleanup", name = "enabled", matchIfMissing = true)
     public RdsCleanupTask rdsCleanupTask(
             JdbcTemplate jdbcTemplate, RdsIdempotentProperties properties, TaskScheduler rdsCleanupTaskScheduler) {

@@ -67,6 +67,7 @@ class RdsIdempotentStorePostgreSQLTest {
         assertEquals("COMPLETED", retrieved.status());
         @SuppressWarnings("unchecked")
         Map<String, Object> response = (Map<String, Object>) retrieved.response();
+        assertNotNull(response);
         assertEquals("success", response.get("result"));
     }
 
@@ -83,7 +84,9 @@ class RdsIdempotentStorePostgreSQLTest {
         Value retrieved = idempotentStore.getValue(key, Map.class);
         assertNotNull(retrieved);
         assertEquals("COMPLETED", retrieved.status());
-        assertEquals("updated", ((Map) retrieved.response()).get("result"));
+        var response = (Map) retrieved.response();
+        assertNotNull(response);
+        assertEquals("updated", response.get("result"));
     }
 
     @Test
@@ -142,6 +145,7 @@ class RdsIdempotentStorePostgreSQLTest {
         assertNotNull(retrieved);
         assertEquals("COMPLETED", retrieved.status());
         Map<String, Object> response = (Map<String, Object>) retrieved.response();
+        assertNotNull(response);
         assertEquals(123, response.get("id"));
         assertEquals("active", response.get("status"));
         assertEquals(List.of("tag1", "tag2"), response.get("tags"));

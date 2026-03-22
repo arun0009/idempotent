@@ -14,6 +14,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -37,12 +38,12 @@ class IdempotentServiceTest {
         Supplier<String> operation = () -> "result-" + counter.incrementAndGet();
 
         // First execution
-        String result1 = idempotentService.execute("test-key", operation, Duration.ofSeconds(300));
+        String result1 = idempotentService.execute("test-key", operation, Duration.ofMinutes(5));
         assertEquals("result-1", result1);
         assertEquals(1, counter.get());
 
         // Second execution should return cached result
-        String result2 = idempotentService.execute("test-key", operation, Duration.ofSeconds(300));
+        String result2 = idempotentService.execute("test-key", operation, Duration.ofMinutes(5));
         assertEquals("result-1", result2);
         assertEquals(1, counter.get()); // Counter should not increment
     }
@@ -53,17 +54,17 @@ class IdempotentServiceTest {
         Supplier<String> operation = () -> "result-" + counter.incrementAndGet();
 
         // First execution
-        String result1 = idempotentService.execute("test-key", "test-process", operation, Duration.ofSeconds(300));
+        String result1 = idempotentService.execute("test-key", "test-process", operation, Duration.ofMinutes(5));
         assertEquals("result-1", result1);
         assertEquals(1, counter.get());
 
         // Second execution should return cached result
-        String result2 = idempotentService.execute("test-key", "test-process", operation, Duration.ofSeconds(300));
+        String result2 = idempotentService.execute("test-key", "test-process", operation, Duration.ofMinutes(5));
         assertEquals("result-1", result2);
         assertEquals(1, counter.get()); // Counter should not increment
 
         // Different process name should execute again
-        String result3 = idempotentService.execute("test-key", "different-process", operation, Duration.ofSeconds(300));
+        String result3 = idempotentService.execute("test-key", "different-process", operation, Duration.ofMinutes(5));
         assertEquals("result-2", result3);
         assertEquals(2, counter.get());
     }
@@ -76,12 +77,12 @@ class IdempotentServiceTest {
         IdempotentStore.IdempotentKey key = new IdempotentStore.IdempotentKey("test-key", "test-process");
 
         // First execution
-        String result1 = idempotentService.execute(key, operation, Duration.ofSeconds(300));
+        String result1 = idempotentService.execute(key, operation, Duration.ofMinutes(5));
         assertEquals("result-1", result1);
         assertEquals(1, counter.get());
 
         // Second execution should return cached result
-        String result2 = idempotentService.execute(key, operation, Duration.ofSeconds(300));
+        String result2 = idempotentService.execute(key, operation, Duration.ofMinutes(5));
         assertEquals("result-1", result2);
         assertEquals(1, counter.get()); // Counter should not increment
     }
@@ -95,7 +96,7 @@ class IdempotentServiceTest {
         // Should throw IdempotentException and not cache the result
         assertThrows(
                 IdempotentException.class,
-                () -> idempotentService.execute("test-key", operation, Duration.ofSeconds(300)));
+                () -> idempotentService.execute("test-key", operation, Duration.ofMinutes(5)));
 
         // Verify the key was removed after exception
         IdempotentStore.IdempotentKey key = new IdempotentStore.IdempotentKey("test-key", "default");
@@ -107,16 +108,16 @@ class IdempotentServiceTest {
         Supplier<Integer> intOperation = () -> 42;
         Supplier<String> stringOperation = () -> "hello";
 
-        Integer intResult1 = idempotentService.execute("int-key", intOperation, Duration.ofSeconds(300));
+        Integer intResult1 = idempotentService.execute("int-key", intOperation, Duration.ofMinutes(5));
         assertEquals(42, intResult1);
 
-        Integer intResult2 = idempotentService.execute("int-key", intOperation, Duration.ofSeconds(300));
+        Integer intResult2 = idempotentService.execute("int-key", intOperation, Duration.ofMinutes(5));
         assertEquals(42, intResult2);
 
-        String stringResult1 = idempotentService.execute("string-key", stringOperation, Duration.ofSeconds(300));
+        String stringResult1 = idempotentService.execute("string-key", stringOperation, Duration.ofMinutes(5));
         assertEquals("hello", stringResult1);
 
-        String stringResult2 = idempotentService.execute("string-key", stringOperation, Duration.ofSeconds(300));
+        String stringResult2 = idempotentService.execute("string-key", stringOperation, Duration.ofMinutes(5));
         assertEquals("hello", stringResult2);
     }
 
@@ -124,10 +125,10 @@ class IdempotentServiceTest {
     void testExecuteWithNullResult() {
         Supplier<String> nullOperation = () -> null;
 
-        String result1 = idempotentService.execute("null-key", nullOperation, Duration.ofSeconds(300));
+        String result1 = idempotentService.execute("null-key", nullOperation, Duration.ofMinutes(5));
         assertNull(result1);
 
-        String result2 = idempotentService.execute("null-key", nullOperation, Duration.ofSeconds(300));
+        String result2 = idempotentService.execute("null-key", nullOperation, Duration.ofMinutes(5));
         assertNull(result2);
     }
 
@@ -135,11 +136,13 @@ class IdempotentServiceTest {
     void testExecuteWithComplexObject() {
         Supplier<TestObject> operation = () -> new TestObject("test", 123);
 
-        TestObject result1 = idempotentService.execute("complex-key", operation, Duration.ofSeconds(300));
+        TestObject result1 = idempotentService.execute("complex-key", operation, Duration.ofMinutes(5));
+        assertNotNull(result1);
         assertEquals("test", result1.name);
         assertEquals(123, result1.value);
 
-        TestObject result2 = idempotentService.execute("complex-key", operation, Duration.ofSeconds(300));
+        TestObject result2 = idempotentService.execute("complex-key", operation, Duration.ofMinutes(5));
+        assertNotNull(result2);
         assertEquals("test", result2.name);
         assertEquals(123, result2.value);
     }

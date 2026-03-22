@@ -128,7 +128,7 @@ class NatsIdempotentAutoConfiguration {
             @Override
             public void connectionEvent(Connection conn, Events type, Long time, String uriDetails) {
                 log.atDebug().log(() ->
-                        "Nats connection %s event at %s to %s".formatted(type, Instant.ofEpochMilli(time), uriDetails));
+                        "NATS connection %s event at %s to %s".formatted(type, Instant.ofEpochMilli(time), uriDetails));
             }
         };
     }

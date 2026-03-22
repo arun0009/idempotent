@@ -1,6 +1,7 @@
 package io.github.arun0009.idempotent.core.persistence;
 
 import io.github.arun0009.idempotent.core.exception.IdempotentKeyConflictException;
+import org.jspecify.annotations.Nullable;
 
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -19,7 +20,7 @@ public class InMemoryIdempotentStore implements IdempotentStore {
     }
 
     @Override
-    public Value getValue(IdempotentKey idempotentKey, Class<?> returnType) {
+    public @Nullable Value getValue(IdempotentKey idempotentKey, Class<?> returnType) {
         return map.get(idempotentKey);
     }
 

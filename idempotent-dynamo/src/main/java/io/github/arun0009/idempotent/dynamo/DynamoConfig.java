@@ -1,5 +1,6 @@
 package io.github.arun0009.idempotent.dynamo;
 
+import io.github.arun0009.idempotent.core.exception.IdempotentException;
 import io.github.arun0009.idempotent.core.persistence.IdempotentStore;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -9,12 +10,13 @@ import org.springframework.context.annotation.Primary;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
+import software.amazon.awssdk.awscore.exception.AwsServiceException;
+import software.amazon.awssdk.core.exception.SdkClientException;
 import software.amazon.awssdk.enhanced.dynamodb.DynamoDbEnhancedClient;
 import software.amazon.awssdk.enhanced.dynamodb.TableSchema;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClientBuilder;
-import software.amazon.awssdk.services.dynamodb.model.TimeToLiveSpecification;
 import software.amazon.awssdk.services.dynamodb.model.UpdateTimeToLiveRequest;
 
 import java.net.URI;
@@ -27,19 +29,19 @@ public class DynamoConfig {
 
     // dynamodb aws region
     @Value("${idempotent.aws.region:}")
-    private String awsRegion;
+    private String awsRegion = "";
 
     // dynamodb endpoint, set this if using localstack or testcontainers (local dynamodb)
     @Value("${idempotent.dynamodb.endpoint:}")
-    private String dynamoDbEndpoint;
+    private String dynamoDbEndpoint = "";
 
     // aws access key
     @Value("${idempotent.aws.accessKey:}")
-    private String awsAccessKey;
+    private String awsAccessKey = "";
 
     // aws access secret
     @Value("${idempotent.aws.accessSecret:}")
-    private String awsAccessSecret;
+    private String awsAccessSecret = "";
 
     // set to true if using local dynamo e.g localstack or testcontainers
     @Value("${idempotent.dynamodb.use.local:false}")
@@ -51,7 +53,7 @@ public class DynamoConfig {
 
     // set idempotent table name, defaults to Idempotent
     @Value("${idempotent.dynamodb.table.name:Idempotent}")
-    private String dynamoTableName;
+    private String dynamoTableName = "Idempotent";
 
     /**
      * Bean to create Enhanced Dynamo Client .
@@ -70,7 +72,8 @@ public class DynamoConfig {
                     .credentialsProvider(StaticCredentialsProvider.create(
                             AwsBasicCredentials.create(awsAccessKey, awsAccessSecret)));
         } else {
-            dynamoDbClientBuilder.credentialsProvider(DefaultCredentialsProvider.create());
+            dynamoDbClientBuilder.credentialsProvider(
+                    DefaultCredentialsProvider.builder().build());
         }
 
         DynamoDbEnhancedClient dynamoEnhancedClient = DynamoDbEnhancedClient.builder()
@@ -83,12 +86,13 @@ public class DynamoConfig {
         }
         UpdateTimeToLiveRequest ttlRequest = UpdateTimeToLiveRequest.builder()
                 .tableName(dynamoTableName)
-                .timeToLiveSpecification(TimeToLiveSpecification.builder()
-                        .enabled(true)
-                        .attributeName("expirationTimeInMilliSeconds")
-                        .build())
+                .timeToLiveSpecification(s -> s.enabled(true).attributeName("expirationTimeInMilliSeconds"))
                 .build();
-        dynamoDbClientBuilder.build().updateTimeToLive(ttlRequest);
+        try (var client = dynamoDbClientBuilder.build()) {
+            client.updateTimeToLive(ttlRequest);
+        } catch (AwsServiceException | SdkClientException e) {
+            throw new IdempotentException("Failed to enable TTL on Dynamo table: " + dynamoTableName);
+        }
         return dynamoEnhancedClient;
     }
 

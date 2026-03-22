@@ -72,6 +72,7 @@ class RdsIdempotentStoreMySQLTest {
         assertEquals("COMPLETED", retrieved.status());
         @SuppressWarnings("unchecked")
         Map<String, Object> response = (Map<String, Object>) retrieved.response();
+        assertNotNull(response);
         assertEquals("success", response.get("result"));
     }
 
@@ -149,6 +150,7 @@ class RdsIdempotentStoreMySQLTest {
         assertNotNull(retrieved);
         assertEquals("COMPLETED", retrieved.status());
         Map<String, Object> response = (Map<String, Object>) retrieved.response();
+        assertNotNull(response);
         assertEquals(123, response.get("id"));
         assertEquals("active", response.get("status"));
         assertEquals(List.of("tag1", "tag2"), response.get("tags"));

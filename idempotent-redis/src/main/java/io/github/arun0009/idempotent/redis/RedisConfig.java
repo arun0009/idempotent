@@ -34,7 +34,7 @@ public class RedisConfig {
 
     // redis standalone host as "hostname:port" format
     @Value("${idempotent.redis.standalone.host:}")
-    private String redisHost;
+    private String redisHost = "";
 
     // redis auth enabled flag, set to true to enable authentication else false
     @Value("${idempotent.redis.auth.enabled:false}")
@@ -46,19 +46,19 @@ public class RedisConfig {
 
     // redis auth username, set only if redis auth enabled
     @Value("${idempotent.redis.auth.username:}")
-    private String redisAuthUsername;
+    private String redisAuthUsername = "";
 
     // redis auth password, set only if redis auth enabled
     @Value("${idempotent.redis.auth.password:}")
-    private String redisAuthPassword;
+    private String redisAuthPassword = "";
 
     // redis cluster mode enabled flag, set to true if using cluster mode redis
     @Value("${idempotent.redis.cluster.enabled:false}")
     private boolean redisClusterEnabled;
 
     // cluster hosts list seperated by comma in hostname:port format e.g. host1:6379,host2:6379
-    @Value("${idempotent.redis.cluster.hosts:")
-    private String clusterHosts;
+    @Value("${idempotent.redis.cluster.hosts:}")
+    private String clusterHosts = "";
 
     // sentinel mode redis flag
     @Value("${idempotent.redis.sentinel.enabled:false}")
@@ -66,11 +66,11 @@ public class RedisConfig {
 
     // sentinel master host in hostname:port format e.g. host1:6379
     @Value("${idempotent.redis.sentinel.master:}")
-    private String redisSentinelMaster;
+    private String redisSentinelMaster = "";
 
     // sentinel hosts list seperated by comma in hostname:port format e.g. host1:6379,host2:6379
     @Value("${idempotent.redis.sentinel.nodes:}")
-    private String redisSentinelNodes;
+    private String redisSentinelNodes = "";
 
     /**
      * Jedis connection factory to connect to Redis standalone, cluster, or sentinel instance. You can
@@ -120,8 +120,8 @@ public class RedisConfig {
 
         List<RedisNode> nodes = new ArrayList<>();
 
-        for (String node : redisSentinelNodes.split(",")) {
-            String[] hostPort = node.split(":");
+        for (String node : redisSentinelNodes.split(",", -1)) {
+            String[] hostPort = node.split(":", -1);
             if (hostPort.length != 2) {
                 throw new IdempotentException("Invalid sentinel node: " + node);
             }
@@ -141,7 +141,7 @@ public class RedisConfig {
 
     private JedisConnectionFactory redisStandaloneConnection(
             JedisClientConfiguration.JedisClientConfigurationBuilder jedisClientConfiguration) {
-        String[] hostPort = redisHost.split(":");
+        String[] hostPort = redisHost.split(":", -1);
         if (hostPort.length != 2) {
             throw new IdempotentException("idempotent.redis.host must be in the format host:port for " + redisHost);
         }

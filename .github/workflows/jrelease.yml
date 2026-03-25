@@ -67,7 +67,7 @@ jobs:
       - name: Create pull request for next version
         uses: peter-evans/create-pull-request@v8
         with:
-          token: ${{ secrets.github_token }}
+          token: ${{ secrets.RELEASE_PR_PAT || secrets.GITHUB_TOKEN }}
           branch: chore/prepare-next-release-v${{ env.VERSION }}
           base: main
           commit-message: Prepare for next release

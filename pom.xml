@@ -51,7 +51,7 @@
         <nullaway.version>0.13.1</nullaway.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
-        <spotless.version>3.3.0</spotless.version>
+        <spotless.version>3.4.0</spotless.version>
         <spring-boot.version>4.0.4</spring-boot.version>
         <testcontainers.version>1.21.4</testcontainers.version>
     </properties>

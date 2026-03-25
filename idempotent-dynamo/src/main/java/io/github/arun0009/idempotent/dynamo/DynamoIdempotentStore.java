@@ -3,12 +3,12 @@ package io.github.arun0009.idempotent.dynamo;
 import io.github.arun0009.idempotent.core.exception.IdempotentException;
 import io.github.arun0009.idempotent.core.exception.IdempotentKeyConflictException;
 import io.github.arun0009.idempotent.core.persistence.IdempotentStore;
+import org.jspecify.annotations.Nullable;
 import software.amazon.awssdk.enhanced.dynamodb.DynamoDbEnhancedClient;
 import software.amazon.awssdk.enhanced.dynamodb.DynamoDbTable;
 import software.amazon.awssdk.enhanced.dynamodb.Expression;
 import software.amazon.awssdk.enhanced.dynamodb.Key;
 import software.amazon.awssdk.enhanced.dynamodb.TableSchema;
-import software.amazon.awssdk.enhanced.dynamodb.model.DeleteItemEnhancedRequest;
 import software.amazon.awssdk.enhanced.dynamodb.model.PutItemEnhancedRequest;
 import software.amazon.awssdk.services.dynamodb.model.ConditionalCheckFailedException;
 import tools.jackson.core.JacksonException;
@@ -47,7 +47,7 @@ public class DynamoIdempotentStore implements IdempotentStore {
     }
 
     @Override
-    public Value getValue(IdempotentKey idempotentKey, Class<?> returnType) {
+    public @Nullable Value getValue(IdempotentKey idempotentKey, Class<?> returnType) {
         try {
             DynamoDbTable<IdempotentItem> idempotentTable = getTable();
             Key dynamoKey = Key.builder()
@@ -98,13 +98,8 @@ public class DynamoIdempotentStore implements IdempotentStore {
     @Override
     public void remove(IdempotentKey idempotentKey) {
         DynamoDbTable<IdempotentItem> idempotentTable = getTable();
-        Key dynamoKey = Key.builder()
-                .partitionValue(idempotentKey.key())
-                .sortValue(idempotentKey.processName())
-                .build();
-        DeleteItemEnhancedRequest deleteRequest =
-                DeleteItemEnhancedRequest.builder().key(dynamoKey).build();
-        idempotentTable.deleteItem(deleteRequest);
+        idempotentTable.deleteItem(
+                b -> b.key(k -> k.partitionValue(idempotentKey.key()).sortValue(idempotentKey.processName())));
     }
 
     @Override

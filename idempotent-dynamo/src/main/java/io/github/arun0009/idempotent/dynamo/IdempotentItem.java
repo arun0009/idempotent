@@ -1,5 +1,6 @@
 package io.github.arun0009.idempotent.dynamo;
 
+import org.jspecify.annotations.Nullable;
 import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbAttribute;
 import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbBean;
 import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbPartitionKey;
@@ -10,11 +11,11 @@ import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbSortK
  */
 @DynamoDbBean
 public class IdempotentItem {
-    private String key;
-    private String processName;
-    private String status;
-    private Long expirationTimeInMilliSeconds;
-    private String response;
+    private String key = "";
+    private String processName = "";
+    private String status = "";
+    private Long expirationTimeInMilliSeconds = 0L;
+    private @Nullable String response;
 
     /**
      * Gets idempotent key.
@@ -100,7 +101,7 @@ public class IdempotentItem {
      * @return the response
      */
     @DynamoDbAttribute("response")
-    public String getResponse() {
+    public @Nullable String getResponse() {
         return response;
     }
 

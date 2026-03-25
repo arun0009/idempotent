@@ -7,6 +7,8 @@ import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
+import java.util.Locale;
+
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 public class IdempotentTest {
@@ -39,8 +41,9 @@ public class IdempotentTest {
         String responseBody = mvcResult.getResponse().getContentAsString();
 
         // Expected response should match the first request
+        // language=json
         String expectedResponseJson = """
-                {"id":"1","type":{"category":"%s API","version":"1"},"name":"Asset API-1","url":"https://github.com/arun0009/%s/idempotent"}""".formatted(type, type.toLowerCase());
+                {"id":"1","type":{"category":"%s API","version":"1"},"name":"Asset API-1","url":"https://github.com/arun0009/%s/idempotent"}""".formatted(type, type.toLowerCase(Locale.ROOT));
 
         // Verify first response is as expected
         Assertions.assertEquals(expectedResponseJson, responseBody);

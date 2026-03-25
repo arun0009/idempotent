@@ -67,8 +67,8 @@ class NatsIdempotentServiceTest {
         var counter = new AtomicInteger();
         Supplier<String> operation = () -> "result-" + counter.incrementAndGet();
 
-        var result1 = service.execute("test-key", operation, Duration.ofSeconds(300));
-        var result2 = service.execute("test-key", operation, Duration.ofSeconds(300));
+        var result1 = service.execute("test-key", operation, Duration.ofMinutes(5));
+        var result2 = service.execute("test-key", operation, Duration.ofMinutes(5));
 
         assertThat(result1).isEqualTo("result-1");
         assertThat(result2).isEqualTo("result-1");
@@ -93,7 +93,7 @@ class NatsIdempotentServiceTest {
 
         var futures = IntStream.range(0, 5)
                 .mapToObj(i -> CompletableFuture.supplyAsync(
-                        () -> service.execute("concurrent-key", operation, Duration.ofSeconds(300)), executor))
+                        () -> service.execute("concurrent-key", operation, Duration.ofMinutes(5)), executor))
                 .toList();
 
         CompletableFuture.allOf(futures.toArray(CompletableFuture[]::new)).join();
@@ -112,10 +112,10 @@ class NatsIdempotentServiceTest {
         var key = "test-key";
         Supplier<String> operation = () -> "result-" + counter.incrementAndGet();
 
-        var r1 = service.execute(key, "process-1", operation, Duration.ofSeconds(300));
-        var r2 = service.execute(key, "process-1", operation, Duration.ofSeconds(300));
-        var r3 = service.execute(key, "process-2", operation, Duration.ofSeconds(300));
-        var r4 = service.execute(key, "process-1", operation, Duration.ofSeconds(300));
+        var r1 = service.execute(key, "process-1", operation, Duration.ofMinutes(5));
+        var r2 = service.execute(key, "process-1", operation, Duration.ofMinutes(5));
+        var r3 = service.execute(key, "process-2", operation, Duration.ofMinutes(5));
+        var r4 = service.execute(key, "process-1", operation, Duration.ofMinutes(5));
 
         assertThat(r1).isEqualTo("result-1");
         assertThat(r2).isEqualTo("result-1");
@@ -132,16 +132,16 @@ class NatsIdempotentServiceTest {
         };
 
         // First call should fail
-        assertThatThrownBy(() -> service.execute("error-key", failingOperation, Duration.ofSeconds(300)))
+        assertThatThrownBy(() -> service.execute("error-key", failingOperation, Duration.ofMinutes(5)))
                 .isInstanceOf(IdempotentException.class)
                 .hasCause(new RuntimeException("Simulated failure"));
 
         // Second call should also fail (no caching of errors)
-        assertThatThrownBy(() -> service.execute("error-key", failingOperation, Duration.ofSeconds(300)))
+        assertThatThrownBy(() -> service.execute("error-key", failingOperation, Duration.ofMinutes(5)))
                 .isInstanceOf(IdempotentException.class)
                 .hasCause(new RuntimeException("Simulated failure"));
 
-        var result = service.execute("test-key-1", () -> "success", Duration.ofSeconds(300));
+        var result = service.execute("test-key-1", () -> "success", Duration.ofMinutes(5));
         assertThat(result).isEqualTo("success");
     }
 
@@ -150,8 +150,8 @@ class NatsIdempotentServiceTest {
     void testComplexTypeHandling() {
         Supplier<TestData> operation = () -> new TestData("test-name", 42);
 
-        var result1 = service.execute("complex-key-1", operation, Duration.ofSeconds(300));
-        var result2 = service.execute("complex-key-2", operation, Duration.ofSeconds(300));
+        var result1 = service.execute("complex-key-1", operation, Duration.ofMinutes(5));
+        var result2 = service.execute("complex-key-2", operation, Duration.ofMinutes(5));
 
         assertThat(result1)
                 .isNotNull()

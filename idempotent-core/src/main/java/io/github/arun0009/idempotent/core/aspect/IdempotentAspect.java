@@ -12,15 +12,18 @@ import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
 import org.aspectj.lang.reflect.MethodSignature;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.expression.ExpressionParser;
 import org.springframework.expression.spel.standard.SpelExpressionParser;
 import org.springframework.expression.spel.support.StandardEvaluationContext;
 import org.springframework.http.ResponseEntity;
+import org.springframework.lang.Contract;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
+import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
@@ -67,7 +70,7 @@ public class IdempotentAspect {
      * @throws Throwable the throwable
      */
     @Around("@annotation(io.github.arun0009.idempotent.core.annotation.Idempotent)")
-    public Object around(ProceedingJoinPoint pjp) throws Throwable {
+    public @Nullable Object around(ProceedingJoinPoint pjp) throws Throwable {
         String key = getIdempotentKey(pjp);
         if (key == null || key.isEmpty()) {
             return pjp.proceed();
@@ -83,7 +86,7 @@ public class IdempotentAspect {
         key = hashKeyIfRequired(key, pjp);
 
         IdempotentStore.IdempotentKey idempotentKey = new IdempotentStore.IdempotentKey(key, processName);
-        IdempotentStore.Value value =
+        IdempotentStore.@Nullable Value value =
                 idempotentStore.getValue(idempotentKey, ((MethodSignature) pjp.getSignature()).getReturnType());
 
         if (isExistingRequest(value)) {
@@ -113,7 +116,7 @@ public class IdempotentAspect {
      * @param pjp Spring's Proceed Joint Point
      * @return value of key as String
      */
-    private String getIdempotentKey(ProceedingJoinPoint pjp) {
+    private @Nullable String getIdempotentKey(ProceedingJoinPoint pjp) {
         String key = getIdempotentKeyFromHeader();
         if (key == null || key.isEmpty()) {
             MethodSignature signature = (MethodSignature) pjp.getSignature();
@@ -124,15 +127,16 @@ public class IdempotentAspect {
     }
 
     // gets Idempotent Key from request header default X-Idempotency-Key
-    private String getIdempotentKeyFromHeader() {
+    private @Nullable String getIdempotentKeyFromHeader() {
         ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
         return attributes != null ? attributes.getRequest().getHeader(idempotentKeyHeader) : null;
     }
 
     // gets Idempotent Key value from Spring Expression SpEL.
-    private String getIdempotentKeyFromAnnotation(ProceedingJoinPoint pjp, String key, MethodSignature signature) {
+    private @Nullable String getIdempotentKeyFromAnnotation(
+            ProceedingJoinPoint pjp, String key, MethodSignature signature) {
         // Evaluate the SpEL expression if the key is specified
-        if (key != null && !key.isEmpty()) {
+        if (!key.isEmpty()) {
             StandardEvaluationContext context = new StandardEvaluationContext();
             String[] paramNames = signature.getParameterNames();
             Object[] args = pjp.getArgs();
@@ -175,7 +179,7 @@ public class IdempotentAspect {
                 .getAnnotation(Idempotent.class)
                 .hashKey()) {
             MessageDigest md = MessageDigest.getInstance("SHA-256");
-            byte[] hashBytes = md.digest(key.getBytes());
+            byte[] hashBytes = md.digest(key.getBytes(StandardCharsets.UTF_8));
             StringBuilder hexString = new StringBuilder();
             for (byte hashByte : hashBytes) {
                 String hex = Integer.toHexString(0xff & hashByte);
@@ -193,7 +197,8 @@ public class IdempotentAspect {
      * @param value idempotent value
      * @return true if its an existing INPROGRESS request.
      */
-    private boolean isExistingRequest(IdempotentStore.Value value) {
+    @Contract("null -> false")
+    private boolean isExistingRequest(IdempotentStore.@Nullable Value value) {
         return value != null && Instant.now().isBefore(Instant.ofEpochMilli(value.expirationTimeInMilliSeconds()));
     }
 
@@ -207,7 +212,7 @@ public class IdempotentAspect {
      * @return Object which is the response.
      * @throws IdempotentWaitExhaustedException if wait times out
      */
-    private Object handleExistingRequest(
+    private @Nullable Object handleExistingRequest(
             IdempotentStore.IdempotentKey idempotentKey, IdempotentStore.Value existingValue) {
         if (IdempotentStore.Status.INPROGRESS.is(existingValue.status())) {
             existingValue = completionAwaiter.wait(idempotentKey, existingValue);
@@ -232,8 +237,8 @@ public class IdempotentAspect {
      * @throws IdempotentException  if an error occurs during request processing
      * @throws NullPointerException if any parameter is null
      */
-    private Object handleNewRequest(ProceedingJoinPoint pjp, IdempotentStore.IdempotentKey idempotentKey, Duration ttl)
-            throws Throwable {
+    private @Nullable Object handleNewRequest(
+            ProceedingJoinPoint pjp, IdempotentStore.IdempotentKey idempotentKey, Duration ttl) throws Throwable {
         long expiryTimeInMilliseconds = Instant.now().plus(ttl).toEpochMilli();
         idempotentStore.store(
                 idempotentKey,
@@ -257,7 +262,7 @@ public class IdempotentAspect {
      * @param expiryTimeInMilliseconds time after which this record/entry can be deleted
      */
     private void updateStoreWithResponse(
-            IdempotentStore.IdempotentKey idempotentKey, Object response, long expiryTimeInMilliseconds) {
+            IdempotentStore.IdempotentKey idempotentKey, @Nullable Object response, long expiryTimeInMilliseconds) {
         if (response instanceof ResponseEntity<?> responseEntity
                 && !responseEntity.getStatusCode().is2xxSuccessful()) {
             idempotentStore.remove(idempotentKey);

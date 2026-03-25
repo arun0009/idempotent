@@ -3,15 +3,12 @@ package io.github.arun0009.idempotent.rds;
 import io.github.arun0009.idempotent.core.exception.IdempotentException;
 import io.github.arun0009.idempotent.core.exception.IdempotentKeyConflictException;
 import io.github.arun0009.idempotent.core.persistence.IdempotentStore;
+import org.jspecify.annotations.Nullable;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.jdbc.core.RowMapper;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.json.JsonMapper;
-
-import java.sql.ResultSet;
-import java.sql.SQLException;
 
 /**
  * RDS idempotent store using JdbcTemplate with atomic race condition
@@ -32,31 +29,25 @@ public class RdsIdempotentStore implements IdempotentStore {
     }
 
     @Override
-    public Value getValue(IdempotentKey key, Class<?> returnType) {
+    public @Nullable Value getValue(IdempotentKey key, Class<?> returnType) {
         var sql = """
                 SELECT status, expiration_time_millis, response FROM %s WHERE key_id = ? AND process_name = ?
                 """.formatted(tableName);
         try {
             return jdbcTemplate.queryForObject(
                     sql,
-                    new RowMapper<Value>() {
-                        @Override
-                        public Value mapRow(ResultSet rs, int rowNum) throws SQLException {
-                            try {
-                                String status = rs.getString("status");
-                                Long expirationTime = rs.getLong("expiration_time_millis");
-                                if (rs.wasNull()) {
-                                    expirationTime = null;
-                                }
-                                String responseJson = rs.getString("response");
-                                Object response = null;
-                                if (responseJson != null) {
-                                    response = jsonMapper.readValue(responseJson, returnType);
-                                }
-                                return new Value(status, expirationTime, response);
-                            } catch (JacksonException e) {
-                                throw new IdempotentException("Error deserializing response", e);
+                    (rs, rowNum) -> {
+                        try {
+                            String status = rs.getString("status");
+                            long expirationTime = rs.getLong("expiration_time_millis");
+                            String responseJson = rs.getString("response");
+                            Object response = null;
+                            if (responseJson != null) {
+                                response = jsonMapper.readValue(responseJson, returnType);
                             }
+                            return new Value(status, expirationTime, response);
+                        } catch (JacksonException e) {
+                            throw new IdempotentException("Error deserializing response", e);
                         }
                     },
                     key.key(),
@@ -82,7 +73,7 @@ public class RdsIdempotentStore implements IdempotentStore {
         }
     }
 
-    private void storePostgres(IdempotentKey key, Value value, String responseJson) {
+    private void storePostgres(IdempotentKey key, Value value, @Nullable String responseJson) {
         var sql = """
                 INSERT INTO %s (key_id, process_name, status, expiration_time_millis, response)
                 VALUES (?, ?, ?, ?, ?)
@@ -91,7 +82,7 @@ public class RdsIdempotentStore implements IdempotentStore {
                 sql, key.key(), key.processName(), value.status(), value.expirationTimeInMilliSeconds(), responseJson);
     }
 
-    private void storeMySQL(IdempotentKey key, Value value, String responseJson) {
+    private void storeMySQL(IdempotentKey key, Value value, @Nullable String responseJson) {
         var sql = """
                 INSERT INTO %s (key_id, process_name, status, expiration_time_millis, response) VALUES (?, ?, ?, ?, ?)
                 """.formatted(tableName);
@@ -99,7 +90,7 @@ public class RdsIdempotentStore implements IdempotentStore {
                 sql, key.key(), key.processName(), value.status(), value.expirationTimeInMilliSeconds(), responseJson);
     }
 
-    private void storeGeneric(IdempotentKey key, Value value, String response) {
+    private void storeGeneric(IdempotentKey key, Value value, @Nullable String response) {
         var sql = """
                 INSERT INTO %s (key_id, process_name, status, expiration_time_millis, response) VALUES (?, ?, ?, ?, ?)
                 """.formatted(tableName);

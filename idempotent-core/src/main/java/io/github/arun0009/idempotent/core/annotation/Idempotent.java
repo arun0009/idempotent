@@ -14,15 +14,15 @@ import java.lang.annotation.Target;
 public @interface Idempotent {
 
     /**
-     * Idempotent Key string.
-     * @return n/a
+     * Specifies the key used to uniquely identify the idempotent request.
+     * The key can be derived dynamically using a SpEL (Spring Expression Language) expression.
+     *
+     * @return the unique key identifying the idempotent request
      */
     String key() default "";
 
     /**
-     * TTL (Time To Live) for idempotent item in store (redis/dynamo).
-     * This is a more flexible alternative to ttlInSeconds that allows specifying
-     * the duration in any time unit.
+     * TTL (Time To Live) for idempotent item in store.
      * Defaults to 5 minutes.
      * @return the duration after which the idempotent key should expire
      */

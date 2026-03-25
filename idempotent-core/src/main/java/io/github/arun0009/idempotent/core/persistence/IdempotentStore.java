@@ -1,5 +1,7 @@
 package io.github.arun0009.idempotent.core.persistence;
 
+import org.jspecify.annotations.Nullable;
+
 import java.io.Serializable;
 
 /**
@@ -12,9 +14,9 @@ public interface IdempotentStore {
      *
      * @param key the idempotentKey
      * @param returnType Class of return type to use for deserialization
-     * @return Value the value which contains response
+     * @return Value the value which contains response, or null if not found
      */
-    Value getValue(IdempotentKey key, Class<?> returnType);
+    @Nullable Value getValue(IdempotentKey key, Class<?> returnType);
 
     /**
      * Store idempotent key and value which contains response.
@@ -60,7 +62,10 @@ public interface IdempotentStore {
      * @param expirationTimeInMilliSeconds expiry time of idempotent entry from store
      * @param response this is response received from downstream apis.
      */
-    record Value(String status, Long expirationTimeInMilliSeconds, Object response) implements Serializable {}
+    record Value(
+            String status,
+            Long expirationTimeInMilliSeconds,
+            @Nullable Object response) implements Serializable {}
 
     /**
      * The enum Status.

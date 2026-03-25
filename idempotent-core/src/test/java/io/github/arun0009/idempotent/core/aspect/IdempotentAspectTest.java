@@ -38,6 +38,7 @@ class IdempotentAspectTest {
     private IdempotentAspect idempotentAspect;
 
     @BeforeEach
+    @SuppressWarnings("resource")
     void setUp() {
         MockitoAnnotations.openMocks(this);
         idempotentAspect = new IdempotentAspect(idempotentStore, new IdempotentProperties());
@@ -139,7 +140,8 @@ class IdempotentAspectTest {
         assertEquals("cached response", ((ResponseEntity<?>) response).getBody());
     }
 
-    @Idempotent(key = "'testKey'", duration = "PT1M", hashKey = false)
+    @SuppressWarnings("unused")
+    @Idempotent(key = "'testKey'", duration = "PT1M")
     private ResponseEntity<String> testMethod() {
         return new ResponseEntity<>("response", HttpStatus.OK);
     }

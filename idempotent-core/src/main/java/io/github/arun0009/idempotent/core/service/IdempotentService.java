@@ -71,7 +71,7 @@ public class IdempotentService {
         Objects.requireNonNull(operation, "operation cannot be null");
         Objects.requireNonNull(ttl, "ttl cannot be null");
 
-        IdempotentStore.IdempotentKey idempotentKey = new IdempotentStore.IdempotentKey(key, processName);
+        var idempotentKey = new IdempotentStore.IdempotentKey(key, processName);
         return execute(idempotentKey, operation, ttl);
     }
 
@@ -127,14 +127,14 @@ public class IdempotentService {
         try {
             // Mark as in progress
             long expirationTime = Instant.now().plus(ttl).toEpochMilli();
-            IdempotentStore.Value inProgressValue = new IdempotentStore.Value(INPROGRESS.name(), expirationTime, null);
+            var inProgressValue = new IdempotentStore.Value(INPROGRESS.name(), expirationTime, null);
             idempotentStore.store(idempotentKey, inProgressValue);
 
             // Execute the operation
             T result = operation.get();
 
             // Store the completed result
-            IdempotentStore.Value completedValue = new IdempotentStore.Value(COMPLETED.name(), expirationTime, result);
+            var completedValue = new IdempotentStore.Value(COMPLETED.name(), expirationTime, result);
             idempotentStore.update(idempotentKey, completedValue);
 
             return result;

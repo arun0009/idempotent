@@ -1,26 +1,26 @@
-# Idempotent Cache with Nats Storage/Cache
+# Idempotent Cache with NATS Storage
 
-To integrate the idempotent cache with Nats into your project, add the following dependency to your pom.xml file:
+To integrate the idempotent cache with NATS into your project, add the following dependency to your `pom.xml` file:
 
 ```xml
 
 <dependency>
 		<groupId>io.github.arun0009</groupId>
 		<artifactId>idempotent-nats</artifactId>
-		<!-- get latest idempotent version from maven central -->
+		<!-- get latest idempotent version from Maven Central -->
 		<version>${idempotent.version}</version>
 </dependency>
 ```
 
 ## Overview
 
-This project provides an idempotent request handling mechanism using Nats KV for storage/cache. The idempotent cache
+This project provides an idempotent request handling mechanism using NATS KV for storage/cache. The idempotent cache
 ensures that duplicate requests are handled safely and effectively, avoiding unintended side effects. This is
 particularly useful in scenarios where the same request might be sent multiple times due to retries or client errors.
 
 ## Configuration Properties
 
-Below are the properties that can be configured for the idempotent Nats cache. These properties can be set in your
+Below are the properties that can be configured for the idempotent NATS cache. These properties can be set in your
 application's configuration file (e.g., application.properties or application.yml).
 
 ### General Properties
@@ -66,12 +66,6 @@ application's configuration file (e.g., application.properties or application.ym
 		Property: idempotent.nats.connection-timeout
 		Default Value: 2 seconds
 		Description: Set the timeout for connection attempts.
-
-* NATS Connection Timeout
-
-			Property: idempotent.nats.connection-timeout
-			Default Value: 2 seconds
-			Description: Set the timeout for connection attempts.
 
 * NATS Authentication Type
 
@@ -138,7 +132,7 @@ spring.ssl.bundle.jks.nats-client.truststore.location=classpath:ca.jks,
 spring.ssl.bundle.jks.nats-client.truststore.password=password
 ```
 
-## Using Custom Nats Configuration
+## Using Custom NATS Configuration
 
 By default, the library will create and configure the Connection and KV using the provided properties. If you need to
 customize the NATS connection, you can define your own Connection bean. The configuration is conditional and will only
@@ -150,29 +144,11 @@ NATS KV does not accept all characters as valid keys. The library automatically 
 Base64-encoding them when they contain invalid characters. This encoding process is transparent and ensures
 compatibility with NATS key-value storage without requiring any additional configuration.
 
-## Jackson Customization
+## Serialization
 
-By default, the library uses a permissive Jackson configuration to ensure compatibility with various return types (like
-List, Map, etc.). This triggers a warning at startup: `Using an unrestricted polymorphic type validator...`
-To secure your application and restrict deserialization to trusted packages, you can provide a bean of type
-IdempotentJacksonJsonBuilderCustomizer[IdempotentJacksonJsonBuilderCustomizer.java](src/main/java/io/github/arun0009/idempotent/nats/IdempotentJacksonJsonBuilderCustomizer.java)
-```java
-@Bean
-IdempotentJacksonJsonBuilderCustomizer myCustomizer() {
-		return builder -> {
-				BasicPolymorphicTypeValidator ptv = BasicPolymorphicTypeValidator.builder()
-								.allowIfBaseType(Object.class)
-								.allowIfSubType("java.")
-								.allowIfSubType("com.mycompany.dto.") // Add your trusted packages here
-								.build();
-
-				builder.polymorphicTypeValidator(ptv)
-								.setDefaultTyping(new DefaultTypeResolverBuilder(
-												ptv, DefaultTyping.NON_FINAL, JsonTypeInfo.As.PROPERTY, JsonTypeInfo.Id.CLASS, "@class"));
-				// Add other customizations here
-		};
-}
-```
+NATS uses the same shared idempotent serialization strategy (`idempotent.serialization.strategy=json|java`)
+as the other storage modules. Configure it via
+[idempotent-core – Payload serialization](../idempotent-core/README.md#payload-serialization-persistent-stores).
 
 ## Example Application Configuration
 
@@ -184,7 +160,7 @@ idempotent.key.header=X-Idempotency-Key
 idempotent.inprogress.max.retries=5
 idempotent.inprogress.retry.initial.intervalMillis=100
 idempotent.inprogress.retry.multiplier=2
-# Nats Configuration
+# NATS Configuration
 idempotent.nats.enable=true
 idempotent.nats.servers=nats://localhost:4222
 idempotent.nats.bucket-config.name=idempotent
@@ -192,6 +168,6 @@ idempotent.nats.bucket-config.name=idempotent
 
 ## Usage
 
-By following these steps and configurations, you can effectively manage idempotent requests using Nats,
-ensuring robust and reliable handling of duplicate requests in your application. If you need to customize the Nats
+By following these steps and configurations, you can effectively manage idempotent requests using NATS,
+ensuring robust and reliable handling of duplicate requests in your application. If you need to customize the NATS
 connection, you can provide your own Connection bean in your application context.

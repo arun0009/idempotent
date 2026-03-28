@@ -1,12 +1,12 @@
-# Idempotent Cache with Redis Storage/Cache
+# Idempotent Cache with Redis Storage
 
-To integrate the idempotent cache with Rediscache into your project, add the following dependency to your pom.xml file:
+To integrate the idempotent cache with Redis into your project, add the following dependency to your `pom.xml` file:
 
 ```xml
 <dependency>
 	<groupId>io.github.arun0009</groupId>
 	<artifactId>idempotent-redis</artifactId>
-	<!-- get latest idempotent version from maven central -->
+	<!-- get latest idempotent version from Maven Central -->
 	<version>${idempotent.version}</version>
 </dependency>
 ```
@@ -18,7 +18,7 @@ ensures that duplicate requests are handled safely and effectively, avoiding uni
 particularly useful in scenarios where the same request might be sent multiple times due to retries or client errors.
 
 ## Configuration Properties
-Below are the properties that can be configured for the idempotent redis cache. These properties can be set in your
+Below are the properties that can be configured for the idempotent Redis cache. These properties can be set in your
 application's configuration file (e.g., application.properties or application.yml) or you can pass your own `RedisConfig`
 with `JedisConnectionFactory` (see below)
 
@@ -138,23 +138,25 @@ public class RedisConfig {
 ```
 
 
-## Jackson Customization
+## Serialization Strategy
 
-By default, the library uses a permissive Jackson configuration to ensure compatibility with various return types (like
-List, Map, etc.). This triggers a warning at startup: `Using an unrestricted polymorphic type validator...`
-To secure your application and restrict deserialization to trusted packages, you can provide a bean of type
-IdempotentJacksonJsonBuilderCustomizer[IdempotentJacksonJsonBuilderCustomizer.java](src/main/java/io/github/arun0009/idempotent/redis/IdempotentJacksonJsonBuilderCustomizer.java)
+Redis supports the shared `idempotent.serialization.strategy` setting:
+- `json` (default): uses `GenericJacksonJsonRedisSerializer` with polymorphic default typing
+- `java`: uses `JdkSerializationRedisSerializer`
+
+See [idempotent-core README – Payload serialization](../idempotent-core/README.md#payload-serialization-persistent-stores)
+for the `IdempotentPayloadCodec` and `IdempotentJsonMapperCustomizer` documentation.
+
+### Custom Redis serializer
+
+To fully control how values are serialized in Redis, define a bean named `idempotentRedisSerializer`:
+
 ```java
-@Bean
-IdempotentJacksonJsonBuilderCustomizer myCustomizer() {
-		return builder -> {
-				builder.enableDefaultTyping(BasicPolymorphicTypeValidator.builder()
-								.allowIfBaseType(Object.class)
-								.allowIfSubType("java.")
-								.allowIfSubType("com.mycompany.dto.") // Add your trusted packages here
-								.build());
-				// Customize the builder as needed
-		};
+@Bean("idempotentRedisSerializer")
+RedisSerializer<Object> idempotentRedisSerializer() {
+		return GenericJacksonJsonRedisSerializer.builder()
+						.enableDefaultTyping(myPolymorphicTypeValidator)
+						.build();
 }
 ```
 

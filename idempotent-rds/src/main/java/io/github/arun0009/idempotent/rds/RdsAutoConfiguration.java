@@ -1,9 +1,8 @@
 package io.github.arun0009.idempotent.rds;
 
-import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import io.github.arun0009.idempotent.core.persistence.IdempotentStore;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import io.github.arun0009.idempotent.core.serialization.IdempotentJsonMapperCustomizer;
+import io.github.arun0009.idempotent.core.serialization.IdempotentPayloadCodec;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
@@ -15,10 +14,6 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.scheduling.TaskScheduler;
 import org.springframework.scheduling.concurrent.SimpleAsyncTaskScheduler;
 import org.springframework.util.Assert;
-import tools.jackson.databind.DefaultTyping;
-import tools.jackson.databind.json.JsonMapper;
-import tools.jackson.databind.jsontype.BasicPolymorphicTypeValidator;
-import tools.jackson.databind.jsontype.impl.DefaultTypeResolverBuilder;
 
 import javax.sql.DataSource;
 import java.time.Duration;
@@ -33,35 +28,22 @@ import java.time.Duration;
 @EnableConfigurationProperties(RdsIdempotentProperties.class)
 public class RdsAutoConfiguration {
 
-    private static final Logger log = LoggerFactory.getLogger(RdsAutoConfiguration.class);
-
     @Bean
     @ConditionalOnMissingBean
     public IdempotentStore idempotentStore(
-            JdbcTemplate jdbcTemplate, RdsIdempotentProperties properties, RdsJacksonJsonBuilderCustomizer customizer) {
+            JdbcTemplate jdbcTemplate,
+            RdsIdempotentProperties properties,
+            IdempotentPayloadCodec idempotentPayloadCodec) {
         Assert.hasText(properties.tableName(), "idempotent.rds.table-name must not be blank");
 
-        var jsonBuilder = JsonMapper.builder();
-        customizer.customize(jsonBuilder);
-
-        return new RdsIdempotentStore(jdbcTemplate, properties.tableName(), jsonBuilder.build());
+        return new RdsIdempotentStore(jdbcTemplate, properties.tableName(), idempotentPayloadCodec);
     }
 
     @Bean
-    @ConditionalOnMissingBean
-    public RdsJacksonJsonBuilderCustomizer rdsJacksonJsonBuilderCustomizer() {
-        return builder -> {
-            log.warn("Using an unrestricted polymorphic type validator for RDS idempotent store. "
-                    + "Without restrictions of the PolymorphicTypeValidator, deserialization is "
-                    + "vulnerable to arbitrary code execution when reading from untrusted sources.");
-            var ptv = BasicPolymorphicTypeValidator.builder()
-                    .allowIfBaseType(Object.class)
-                    .allowIfSubType((ctx, clazz) -> true)
-                    .build();
-            builder.polymorphicTypeValidator(ptv)
-                    .setDefaultTyping(new DefaultTypeResolverBuilder(
-                            ptv, DefaultTyping.NON_FINAL, JsonTypeInfo.As.PROPERTY, JsonTypeInfo.Id.CLASS, "@class"));
-        };
+    @ConditionalOnBean(RdsJacksonJsonBuilderCustomizer.class)
+    IdempotentJsonMapperCustomizer rdsLegacyJacksonCustomizerAdapter(
+            RdsJacksonJsonBuilderCustomizer rdsJacksonJsonBuilderCustomizer) {
+        return rdsJacksonJsonBuilderCustomizer::customize;
     }
 
     @Bean

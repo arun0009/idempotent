@@ -2,12 +2,14 @@ package io.github.arun0009.idempotent.redis;
 
 import io.github.arun0009.idempotent.core.exception.IdempotentException;
 import io.github.arun0009.idempotent.core.persistence.IdempotentStore;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
+import io.github.arun0009.idempotent.core.serialization.IdempotentSerializationProperties;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.boot.autoconfigure.AutoConfiguration;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
 import org.springframework.data.redis.connection.RedisClusterConfiguration;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
@@ -18,59 +20,19 @@ import org.springframework.data.redis.connection.jedis.JedisClientConfiguration;
 import org.springframework.data.redis.connection.jedis.JedisConnectionFactory;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.serializer.GenericJacksonJsonRedisSerializer;
-import tools.jackson.databind.json.JsonMapper;
+import org.springframework.data.redis.serializer.JdkSerializationRedisSerializer;
+import org.springframework.data.redis.serializer.RedisSerializer;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
 /**
  * Redis Configuration for Idempotent store.
  */
-@Configuration
+@AutoConfiguration
+@ConditionalOnClass(RedisConnectionFactory.class)
+@EnableConfigurationProperties(RedisIdempotentProperties.class)
 public class RedisConfig {
-
-    private static final Logger log = LoggerFactory.getLogger(RedisConfig.class);
-
-    // redis standalone host as "hostname:port" format
-    @Value("${idempotent.redis.standalone.host:}")
-    private String redisHost = "";
-
-    // redis auth enabled flag, set to true to enable authentication else false
-    @Value("${idempotent.redis.auth.enabled:false}")
-    private boolean redisAuthEnabled;
-
-    // redis ssl enabled flag, true to enable ssl, else set to false
-    @Value("${idempotent.redis.ssl.enabled:false}")
-    private boolean redisSslEnabled;
-
-    // redis auth username, set only if redis auth enabled
-    @Value("${idempotent.redis.auth.username:}")
-    private String redisAuthUsername = "";
-
-    // redis auth password, set only if redis auth enabled
-    @Value("${idempotent.redis.auth.password:}")
-    private String redisAuthPassword = "";
-
-    // redis cluster mode enabled flag, set to true if using cluster mode redis
-    @Value("${idempotent.redis.cluster.enabled:false}")
-    private boolean redisClusterEnabled;
-
-    // cluster hosts list seperated by comma in hostname:port format e.g. host1:6379,host2:6379
-    @Value("${idempotent.redis.cluster.hosts:}")
-    private String clusterHosts = "";
-
-    // sentinel mode redis flag
-    @Value("${idempotent.redis.sentinel.enabled:false}")
-    private boolean redisSentinelEnabled;
-
-    // sentinel master host in hostname:port format e.g. host1:6379
-    @Value("${idempotent.redis.sentinel.master:}")
-    private String redisSentinelMaster = "";
-
-    // sentinel hosts list seperated by comma in hostname:port format e.g. host1:6379,host2:6379
-    @Value("${idempotent.redis.sentinel.nodes:}")
-    private String redisSentinelNodes = "";
 
     /**
      * Jedis connection factory to connect to Redis standalone, cluster, or sentinel instance. You can
@@ -81,46 +43,48 @@ public class RedisConfig {
     @Bean
     @Primary
     @ConditionalOnMissingBean(name = "IdempotentCache")
-    public JedisConnectionFactory jedisConnectionFactory() {
-        JedisClientConfiguration.JedisClientConfigurationBuilder jedisClientConfiguration =
-                JedisClientConfiguration.builder();
-        if (redisSslEnabled) {
+    public JedisConnectionFactory jedisConnectionFactory(RedisIdempotentProperties properties) {
+        var jedisClientConfiguration = JedisClientConfiguration.builder();
+        if (properties.ssl().enabled()) {
             jedisClientConfiguration.useSsl();
         }
 
         JedisConnectionFactory jedisConnectionFactory;
-        if (redisClusterEnabled) {
-            jedisConnectionFactory = redisClusteredConnection(jedisClientConfiguration);
-        } else if (redisSentinelEnabled) {
-            jedisConnectionFactory = redisSentinelConnection(jedisClientConfiguration);
+        if (properties.cluster().enabled()) {
+            jedisConnectionFactory = redisClusteredConnection(jedisClientConfiguration, properties);
+        } else if (properties.sentinel().enabled()) {
+            jedisConnectionFactory = redisSentinelConnection(jedisClientConfiguration, properties);
         } else {
-            jedisConnectionFactory = redisStandaloneConnection(jedisClientConfiguration);
+            jedisConnectionFactory = redisStandaloneConnection(jedisClientConfiguration, properties);
         }
 
         return jedisConnectionFactory;
     }
 
     private JedisConnectionFactory redisClusteredConnection(
-            JedisClientConfiguration.JedisClientConfigurationBuilder jedisClientConfiguration) {
-        RedisClusterConfiguration redisClusterConfiguration =
-                new RedisClusterConfiguration(Arrays.asList(clusterHosts.split(",")));
-        if (redisAuthEnabled) {
-            redisClusterConfiguration.setUsername(redisAuthUsername);
-            redisClusterConfiguration.setPassword(redisAuthPassword);
+            JedisClientConfiguration.JedisClientConfigurationBuilder jedisClientConfiguration,
+            RedisIdempotentProperties properties) {
+        var redisClusterConfiguration = new RedisClusterConfiguration(
+                List.of(properties.cluster().hosts().split(",")));
+        if (properties.auth().enabled()) {
+            redisClusterConfiguration.setUsername(properties.auth().username());
+            redisClusterConfiguration.setPassword(properties.auth().password());
         }
         return new JedisConnectionFactory(redisClusterConfiguration, jedisClientConfiguration.build());
     }
 
     private JedisConnectionFactory redisSentinelConnection(
-            JedisClientConfiguration.JedisClientConfigurationBuilder jedisClientConfiguration) {
-        if (redisSentinelMaster.isEmpty() || redisSentinelNodes.isEmpty()) {
+            JedisClientConfiguration.JedisClientConfigurationBuilder jedisClientConfiguration,
+            RedisIdempotentProperties properties) {
+        if (properties.sentinel().master().isEmpty()
+                || properties.sentinel().nodes().isEmpty()) {
             throw new IdempotentException(
                     "Both idempotent.redis.sentinel.master and idempotent.redis.sentinel.nodes must be configured for sentinel setup");
         }
 
         List<RedisNode> nodes = new ArrayList<>();
 
-        for (String node : redisSentinelNodes.split(",", -1)) {
+        for (String node : properties.sentinel().nodes().split(",", -1)) {
             String[] hostPort = node.split(":", -1);
             if (hostPort.length != 2) {
                 throw new IdempotentException("Invalid sentinel node: " + node);
@@ -128,64 +92,66 @@ public class RedisConfig {
             nodes.add(new RedisNode(hostPort[0], Integer.parseInt(hostPort[1])));
         }
 
-        RedisSentinelConfiguration sentinelConfig = new RedisSentinelConfiguration().master(redisSentinelMaster);
+        var sentinelConfig =
+                new RedisSentinelConfiguration().master(properties.sentinel().master());
         sentinelConfig.setSentinels(nodes);
 
-        if (redisAuthEnabled) {
-            sentinelConfig.setUsername(redisAuthUsername);
-            sentinelConfig.setPassword(redisAuthPassword);
+        if (properties.auth().enabled()) {
+            sentinelConfig.setUsername(properties.auth().username());
+            sentinelConfig.setPassword(properties.auth().password());
         }
 
         return new JedisConnectionFactory(sentinelConfig, jedisClientConfiguration.build());
     }
 
     private JedisConnectionFactory redisStandaloneConnection(
-            JedisClientConfiguration.JedisClientConfigurationBuilder jedisClientConfiguration) {
-        String[] hostPort = redisHost.split(":", -1);
+            JedisClientConfiguration.JedisClientConfigurationBuilder jedisClientConfiguration,
+            RedisIdempotentProperties properties) {
+        String[] hostPort = properties.standalone().host().split(":", -1);
         if (hostPort.length != 2) {
-            throw new IdempotentException("idempotent.redis.host must be in the format host:port for " + redisHost);
+            throw new IdempotentException("idempotent.redis.standalone.host must be in the format host:port for "
+                    + properties.standalone().host());
         }
 
-        RedisStandaloneConfiguration redisStandaloneConfiguration =
-                new RedisStandaloneConfiguration(hostPort[0], Integer.parseInt(hostPort[1]));
-        if (redisAuthEnabled) {
-            redisStandaloneConfiguration.setUsername(redisAuthUsername);
-            redisStandaloneConfiguration.setPassword(redisAuthPassword);
+        var redisStandaloneConfiguration = new RedisStandaloneConfiguration(hostPort[0], Integer.parseInt(hostPort[1]));
+        if (properties.auth().enabled()) {
+            redisStandaloneConfiguration.setUsername(properties.auth().username());
+            redisStandaloneConfiguration.setPassword(properties.auth().password());
         }
         return new JedisConnectionFactory(redisStandaloneConfiguration, jedisClientConfiguration.build());
     }
 
-    /**
-     * Redis template.
-     *
-     * @param connectionFactory the connection factory
-     * @return the redis template
-     */
+    /** Redis serializer used by idempotent RedisTemplate values and keys. */
     @Bean
-    public RedisTemplate<IdempotentStore.IdempotentKey, IdempotentStore.Value> redisTemplate(
-            RedisConnectionFactory connectionFactory,
-            IdempotentJacksonJsonBuilderCustomizer idempotentJacksonJsonBuilderCustomizer) {
-        RedisTemplate<IdempotentStore.IdempotentKey, IdempotentStore.Value> template = new RedisTemplate<>();
-        template.setConnectionFactory(connectionFactory);
-
-        GenericJacksonJsonRedisSerializer.GenericJacksonJsonRedisSerializerBuilder<JsonMapper.Builder> builder =
-                GenericJacksonJsonRedisSerializer.builder();
-        idempotentJacksonJsonBuilderCustomizer.customize(builder);
-        GenericJacksonJsonRedisSerializer redisSerializer = builder.build();
-
-        template.setKeySerializer(redisSerializer);
-        template.setDefaultSerializer(redisSerializer);
-        return template;
+    @ConditionalOnMissingBean(name = "idempotentRedisSerializer")
+    RedisSerializer<Object> idempotentRedisSerializer(
+            IdempotentSerializationProperties properties,
+            ObjectProvider<IdempotentJacksonJsonBuilderCustomizer> legacyCustomizerProvider) {
+        return switch (properties.strategy()) {
+            case JAVA -> new JdkSerializationRedisSerializer();
+            case JSON -> {
+                var legacyCustomizer = legacyCustomizerProvider.getIfAvailable();
+                if (legacyCustomizer != null) {
+                    var builder = GenericJacksonJsonRedisSerializer.builder();
+                    legacyCustomizer.customize(builder);
+                    yield builder.build();
+                }
+                yield GenericJacksonJsonRedisSerializer.builder()
+                        .enableUnsafeDefaultTyping()
+                        .build();
+            }
+        };
     }
 
     @Bean
-    @ConditionalOnMissingBean
-    IdempotentJacksonJsonBuilderCustomizer idempotentJacksonJsonBuilderCustomizer() {
-        return builder -> {
-            log.warn(
-                    "Using an unrestricted polymorphic type validator. Without restrictions of the PolymorphicTypeValidator deserialization is vulnerable to arbitrary code execution when reading from untrusted sources.");
-            builder.enableUnsafeDefaultTyping();
-        };
+    public RedisTemplate<IdempotentStore.IdempotentKey, IdempotentStore.Value> redisTemplate(
+            RedisConnectionFactory connectionFactory,
+            @Qualifier("idempotentRedisSerializer") RedisSerializer<Object> idempotentRedisSerializer) {
+        var template = new RedisTemplate<IdempotentStore.IdempotentKey, IdempotentStore.Value>();
+        template.setConnectionFactory(connectionFactory);
+        template.setKeySerializer(idempotentRedisSerializer);
+        template.setDefaultSerializer(idempotentRedisSerializer);
+        return template;
     }
 
     /**

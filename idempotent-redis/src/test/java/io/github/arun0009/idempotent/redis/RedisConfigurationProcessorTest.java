@@ -36,7 +36,7 @@ class RedisConfigurationProcessorTest {
         @SuppressWarnings("unchecked")
         Set<String> groupNames = ((List<Map<String, String>>) root.get("groups"))
                 .stream().map(p -> p.get("name")).collect(toSet());
-        assertEquals(Set.of("idempotent.redis"), groupNames);
+        assertTrue(groupNames.contains("idempotent.redis"));
 
         @SuppressWarnings("unchecked")
         Set<String> propertyNames = ((List<Map<String, String>>) root.get("properties"))

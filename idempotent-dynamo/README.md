@@ -7,7 +7,7 @@ pom.xml file:
 <dependency>
 	<groupId>io.github.arun0009</groupId>
 	<artifactId>idempotent-dynamo</artifactId>
-	<!-- get latest idempotent version from maven central -->
+	<!-- get latest idempotent version from Maven Central -->
 	<version>${idempotent.version}</version>
 </dependency>
 ```
@@ -17,6 +17,26 @@ pom.xml file:
 This project provides an idempotent request handling mechanism using DynamoDB for storage/cache. The idempotent cache
 ensures that duplicate requests are handled safely and effectively, avoiding unintended side effects.
 This is particularly useful in scenarios where the same request might be sent multiple times due to retries or client errors.
+
+## Serialization
+
+Stored responses use the same shared idempotent serialization strategy
+(`idempotent.serialization.strategy=json|java`) as Redis, RDS, and NATS. See
+[idempotent-core – Payload serialization](../idempotent-core/README.md#payload-serialization-persistent-stores).
+
+## Migrating from 2.3.x
+
+DynamoDB configuration switched from `@Value` injection to type-safe `@ConfigurationProperties`.
+The following property names **must** be updated (dot-separated names no longer bind correctly):
+
+| Old (2.3.x) | New (2.4.0+) |
+|---|---|
+| `idempotent.dynamodb.use.local` | `idempotent.dynamodb.use-local` |
+| `idempotent.dynamodb.table.create` | `idempotent.dynamodb.table-create` |
+| `idempotent.dynamodb.table.name` | `idempotent.dynamodb.table-name` |
+
+Properties that already used simple nesting (`idempotent.aws.region`, `idempotent.dynamodb.endpoint`)
+and camelCase variants (`idempotent.aws.accessKey`) continue to work via Spring Boot relaxed binding.
 
 ## Configuration Properties
 
@@ -65,31 +85,31 @@ application's configuration file (e.g., application.properties or application.ym
 
 * AWS Access Key
 
-		Property: idempotent.aws.accessKey
+		Property: idempotent.aws.access-key
 		Default Value: (empty)
 		Description: The AWS access key for authentication.
 
 * AWS Access Secret
 
-		Property: idempotent.aws.accessSecret
+		Property: idempotent.aws.access-secret
 		Default Value: (empty)
 		Description: The AWS access secret for authentication.
 
 * Use Local DynamoDB
 
-		Property: idempotent.dynamodb.use.local
+		Property: idempotent.dynamodb.use-local
 		Default Value: false
 		Description: Flag to indicate whether to use a local DynamoDB instance (e.g., LocalStack or TestContainers).
 
 * Create DynamoDB Table
 
-		Property: idempotent.dynamodb.table.create
+		Property: idempotent.dynamodb.table-create
 		Default Value: false
 		Description: Flag to indicate whether the DynamoDB client should create the table.
 
 * DynamoDB Table Name
 
-		Property: idempotent.dynamodb.table.name
+		Property: idempotent.dynamodb.table-name
 		Default Value: Idempotent
 		Description: The name of the DynamoDB table used for storing idempotent requests.
 
@@ -144,11 +164,11 @@ idempotent.inprogress.retry.multiplier=2
 # DynamoDB Configuration
 idempotent.aws.region=us-west-2
 idempotent.dynamodb.endpoint=http://localhost:8000
-idempotent.aws.accessKey=your-access-key
-idempotent.aws.accessSecret=your-secret-key
-idempotent.dynamodb.use.local=true
-idempotent.dynamodb.table.create=true
-idempotent.dynamodb.table.name=Idempotent
+idempotent.aws.access-key=your-access-key
+idempotent.aws.access-secret=your-secret-key
+idempotent.dynamodb.use-local=true
+idempotent.dynamodb.table-create=true
+idempotent.dynamodb.table-name=Idempotent
 ```
 
 By following these steps and configurations, you can effectively manage idempotent requests using DynamoDB, ensuring

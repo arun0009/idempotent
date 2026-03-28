@@ -3,15 +3,11 @@ package io.github.arun0009.idempotent.rds;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
- * Customizer for the JsonMapper.Builder used in the RDS idempotent store.
+ * @deprecated since 2.4.0, use core {@code IdempotentJsonMapperCustomizer} instead.
  */
+@Deprecated(since = "2.4.0", forRemoval = false)
 @FunctionalInterface
 public interface RdsJacksonJsonBuilderCustomizer {
 
-    /**
-     * Customizes the provided {@link JsonMapper.Builder} instance.
-     *
-     * @param builder the {@link JsonMapper.Builder} instance to customize
-     */
     void customize(JsonMapper.Builder builder);
 }

@@ -5,6 +5,7 @@ import io.github.arun0009.idempotent.core.exception.IdempotentKeyConflictExcepti
 import io.github.arun0009.idempotent.core.persistence.IdempotentStore;
 import io.github.arun0009.idempotent.core.persistence.IdempotentStore.IdempotentKey;
 import io.github.arun0009.idempotent.core.persistence.IdempotentStore.Value;
+import io.github.arun0009.idempotent.core.serialization.JacksonIdempotentPayloadCodec;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -58,7 +59,8 @@ class RdsIdempotentStoreH2Test {
 
         @Bean
         public IdempotentStore idempotentStore(JdbcTemplate jdbcTemplate) {
-            return new RdsIdempotentStore(jdbcTemplate, "idempotent", JsonMapper.shared());
+            return new RdsIdempotentStore(
+                    jdbcTemplate, "idempotent", new JacksonIdempotentPayloadCodec(JsonMapper.shared()));
         }
 
         @Bean

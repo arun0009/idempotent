@@ -23,11 +23,11 @@ public class DynamoTestConfig {
                             "idempotent.dynamodb.endpoint=" + "http://"
                                     + SharedDynamoContainer.DYNAMO_CONTAINER.getHost() + ":"
                                     + SharedDynamoContainer.DYNAMO_CONTAINER.getFirstMappedPort(),
-                            "idempotent.dynamodb.use.local=true",
-                            "idempotent.dynamodb.table.name=Idempotent",
-                            "idempotent.dynamodb.table.create=true",
-                            "idempotent.aws.accessKey=accessKey",
-                            "idempotent.aws.accessSecret=secretKey",
+                            "idempotent.dynamodb.use-local=true",
+                            "idempotent.dynamodb.table-name=Idempotent",
+                            "idempotent.dynamodb.table-create=true",
+                            "idempotent.aws.access-key=accessKey",
+                            "idempotent.aws.access-secret=secretKey",
                             "idempotent.aws.region=us-east-1")
                     .applyTo(context.getEnvironment());
         }

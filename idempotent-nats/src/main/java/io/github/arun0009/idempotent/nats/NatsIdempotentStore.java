@@ -2,6 +2,7 @@ package io.github.arun0009.idempotent.nats;
 
 import io.github.arun0009.idempotent.core.exception.IdempotentKeyConflictException;
 import io.github.arun0009.idempotent.core.persistence.IdempotentStore;
+import io.github.arun0009.idempotent.core.serialization.IdempotentPayloadCodec;
 import io.nats.client.JetStreamApiException;
 import io.nats.client.KeyValue;
 import io.nats.client.MessageTtl;
@@ -10,7 +11,6 @@ import io.nats.client.support.Validator;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import tools.jackson.databind.json.JsonMapper;
 
 import java.io.IOException;
 import java.time.Duration;
@@ -22,11 +22,11 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 class NatsIdempotentStore implements IdempotentStore {
     private static final Logger log = LoggerFactory.getLogger(NatsIdempotentStore.class);
     private final KeyValue kv;
-    private final JsonMapper mapper;
+    private final IdempotentPayloadCodec payloadCodec;
 
-    NatsIdempotentStore(KeyValue kv, JsonMapper jsonMapper) {
+    NatsIdempotentStore(KeyValue kv, IdempotentPayloadCodec payloadCodec) {
         this.kv = kv;
-        this.mapper = jsonMapper;
+        this.payloadCodec = payloadCodec;
     }
 
     private static MessageTtl fromExpirationTimeInMs(long value) {
@@ -61,7 +61,7 @@ class NatsIdempotentStore implements IdempotentStore {
             KeyValueEntry entry = kv.get(key);
             if (entry == null) return null;
 
-            Wrappers.Value wrapperValue = mapper.readValue(entry.getValue(), Wrappers.Value.class);
+            Wrappers.Value wrapperValue = payloadCodec.deserializeFromBytes(entry.getValue(), Wrappers.Value.class);
             return wrapperValue.value();
         } catch (IOException | JetStreamApiException e) {
             log.error("Error reading value from nats store", e);
@@ -74,7 +74,7 @@ class NatsIdempotentStore implements IdempotentStore {
         log.atDebug().log("Storing key {}", idemKey);
         var key = encodeIfNotValid(idemKey);
         try {
-            byte[] content = mapper.writeValueAsBytes(new Wrappers.Value(value));
+            byte[] content = payloadCodec.serializeToBytes(new Wrappers.Value(value));
             MessageTtl messageTtl = fromExpirationTimeInMs(value.expirationTimeInMilliSeconds());
             kv.create(key, content, messageTtl);
         } catch (JetStreamApiException e) {
@@ -105,7 +105,7 @@ class NatsIdempotentStore implements IdempotentStore {
             log.atDebug().log("Updating key {} with status {}", idemKey, value.status());
             log.atTrace().log(value::toString);
             var key = encodeIfNotValid(idemKey);
-            byte[] content = mapper.writeValueAsBytes(new Wrappers.Value(value));
+            byte[] content = payloadCodec.serializeToBytes(new Wrappers.Value(value));
             kv.put(key, content);
         } catch (IOException | JetStreamApiException e) {
             throw new NatsIdempotentExceptions("Error storing value in nats", e);

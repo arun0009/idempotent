@@ -116,11 +116,7 @@ public class IdempotentItem {
 
     @Override
     public String toString() {
-        return "IdempotentItem{" + "key='"
-                + key + '\'' + ", processName='"
-                + processName + '\'' + ", status='"
-                + status + '\'' + ", expirationTimeInMilliSeconds="
-                + expirationTimeInMilliSeconds + ", response='"
-                + response + '\'' + '}';
+        return "IdempotentItem{key='%s', processName='%s', status='%s', expirationTimeInMilliSeconds=%d, response='%s'}"
+                .formatted(key, processName, status, expirationTimeInMilliSeconds, response);
     }
 }

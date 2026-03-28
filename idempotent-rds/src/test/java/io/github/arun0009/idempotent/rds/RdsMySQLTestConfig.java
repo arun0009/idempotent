@@ -2,6 +2,7 @@ package io.github.arun0009.idempotent.rds;
 
 import com.zaxxer.hikari.HikariDataSource;
 import io.github.arun0009.idempotent.core.persistence.IdempotentStore;
+import io.github.arun0009.idempotent.core.serialization.JacksonIdempotentPayloadCodec;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -47,7 +48,8 @@ class RdsMySQLTestConfig {
 
     @Bean
     IdempotentStore idempotentStore(JdbcTemplate jdbcTemplate) {
-        return new RdsIdempotentStore(jdbcTemplate, "idempotent", JsonMapper.shared());
+        return new RdsIdempotentStore(
+                jdbcTemplate, "idempotent", new JacksonIdempotentPayloadCodec(JsonMapper.shared()));
     }
 
     @Bean

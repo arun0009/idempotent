@@ -201,24 +201,41 @@ class DynamoIdempotentServiceIntegrationTest {
 
     @Test
     void testServiceWithComplexObjects() {
-        Supplier<TestData> operation = () -> new TestData("test-name", 42);
+        Supplier<TestPojo> operation = () -> new TestPojo("test-name", 42);
 
-        TestData result1 = idempotentService.execute("complex-key", operation, Duration.ofMinutes(5));
+        TestPojo result1 = idempotentService.execute("complex-key", operation, Duration.ofMinutes(5));
         assertNotNull(result1);
         assertEquals("test-name", result1.name);
         assertEquals(42, result1.value);
 
-        TestData result2 = idempotentService.execute("complex-key", operation, Duration.ofMinutes(5));
+        TestPojo result2 = idempotentService.execute("complex-key", operation, Duration.ofMinutes(5));
         assertNotNull(result2);
         assertEquals("test-name", result2.name);
         assertEquals(42, result2.value);
     }
 
-    public static class TestData {
+    @Test
+    void testServiceWithRecordPayload() {
+        Supplier<TestRecord> operation = () -> new TestRecord("record-name", 99);
+
+        TestRecord result1 = idempotentService.execute("record-key", operation, Duration.ofMinutes(5));
+        assertNotNull(result1);
+        assertEquals("record-name", result1.name());
+        assertEquals(99, result1.value());
+
+        TestRecord result2 = idempotentService.execute("record-key", operation, Duration.ofMinutes(5));
+        assertNotNull(result2);
+        assertEquals("record-name", result2.name());
+        assertEquals(99, result2.value());
+    }
+
+    public record TestRecord(String name, int value) {}
+
+    public static class TestPojo {
         public String name;
         public int value;
 
-        public TestData(String name, int value) {
+        public TestPojo(String name, int value) {
             this.name = name;
             this.value = value;
         }

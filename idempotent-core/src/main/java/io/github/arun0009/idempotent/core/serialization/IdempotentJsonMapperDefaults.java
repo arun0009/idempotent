@@ -3,8 +3,10 @@ package io.github.arun0009.idempotent.core.serialization;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import org.slf4j.Logger;
 import tools.jackson.databind.DefaultTyping;
+import tools.jackson.databind.JavaType;
 import tools.jackson.databind.json.JsonMapper;
 import tools.jackson.databind.jsontype.BasicPolymorphicTypeValidator;
+import tools.jackson.databind.jsontype.PolymorphicTypeValidator;
 import tools.jackson.databind.jsontype.impl.DefaultTypeResolverBuilder;
 
 /**
@@ -15,8 +17,8 @@ public final class IdempotentJsonMapperDefaults {
     private IdempotentJsonMapperDefaults() {}
 
     /**
-     * Applies permissive default typing so arbitrary response types round-trip. Suitable only when Redis / DB
-     * contents are trusted.
+     * Applies permissive default typing so arbitrary response types round-trip. Covers Java records,
+     * Kotlin data classes, and all other final types. Suitable only when store contents are trusted.
      */
     public static void applyPermissivePolymorphicTyping(JsonMapper.Builder builder, Logger log) {
         log.warn("Using an unrestricted polymorphic type validator for idempotent payload serialization. "
@@ -26,8 +28,22 @@ public final class IdempotentJsonMapperDefaults {
                 .allowIfBaseType(Object.class)
                 .allowIfSubType((ctx, clazz) -> true)
                 .build();
-        builder.polymorphicTypeValidator(ptv)
-                .setDefaultTyping(new DefaultTypeResolverBuilder(
-                        ptv, DefaultTyping.NON_FINAL, JsonTypeInfo.As.PROPERTY, JsonTypeInfo.Id.CLASS, "@class"));
+        builder.polymorphicTypeValidator(ptv).setDefaultTyping(new AllTypesResolverBuilder(ptv));
+    }
+
+    /**
+     * Type resolver that writes {@code @class} for all types, including final classes like
+     * Java records and Kotlin data classes.
+     */
+    private static final class AllTypesResolverBuilder extends DefaultTypeResolverBuilder {
+
+        AllTypesResolverBuilder(PolymorphicTypeValidator ptv) {
+            super(ptv, DefaultTyping.NON_FINAL, JsonTypeInfo.As.PROPERTY, JsonTypeInfo.Id.CLASS, "@class");
+        }
+
+        @Override
+        public boolean useForType(JavaType t) {
+            return true;
+        }
     }
 }

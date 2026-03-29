@@ -173,18 +173,19 @@ class RedisIdempotentServiceIntegrationTest {
     }
 
     @Test
-    void testServiceWithCustomTtl() {
-        Supplier<TestData> operation = () -> new TestData("test-name", 42);
+    void testServiceRecordPayloadRoundTripsAsObjectType() {
+        Supplier<TestData> operation = () -> new TestData("record-name", 99);
 
-        TestData result1 = idempotentService.execute("complex-key-1", operation, Duration.ofMinutes(5));
+        TestData result1 = idempotentService.execute("record-key", operation, Duration.ofMinutes(5));
         assertNotNull(result1);
-        assertEquals("test-name", result1.name);
-        assertEquals(42, result1.value);
+        assertEquals("record-name", result1.name());
+        assertEquals(99, result1.value());
 
-        TestData result2 = idempotentService.execute("complex-key-2", operation, Duration.ofMinutes(5));
+        // Second call with same key — deserialized via Object.class inside IdempotentService
+        TestData result2 = idempotentService.execute("record-key", operation, Duration.ofMinutes(5));
         assertNotNull(result2);
-        assertEquals("test-name", result2.name);
-        assertEquals(42, result2.value);
+        assertEquals("record-name", result2.name());
+        assertEquals(99, result2.value());
     }
 
     public record TestData(String name, int value) {}

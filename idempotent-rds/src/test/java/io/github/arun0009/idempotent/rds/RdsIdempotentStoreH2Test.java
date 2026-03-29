@@ -5,10 +5,12 @@ import io.github.arun0009.idempotent.core.exception.IdempotentKeyConflictExcepti
 import io.github.arun0009.idempotent.core.persistence.IdempotentStore;
 import io.github.arun0009.idempotent.core.persistence.IdempotentStore.IdempotentKey;
 import io.github.arun0009.idempotent.core.persistence.IdempotentStore.Value;
+import io.github.arun0009.idempotent.core.serialization.IdempotentJsonMapperDefaults;
 import io.github.arun0009.idempotent.core.serialization.JacksonIdempotentPayloadCodec;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -59,8 +61,11 @@ class RdsIdempotentStoreH2Test {
 
         @Bean
         public IdempotentStore idempotentStore(JdbcTemplate jdbcTemplate) {
+            var builder = JsonMapper.builder();
+            IdempotentJsonMapperDefaults.applyPermissivePolymorphicTyping(
+                    builder, LoggerFactory.getLogger(H2TestConfig.class));
             return new RdsIdempotentStore(
-                    jdbcTemplate, "idempotent", new JacksonIdempotentPayloadCodec(JsonMapper.shared()));
+                    jdbcTemplate, "idempotent", new JacksonIdempotentPayloadCodec(builder.build()));
         }
 
         @Bean
@@ -116,11 +121,28 @@ class RdsIdempotentStoreH2Test {
         idempotentStore.store(key, value1);
 
         Value value2 = new Value("COMPLETED", System.currentTimeMillis() + 20000, "overwritten");
-        // This should throw IdempotentKeyConflictException
         assertThrows(IdempotentKeyConflictException.class, () -> idempotentStore.store(key, value2));
 
         Value retrieved = idempotentStore.getValue(key, String.class);
         assertNotNull(retrieved);
-        assertEquals("INPROGRESS", retrieved.status()); // Should still be original
+        assertEquals("INPROGRESS", retrieved.status());
     }
+
+    @Test
+    void testRecordPayloadRoundTrip() {
+        IdempotentKey key = new IdempotentKey("record-key", "test-process");
+        Value value = new Value("COMPLETED", System.currentTimeMillis() + 5000, new TestRecord("hello", 42));
+
+        idempotentStore.store(key, value);
+
+        Value retrieved = idempotentStore.getValue(key, Object.class);
+        assertNotNull(retrieved);
+        assertEquals("COMPLETED", retrieved.status());
+        assertNotNull(retrieved.response());
+        assertEquals(TestRecord.class, retrieved.response().getClass());
+        assertEquals("hello", ((TestRecord) retrieved.response()).name());
+        assertEquals(42, ((TestRecord) retrieved.response()).value());
+    }
+
+    public record TestRecord(String name, int value) {}
 }

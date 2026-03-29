@@ -146,19 +146,22 @@ class NatsIdempotentServiceTest {
     }
 
     @Test
-    @DisplayName("Handles complex return types with TTL correctly")
-    void testComplexTypeHandling() {
-        Supplier<TestData> operation = () -> new TestData("test-name", 42);
+    @DisplayName("Record payload round-trips correctly through Object.class deserialization")
+    void testRecordPayloadRoundTripsAsObjectType() {
+        Supplier<TestData> operation = () -> new TestData("record-name", 99);
 
-        var result1 = service.execute("complex-key-1", operation, Duration.ofMinutes(5));
-        var result2 = service.execute("complex-key-2", operation, Duration.ofMinutes(5));
-
+        var result1 = service.execute("record-key", operation, Duration.ofMinutes(5));
         assertThat(result1)
                 .isNotNull()
                 .extracting(TestData::name, TestData::value)
-                .containsExactly("test-name", 42);
+                .containsExactly("record-name", 99);
 
-        assertThat(result2).usingRecursiveComparison().isEqualTo(new TestData("test-name", 42));
+        // Second call with same key — triggers getValue(key, Object.class) inside IdempotentService
+        var result2 = service.execute("record-key", operation, Duration.ofMinutes(5));
+        assertThat(result2)
+                .isNotNull()
+                .extracting(TestData::name, TestData::value)
+                .containsExactly("record-name", 99);
     }
 
     public record TestData(String name, int value) {}

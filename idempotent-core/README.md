@@ -44,24 +44,36 @@ Redis, RDS, DynamoDB, and NATS share one payload codec (`IdempotentPayloadCodec`
 
 #### Customizing Jackson (JSON strategy)
 
-Define an `IdempotentJsonMapperCustomizer` bean to restrict polymorphic typing or add Jackson modules:
+Define an `IdempotentJsonMapperCustomizer` bean to restrict polymorphic typing or add Jackson modules.
+If you use `Object.class` deserialization with final payload types (Kotlin data classes, Java records), use
+an all-types resolver:
 
 ```java
 @Bean
 IdempotentJsonMapperCustomizer idempotentJsonMapperCustomizer() {
-		return builder -> {
-				var ptv = BasicPolymorphicTypeValidator.builder()
-								.allowIfBaseType("com.myapp.")
-								.build();
-				builder.activateDefaultTypingAsProperty(ptv,
-								DefaultTyping.NON_FINAL, "@class");
-		};
+    return builder -> {
+        var ptv = BasicPolymorphicTypeValidator.builder()
+                .allowIfBaseType("com.myapp.")
+                .build();
+        builder.polymorphicTypeValidator(ptv)
+                .setDefaultTyping(new DefaultTypeResolverBuilder(
+                        ptv,
+                        DefaultTyping.NON_FINAL,
+                        JsonTypeInfo.As.PROPERTY,
+                        JsonTypeInfo.Id.CLASS,
+                        "@class") {
+                    @Override
+                    public boolean useForType(JavaType t) {
+                        return true;
+                    }
+                });
+    };
 }
 ```
 
 > **Important:** when you define your own `IdempotentJsonMapperCustomizer`, you take full ownership of the mapper
 > configuration. The library's default permissive typing is no longer applied. If your payloads require polymorphic
-> typing (e.g., `List`, `Map`, or interfaces), configure it explicitly in your customizer as shown above.
+> typing (e.g., `Object.class` retrieval, interfaces, records, Kotlin data classes), configure it explicitly.
 
 #### Fully replacing the codec
 
@@ -175,10 +187,10 @@ public class IdempotentConfig {
 		return new CustomIdempotentStore();
 	}
 
-	@Bean
-		public IdempotentAspect idempotentAspect(IdempotentStore idempotentStore) {
-				return new IdempotentAspect(idempotentStore);
-		}
+    @Bean
+    public IdempotentAspect idempotentAspect(IdempotentStore idempotentStore, IdempotentProperties properties) {
+        return new IdempotentAspect(idempotentStore, properties);
+    }
 }
 ```
 

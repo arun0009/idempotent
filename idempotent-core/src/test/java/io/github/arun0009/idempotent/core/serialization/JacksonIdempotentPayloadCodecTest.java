@@ -2,7 +2,6 @@ package io.github.arun0009.idempotent.core.serialization;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.slf4j.LoggerFactory;
 import tools.jackson.databind.json.JsonMapper;
 
 import java.io.Serializable;
@@ -33,8 +32,7 @@ class JacksonIdempotentPayloadCodecTest {
     @BeforeEach
     void setUp() {
         var builder = JsonMapper.builder();
-        IdempotentJsonMapperDefaults.applyPermissivePolymorphicTyping(
-                builder, LoggerFactory.getLogger(JacksonIdempotentPayloadCodecTest.class));
+        IdempotentJsonMapperDefaults.applyPermissivePolymorphicTyping(builder);
         codec = new JacksonIdempotentPayloadCodec(builder.build());
     }
 

@@ -20,7 +20,8 @@ public final class JdkIdempotentPayloadCodec implements IdempotentPayloadCodec {
             oos.flush();
             return bos.toByteArray();
         } catch (IOException e) {
-            throw new IllegalArgumentException("Failed to serialize idempotent payload using JDK serialization", e);
+            throw new IdempotentPayloadCodecException(
+                    "Failed to serialize idempotent payload using JDK serialization", e);
         }
     }
 
@@ -31,7 +32,8 @@ public final class JdkIdempotentPayloadCodec implements IdempotentPayloadCodec {
             Object value = ois.readObject();
             return type.cast(value);
         } catch (IOException | ClassNotFoundException e) {
-            throw new IllegalArgumentException("Failed to deserialize idempotent payload using JDK serialization", e);
+            throw new IdempotentPayloadCodecException(
+                    "Failed to deserialize idempotent payload using JDK serialization", e);
         }
     }
 

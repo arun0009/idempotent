@@ -5,6 +5,7 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
 
 @ConfigurationProperties(prefix = "idempotent.redis")
 public record RedisIdempotentProperties(
+        @DefaultValue("true") boolean enabled,
         @DefaultValue Standalone standalone,
         @DefaultValue Auth auth,
         @DefaultValue Ssl ssl,

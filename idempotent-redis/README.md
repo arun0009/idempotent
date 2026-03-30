@@ -50,6 +50,12 @@ with `JedisConnectionFactory` (see below)
 
 ### Redis Configuration
 
+* Redis Enabled
+
+		Property: idempotent.redis.enabled
+		Default Value: true
+		Description: Set to false to disable Redis auto-configuration entirely (e.g., for testing or training mode).
+
 * Redis Standalone Host
 
 		Property: idempotent.redis.standalone.host
@@ -172,6 +178,7 @@ idempotent.inprogress.retry.initial.intervalMillis=100
 idempotent.inprogress.retry.multiplier=2
 
 # Redis Configuration
+idempotent.redis.enabled=true
 idempotent.redis.standalone.host=localhost:6379
 idempotent.redis.auth.enabled=false
 idempotent.redis.ssl.enabled=false

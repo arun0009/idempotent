@@ -51,23 +51,23 @@ an all-types resolver:
 ```java
 @Bean
 IdempotentJsonMapperCustomizer idempotentJsonMapperCustomizer() {
-    return builder -> {
-        var ptv = BasicPolymorphicTypeValidator.builder()
-                .allowIfBaseType("com.myapp.")
-                .build();
-        builder.polymorphicTypeValidator(ptv)
-                .setDefaultTyping(new DefaultTypeResolverBuilder(
-                        ptv,
-                        DefaultTyping.NON_FINAL,
-                        JsonTypeInfo.As.PROPERTY,
-                        JsonTypeInfo.Id.CLASS,
-                        "@class") {
-                    @Override
-                    public boolean useForType(JavaType t) {
-                        return true;
-                    }
-                });
-    };
+		return builder -> {
+				var ptv = BasicPolymorphicTypeValidator.builder()
+								.allowIfBaseType("com.myapp.")
+								.build();
+				builder.polymorphicTypeValidator(ptv)
+								.setDefaultTyping(new DefaultTypeResolverBuilder(
+												ptv,
+												DefaultTyping.NON_FINAL,
+												JsonTypeInfo.As.PROPERTY,
+												JsonTypeInfo.Id.CLASS,
+												"@class") {
+										@Override
+										public boolean useForType(JavaType t) {
+												return true;
+										}
+								});
+		};
 }
 ```
 
@@ -182,15 +182,15 @@ Then configure it in your Spring configuration:
 ```java
 @Configuration
 public class IdempotentConfig {
-	@Bean
-	public IdempotentStore idempotentStore() {
-		return new CustomIdempotentStore();
-	}
+		@Bean
+		public IdempotentStore idempotentStore() {
+				return new CustomIdempotentStore();
+		}
 
-    @Bean
-    public IdempotentAspect idempotentAspect(IdempotentStore idempotentStore, IdempotentProperties properties) {
-        return new IdempotentAspect(idempotentStore, properties);
-    }
+		@Bean
+		public IdempotentAspect idempotentAspect(IdempotentStore idempotentStore, IdempotentProperties properties) {
+				return new IdempotentAspect(idempotentStore, properties);
+		}
 }
 ```
 

@@ -44,6 +44,7 @@ class RedisConfigurationProcessorTest {
 
         assertEquals(
                 Set.of(
+                        "idempotent.redis.enabled",
                         "idempotent.redis.standalone.host",
                         "idempotent.redis.auth.enabled",
                         "idempotent.redis.ssl.enabled",

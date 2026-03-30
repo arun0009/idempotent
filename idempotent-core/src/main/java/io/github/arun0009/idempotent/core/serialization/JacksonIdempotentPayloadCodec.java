@@ -4,8 +4,6 @@ import org.jspecify.annotations.Nullable;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.json.JsonMapper;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
-
 /** JSON codec backed by Jackson {@link JsonMapper}. */
 public final class JacksonIdempotentPayloadCodec implements IdempotentPayloadCodec {
 
@@ -20,7 +18,7 @@ public final class JacksonIdempotentPayloadCodec implements IdempotentPayloadCod
         try {
             return jsonMapper.writeValueAsBytes(value);
         } catch (JacksonException e) {
-            throw new IllegalArgumentException("Failed to serialize idempotent payload", e);
+            throw new IdempotentPayloadCodecException("Failed to serialize idempotent payload", e);
         }
     }
 
@@ -29,7 +27,7 @@ public final class JacksonIdempotentPayloadCodec implements IdempotentPayloadCod
         try {
             return jsonMapper.readValue(bytes, type);
         } catch (JacksonException e) {
-            throw new IllegalArgumentException("Failed to deserialize idempotent payload", e);
+            throw new IdempotentPayloadCodecException("Failed to deserialize idempotent payload", e);
         }
     }
 
@@ -38,7 +36,11 @@ public final class JacksonIdempotentPayloadCodec implements IdempotentPayloadCod
         if (value == null) {
             return null;
         }
-        return new String(serializeToBytes(value), UTF_8);
+        try {
+            return jsonMapper.writeValueAsString(value);
+        } catch (JacksonException e) {
+            throw new IdempotentPayloadCodecException("Failed to serialize idempotent payload", e);
+        }
     }
 
     @Override
@@ -46,6 +48,10 @@ public final class JacksonIdempotentPayloadCodec implements IdempotentPayloadCod
         if (value == null) {
             return null;
         }
-        return deserializeFromBytes(value.getBytes(UTF_8), type);
+        try {
+            return jsonMapper.readValue(value, type);
+        } catch (JacksonException e) {
+            throw new IdempotentPayloadCodecException("Failed to deserialize idempotent payload", e);
+        }
     }
 }

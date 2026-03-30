@@ -1,7 +1,6 @@
 package io.github.arun0009.idempotent.core.serialization;
 
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
-import org.slf4j.Logger;
 import tools.jackson.databind.DefaultTyping;
 import tools.jackson.databind.JavaType;
 import tools.jackson.databind.json.JsonMapper;
@@ -20,10 +19,7 @@ public final class IdempotentJsonMapperDefaults {
      * Applies permissive default typing so arbitrary response types round-trip. Covers Java records,
      * Kotlin data classes, and all other final types. Suitable only when store contents are trusted.
      */
-    public static void applyPermissivePolymorphicTyping(JsonMapper.Builder builder, Logger log) {
-        log.warn("Using an unrestricted polymorphic type validator for idempotent payload serialization. "
-                + "Without a restricted PolymorphicTypeValidator, deserialization is vulnerable to "
-                + "arbitrary code execution when reading from untrusted sources.");
+    public static void applyPermissivePolymorphicTyping(JsonMapper.Builder builder) {
         var ptv = BasicPolymorphicTypeValidator.builder()
                 .allowIfBaseType(Object.class)
                 .allowIfSubType((ctx, clazz) -> true)

@@ -10,7 +10,6 @@ import io.github.arun0009.idempotent.core.serialization.JacksonIdempotentPayload
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -62,8 +61,7 @@ class RdsIdempotentStoreH2Test {
         @Bean
         public IdempotentStore idempotentStore(JdbcTemplate jdbcTemplate) {
             var builder = JsonMapper.builder();
-            IdempotentJsonMapperDefaults.applyPermissivePolymorphicTyping(
-                    builder, LoggerFactory.getLogger(H2TestConfig.class));
+            IdempotentJsonMapperDefaults.applyPermissivePolymorphicTyping(builder);
             return new RdsIdempotentStore(
                     jdbcTemplate, "idempotent", new JacksonIdempotentPayloadCodec(builder.build()));
         }

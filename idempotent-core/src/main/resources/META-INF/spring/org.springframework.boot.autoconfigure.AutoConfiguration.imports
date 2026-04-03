@@ -1,1 +1,2 @@
+io.github.arun0009.idempotent.core.serialization.IdempotentJsonMapperAutoConfiguration
 io.github.arun0009.idempotent.core.IdempotentCoreAutoConfiguration

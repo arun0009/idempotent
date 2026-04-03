@@ -3,12 +3,11 @@ package io.github.arun0009.idempotent.rds;
 import io.github.arun0009.idempotent.core.exception.IdempotentException;
 import io.github.arun0009.idempotent.core.exception.IdempotentKeyConflictException;
 import io.github.arun0009.idempotent.core.persistence.IdempotentStore;
+import io.github.arun0009.idempotent.core.serialization.IdempotentPayloadCodec;
 import org.jspecify.annotations.Nullable;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
-import tools.jackson.core.JacksonException;
-import tools.jackson.databind.json.JsonMapper;
 
 /**
  * RDS idempotent store using JdbcTemplate with atomic race condition
@@ -18,13 +17,13 @@ public class RdsIdempotentStore implements IdempotentStore {
 
     private final JdbcTemplate jdbcTemplate;
     private final String tableName;
-    private final JsonMapper jsonMapper;
+    private final IdempotentPayloadCodec payloadCodec;
     private final RdsDialect dialect;
 
-    public RdsIdempotentStore(JdbcTemplate jdbcTemplate, String tableName, JsonMapper jsonMapper) {
+    public RdsIdempotentStore(JdbcTemplate jdbcTemplate, String tableName, IdempotentPayloadCodec payloadCodec) {
         this.jdbcTemplate = jdbcTemplate;
         this.tableName = tableName;
-        this.jsonMapper = jsonMapper;
+        this.payloadCodec = payloadCodec;
         this.dialect = RdsDialect.detect(jdbcTemplate);
     }
 
@@ -37,18 +36,11 @@ public class RdsIdempotentStore implements IdempotentStore {
             return jdbcTemplate.queryForObject(
                     sql,
                     (rs, rowNum) -> {
-                        try {
-                            String status = rs.getString("status");
-                            long expirationTime = rs.getLong("expiration_time_millis");
-                            String responseJson = rs.getString("response");
-                            Object response = null;
-                            if (responseJson != null) {
-                                response = jsonMapper.readValue(responseJson, returnType);
-                            }
-                            return new Value(status, expirationTime, response);
-                        } catch (JacksonException e) {
-                            throw new IdempotentException("Error deserializing response", e);
-                        }
+                        String status = rs.getString("status");
+                        long expirationTime = rs.getLong("expiration_time_millis");
+                        String serializedResponse = rs.getString("response");
+                        Object response = payloadCodec.deserializeFromString(serializedResponse, returnType);
+                        return new Value(status, expirationTime, response);
                     },
                     key.key(),
                     key.processName());
@@ -60,34 +52,44 @@ public class RdsIdempotentStore implements IdempotentStore {
     @Override
     public void store(IdempotentKey key, Value value) {
         try {
-            var responseJson = value.response() != null ? jsonMapper.writeValueAsString(value.response()) : null;
+            var serializedResponse = payloadCodec.serializeToString(value.response());
             switch (dialect) {
-                case POSTGRES -> storePostgres(key, value, responseJson);
-                case MYSQL -> storeMySQL(key, value, responseJson);
-                case H2, GENERIC -> storeGeneric(key, value, responseJson);
+                case POSTGRES -> storePostgres(key, value, serializedResponse);
+                case MYSQL -> storeMySQL(key, value, serializedResponse);
+                case H2, GENERIC -> storeGeneric(key, value, serializedResponse);
             }
-        } catch (JacksonException e) {
+        } catch (IllegalArgumentException e) {
             throw new IdempotentException("Error serializing value response", e);
         } catch (DuplicateKeyException e) {
             throw new IdempotentKeyConflictException("Idempotent key already exists in " + dialect, key);
         }
     }
 
-    private void storePostgres(IdempotentKey key, Value value, @Nullable String responseJson) {
+    private void storePostgres(IdempotentKey key, Value value, @Nullable String serializedResponse) {
         var sql = """
                 INSERT INTO %s (key_id, process_name, status, expiration_time_millis, response)
                 VALUES (?, ?, ?, ?, ?)
                 """.formatted(tableName);
         jdbcTemplate.update(
-                sql, key.key(), key.processName(), value.status(), value.expirationTimeInMilliSeconds(), responseJson);
+                sql,
+                key.key(),
+                key.processName(),
+                value.status(),
+                value.expirationTimeInMilliSeconds(),
+                serializedResponse);
     }
 
-    private void storeMySQL(IdempotentKey key, Value value, @Nullable String responseJson) {
+    private void storeMySQL(IdempotentKey key, Value value, @Nullable String serializedResponse) {
         var sql = """
                 INSERT INTO %s (key_id, process_name, status, expiration_time_millis, response) VALUES (?, ?, ?, ?, ?)
                 """.formatted(tableName);
         jdbcTemplate.update(
-                sql, key.key(), key.processName(), value.status(), value.expirationTimeInMilliSeconds(), responseJson);
+                sql,
+                key.key(),
+                key.processName(),
+                value.status(),
+                value.expirationTimeInMilliSeconds(),
+                serializedResponse);
     }
 
     private void storeGeneric(IdempotentKey key, Value value, @Nullable String response) {
@@ -109,8 +111,7 @@ public class RdsIdempotentStore implements IdempotentStore {
     @Override
     public void update(IdempotentKey key, Value value) {
         try {
-            var responseJson = value.response() != null ? jsonMapper.writeValueAsString(value.response()) : null;
-            // Simple UPDATE - trust the caller's contract that this is for INPROGRESS keys
+            var serializedResponse = payloadCodec.serializeToString(value.response());
             var updateSql = """
                     UPDATE %s SET status = ?, expiration_time_millis = ?, response = ?
                     WHERE key_id = ? AND process_name = ?
@@ -119,10 +120,10 @@ public class RdsIdempotentStore implements IdempotentStore {
                     updateSql,
                     value.status(),
                     value.expirationTimeInMilliSeconds(),
-                    responseJson,
+                    serializedResponse,
                     key.key(),
                     key.processName());
-        } catch (JacksonException e) {
+        } catch (IllegalArgumentException e) {
             throw new IdempotentException("Error serializing response", e);
         }
     }

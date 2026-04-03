@@ -31,6 +31,66 @@ A Java library providing idempotency utilities for Java applications. Supports b
 | `idempotent.inprogress.retry.initial.intervalMillis` | `100` | Initial retry interval in ms |
 | `idempotent.inprogress.retry.multiplier` | `2` | Exponential backoff multiplier |
 
+### Payload serialization (persistent stores)
+
+Redis, RDS, DynamoDB, and NATS share one payload codec (`IdempotentPayloadCodec`) for serializing stored responses.
+
+| Property | Default | Description |
+|----------|---------|-------------|
+| `idempotent.serialization.strategy` | `json` | `json` (Jackson) or `java` (JDK native serialization) |
+
+- `json` strategy uses Jackson with permissive polymorphic typing (logs a warning at startup).
+- `java` strategy uses JDK serialization and requires payloads to implement `Serializable`.
+
+#### Customizing Jackson (JSON strategy)
+
+Define an `IdempotentJsonMapperCustomizer` bean to restrict polymorphic typing or add Jackson modules.
+If you use `Object.class` deserialization with final payload types (Kotlin data classes, Java records), use
+an all-types resolver:
+
+```java
+@Bean
+IdempotentJsonMapperCustomizer idempotentJsonMapperCustomizer() {
+		return builder -> {
+				var ptv = BasicPolymorphicTypeValidator.builder()
+								.allowIfBaseType("com.myapp.")
+								.build();
+				builder.polymorphicTypeValidator(ptv)
+								.setDefaultTyping(new DefaultTypeResolverBuilder(
+												ptv,
+												DefaultTyping.NON_FINAL,
+												JsonTypeInfo.As.PROPERTY,
+												JsonTypeInfo.Id.CLASS,
+												"@class") {
+										@Override
+										public boolean useForType(JavaType t) {
+												return true;
+										}
+								});
+		};
+}
+```
+
+> **Important:** when you define your own `IdempotentJsonMapperCustomizer`, you take full ownership of the mapper
+> configuration. The library's default permissive typing is no longer applied. If your payloads require polymorphic
+> typing (e.g., `Object.class` retrieval, interfaces, records, Kotlin data classes), configure it explicitly.
+
+#### Fully replacing the codec
+
+Define an `IdempotentPayloadCodec` bean to replace the default serialization entirely:
+
+```java
+@Bean
+IdempotentPayloadCodec idempotentPayloadCodec() {
+		return new MyCustomPayloadCodec();
+}
+```
+
+The `IdempotentPayloadCodec` interface has four methods: `serializeToBytes`, `deserializeFromBytes`,
+`serializeToString`, and `deserializeFromString`. The byte-oriented methods are used by NATS; the
+string-oriented methods are used by RDS and DynamoDB. Redis has its own serializer path via
+`GenericJacksonJsonRedisSerializer` and honors the `idempotent.serialization.strategy` setting independently.
+
 ### Storage Backends
 
 #### In-Memory (Default)
@@ -80,7 +140,6 @@ String result = idempotentService.execute("payment-123", () -> {
 String result2 = idempotentService.execute("payment-123", "payment-process", () -> {
 		return processPayment("123");
 }, Duration.parse("PT1M"));
-}, 300);
 
 // Different operations with same key
 String email = idempotentService.execute("user-456", "send-email",
@@ -123,14 +182,14 @@ Then configure it in your Spring configuration:
 ```java
 @Configuration
 public class IdempotentConfig {
-	@Bean
-	public IdempotentStore idempotentStore() {
-		return new CustomIdempotentStore();
-	}
+		@Bean
+		public IdempotentStore idempotentStore() {
+				return new CustomIdempotentStore();
+		}
 
-	@Bean
-		public IdempotentAspect idempotentAspect(IdempotentStore idempotentStore) {
-				return new IdempotentAspect(idempotentStore);
+		@Bean
+		public IdempotentAspect idempotentAspect(IdempotentStore idempotentStore, IdempotentProperties properties) {
+				return new IdempotentAspect(idempotentStore, properties);
 		}
 }
 ```

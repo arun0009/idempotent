@@ -59,9 +59,15 @@ See main [README](../README.md) for general idempotent configuration.
 		Default Value: `1000`
 		Description: Number of expired keys to delete in each batch to prevent long-running database locks.
 
+## Serialization
+
+The `response` column uses the shared idempotent serialization strategy (`idempotent.serialization.strategy=json|java`).
+Configure it via
+[idempotent-core – Payload serialization](../idempotent-core/README.md#payload-serialization-persistent-stores).
+
 ## Cleanup
 
-Unlike Redis or DynamoDb, RDS does not support native TTL for records. This module includes a `RdsCleanupTask` that:
+Unlike Redis or DynamoDB, RDS does not support native TTL for records. This module includes a `RdsCleanupTask` that:
 
 1.  **Scheduled Execution**: Runs on a configurable schedule on all application instances.
 2.  **Batch Deletion**: Efficiently removes expired records in batches to avoid long-running locks.
@@ -88,5 +94,5 @@ Since this implementation relies on a relational database, performance is critic
 2.  **Connection Pooling**: Use a production-grade connection pool like HikariCP (default in Spring Boot).
 		*   Set `maximum-pool-size` appropriately for your concurrency level.
 		*   Set `minimum-idle` to keep connections warm.
-3.  **Payload Size**: The `response` column stores the JSON response. If your responses are very large (MBs), retrieving them will add latency. Consider keeping responses concise or using a hybrid approach if payloads are massive.
+3.  **Payload Size**: The `response` column stores the serialized response payload. If your responses are very large (MBs), retrieving them will add latency. Consider keeping responses concise or using a hybrid approach if payloads are massive.
 4.  **Database Hardware**: Ensure your RDS instance has sufficient IOPS, as idempotency checks involve frequent reads and writes.

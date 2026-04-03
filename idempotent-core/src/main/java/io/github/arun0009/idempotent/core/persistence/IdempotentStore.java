@@ -71,28 +71,11 @@ public interface IdempotentStore {
      * The enum Status.
      */
     enum Status {
-        /**
-         * Inprogress status.
-         */
-        INPROGRESS("INPROGRESS"),
-        /**
-         * Completed status.
-         */
-        COMPLETED("COMPLETED");
-
-        private final String status;
-
-        Status(String status) {
-            this.status = status;
-        }
-
-        @Override
-        public String toString() {
-            return status;
-        }
+        INPROGRESS,
+        COMPLETED;
 
         public boolean is(String status) {
-            return this.status.equals(status);
+            return name().equals(status);
         }
     }
 }

@@ -12,15 +12,11 @@ import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 import software.amazon.awssdk.services.dynamodb.model.BatchWriteItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.DeleteRequest;
 import software.amazon.awssdk.services.dynamodb.model.DescribeTableRequest;
-import software.amazon.awssdk.services.dynamodb.model.DescribeTableResponse;
-import software.amazon.awssdk.services.dynamodb.model.KeySchemaElement;
 import software.amazon.awssdk.services.dynamodb.model.ResourceNotFoundException;
 import software.amazon.awssdk.services.dynamodb.model.ScanRequest;
-import software.amazon.awssdk.services.dynamodb.model.ScanResponse;
 import software.amazon.awssdk.services.dynamodb.model.WriteRequest;
 
 import java.time.Duration;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -55,17 +51,15 @@ class DynamoIdempotentServiceIntegrationTest {
     private void clearDynamoTable() {
         try {
             // First, get the table description to understand the key schema
-            DescribeTableRequest describeTableRequest =
+            var describeTableRequest =
                     DescribeTableRequest.builder().tableName(dynamoTableName).build();
 
-            DescribeTableResponse describeTableResponse = dynamoDbClient.describeTable(describeTableRequest);
-            List<KeySchemaElement> keySchema = describeTableResponse.table().keySchema();
+            var describeTableResponse = dynamoDbClient.describeTable(describeTableRequest);
+            var keySchema = describeTableResponse.table().keySchema();
 
-            // Scan all items in the table
-            ScanRequest scanRequest =
-                    ScanRequest.builder().tableName(dynamoTableName).build();
+            var scanRequest = ScanRequest.builder().tableName(dynamoTableName).build();
 
-            ScanResponse scanResponse = dynamoDbClient.scan(scanRequest);
+            var scanResponse = dynamoDbClient.scan(scanRequest);
 
             // Process items in batches of 25 (DynamoDB limit)
             List<Map<String, AttributeValue>> items = scanResponse.items();
@@ -88,7 +82,7 @@ class DynamoIdempotentServiceIntegrationTest {
 
                 if (!deleteRequests.isEmpty()) {
                     BatchWriteItemRequest batchWriteItemRequest = BatchWriteItemRequest.builder()
-                            .requestItems(Collections.singletonMap(dynamoTableName, deleteRequests))
+                            .requestItems(Map.of(dynamoTableName, deleteRequests))
                             .build();
 
                     dynamoDbClient.batchWriteItem(batchWriteItemRequest);
@@ -207,24 +201,41 @@ class DynamoIdempotentServiceIntegrationTest {
 
     @Test
     void testServiceWithComplexObjects() {
-        Supplier<TestData> operation = () -> new TestData("test-name", 42);
+        Supplier<TestPojo> operation = () -> new TestPojo("test-name", 42);
 
-        TestData result1 = idempotentService.execute("complex-key", operation, Duration.ofMinutes(5));
+        TestPojo result1 = idempotentService.execute("complex-key", operation, Duration.ofMinutes(5));
         assertNotNull(result1);
         assertEquals("test-name", result1.name);
         assertEquals(42, result1.value);
 
-        TestData result2 = idempotentService.execute("complex-key", operation, Duration.ofMinutes(5));
+        TestPojo result2 = idempotentService.execute("complex-key", operation, Duration.ofMinutes(5));
         assertNotNull(result2);
         assertEquals("test-name", result2.name);
         assertEquals(42, result2.value);
     }
 
-    public static class TestData {
+    @Test
+    void testServiceWithRecordPayload() {
+        Supplier<TestRecord> operation = () -> new TestRecord("record-name", 99);
+
+        TestRecord result1 = idempotentService.execute("record-key", operation, Duration.ofMinutes(5));
+        assertNotNull(result1);
+        assertEquals("record-name", result1.name());
+        assertEquals(99, result1.value());
+
+        TestRecord result2 = idempotentService.execute("record-key", operation, Duration.ofMinutes(5));
+        assertNotNull(result2);
+        assertEquals("record-name", result2.name());
+        assertEquals(99, result2.value());
+    }
+
+    public record TestRecord(String name, int value) {}
+
+    public static class TestPojo {
         public String name;
         public int value;
 
-        public TestData(String name, int value) {
+        public TestPojo(String name, int value) {
             this.name = name;
             this.value = value;
         }

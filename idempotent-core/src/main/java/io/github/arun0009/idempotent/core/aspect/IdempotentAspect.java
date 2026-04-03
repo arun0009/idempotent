@@ -28,6 +28,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.HexFormat;
 
 /**
  * Idempotent aspect Implementation
@@ -47,15 +48,16 @@ public class IdempotentAspect {
      * @param properties      core properties
      */
     public IdempotentAspect(IdempotentStore idempotentStore, IdempotentProperties properties) {
-        this.idempotentKeyHeader = properties.getKeyHeader();
+        this.idempotentKeyHeader = properties.keyHeader();
         this.idempotentStore = idempotentStore;
         this.parser = new SpelExpressionParser();
+        var inprogress = properties.inprogress();
         this.completionAwaiter = new IdempotentCompletionAwaiter(
                 idempotentStore,
                 new WaitStrategy(
-                        properties.getInprogress().getMaxRetries(),
-                        Duration.ofMillis(properties.getInprogress().getRetryInitialIntervalMillis()),
-                        properties.getInprogress().getRetryMultiplier()));
+                        inprogress.maxRetries(),
+                        Duration.ofMillis(inprogress.retryInitialIntervalMillis()),
+                        inprogress.retryMultiplier()));
     }
 
     /**
@@ -76,16 +78,15 @@ public class IdempotentAspect {
             return pjp.proceed();
         }
 
-        String processName = getProcessName(pjp);
-        Idempotent idempotentAnnotation =
+        var processName = getProcessName(pjp);
+        var idempotentAnnotation =
                 ((MethodSignature) pjp.getSignature()).getMethod().getAnnotation(Idempotent.class);
 
-        // Use the duration specified in the annotation (defaults to PT5M if not specified)
-        Duration ttl = Duration.parse(idempotentAnnotation.duration());
+        var ttl = Duration.parse(idempotentAnnotation.duration());
 
         key = hashKeyIfRequired(key, pjp);
 
-        IdempotentStore.IdempotentKey idempotentKey = new IdempotentStore.IdempotentKey(key, processName);
+        var idempotentKey = new IdempotentStore.IdempotentKey(key, processName);
         IdempotentStore.@Nullable Value value =
                 idempotentStore.getValue(idempotentKey, ((MethodSignature) pjp.getSignature()).getReturnType());
 
@@ -128,7 +129,7 @@ public class IdempotentAspect {
 
     // gets Idempotent Key from request header default X-Idempotency-Key
     private @Nullable String getIdempotentKeyFromHeader() {
-        ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
+        var attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
         return attributes != null ? attributes.getRequest().getHeader(idempotentKeyHeader) : null;
     }
 
@@ -137,7 +138,7 @@ public class IdempotentAspect {
             ProceedingJoinPoint pjp, String key, MethodSignature signature) {
         // Evaluate the SpEL expression if the key is specified
         if (!key.isEmpty()) {
-            StandardEvaluationContext context = new StandardEvaluationContext();
+            var context = new StandardEvaluationContext();
             String[] paramNames = signature.getParameterNames();
             Object[] args = pjp.getArgs();
             if (paramNames != null) {
@@ -178,15 +179,9 @@ public class IdempotentAspect {
                 .getMethod()
                 .getAnnotation(Idempotent.class)
                 .hashKey()) {
-            MessageDigest md = MessageDigest.getInstance("SHA-256");
+            var md = MessageDigest.getInstance("SHA-256");
             byte[] hashBytes = md.digest(key.getBytes(StandardCharsets.UTF_8));
-            StringBuilder hexString = new StringBuilder();
-            for (byte hashByte : hashBytes) {
-                String hex = Integer.toHexString(0xff & hashByte);
-                if (hex.length() == 1) hexString.append('0');
-                hexString.append(hex);
-            }
-            return hexString.toString();
+            return HexFormat.of().formatHex(hashBytes);
         }
         return key;
     }
@@ -283,8 +278,9 @@ public class IdempotentAspect {
      * @return process name
      */
     private String getProcessName(ProceedingJoinPoint pjp) {
-        return String.format(
-                "__%s.%s()",
-                pjp.getTarget().getClass().getSimpleName(), pjp.getSignature().getName());
+        return "__%s.%s()"
+                .formatted(
+                        pjp.getTarget().getClass().getSimpleName(),
+                        pjp.getSignature().getName());
     }
 }

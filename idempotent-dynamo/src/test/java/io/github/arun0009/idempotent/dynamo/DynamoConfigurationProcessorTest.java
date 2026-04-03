@@ -40,12 +40,12 @@ class DynamoConfigurationProcessorTest {
         assertEquals(
                 Set.of(
                         "idempotent.aws.region",
-                        "idempotent.aws.accessKey",
-                        "idempotent.aws.accessSecret",
+                        "idempotent.aws.access-key",
+                        "idempotent.aws.access-secret",
                         "idempotent.dynamodb.endpoint",
-                        "idempotent.dynamodb.use.local",
-                        "idempotent.dynamodb.table.create",
-                        "idempotent.dynamodb.table.name"),
+                        "idempotent.dynamodb.use-local",
+                        "idempotent.dynamodb.table-create",
+                        "idempotent.dynamodb.table-name"),
                 names);
     }
 }

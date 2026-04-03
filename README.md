@@ -33,12 +33,13 @@ In API development, idempotency helps in the following ways:
 * **Simple Configuration**: Adding idempotency is as simple as annotating methods with [@Idempotent](idempotent-core/src/main/java/io/github/arun0009/idempotent/core/annotation/Idempotent.java) or using the `IdempotentService` programmatically.
 * **Client-Specified or Server-Specified Idempotent Keys**: Clients can dictate what the idempotent key should be via a configurable HTTP header, or the server can specify the idempotency key specified in the @Idempotent annotation configuration.
 * **Handling In-Progress Concurrent/Duplicate Requests**: Concurrent or duplicate requests will wait for the first request to complete (within a given configurable time frame and retries) and return the same response as the first request.
+* **Customizable payload serialization**: Redis, RDS, DynamoDB, and NATS share one configurable serialization strategy (`json`/`java`) for stored responses, and you can override it with Spring beans. See [idempotent-core – Payload serialization](idempotent-core/README.md#payload-serialization-persistent-stores).
 
 ## Getting Started
 
 ### Annotation-Based Approach (AOP)
 
-1. Add the Idempotent maven dependency([redis](https://central.sonatype.com/artifact/io.github.arun0009/idempotent-redis), [dynamo](https://central.sonatype.com/artifact/io.github.arun0009/idempotent-dynamo), [nats](https://central.sonatype.com/artifact/io.github.arun0009/idempotent-nats) or [rds](https://central.sonatype.com/artifact/io.github.arun0009/idempotent-rds)) to your project.
+1. Add the Idempotent Maven dependency ([redis](https://central.sonatype.com/artifact/io.github.arun0009/idempotent-redis), [dynamo](https://central.sonatype.com/artifact/io.github.arun0009/idempotent-dynamo), [nats](https://central.sonatype.com/artifact/io.github.arun0009/idempotent-nats) or [rds](https://central.sonatype.com/artifact/io.github.arun0009/idempotent-rds)) to your project.
 2. Configure the storage backend ([Redis](idempotent-redis/README.md), [DynamoDB](idempotent-dynamo/README.md), [NATS](idempotent-nats/README.md) or [RDS](idempotent-rds/README.md)) in your Spring application context.
 3. Annotate the desired API methods with [@Idempotent](idempotent-core/src/main/java/io/github/arun0009/idempotent/core/annotation/Idempotent.java):
 4. Specify the key, time-to-live (TTL) as a Duration string, and/or if you want to hash the key for idempotent requests.

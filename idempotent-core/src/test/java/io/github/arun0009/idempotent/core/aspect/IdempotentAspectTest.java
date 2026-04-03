@@ -41,7 +41,9 @@ class IdempotentAspectTest {
     @SuppressWarnings("resource")
     void setUp() {
         MockitoAnnotations.openMocks(this);
-        idempotentAspect = new IdempotentAspect(idempotentStore, new IdempotentProperties());
+        idempotentAspect = new IdempotentAspect(
+                idempotentStore,
+                new IdempotentProperties("X-Idempotency-Key", new IdempotentProperties.InProgress(5, 100, 2)));
     }
 
     @Test

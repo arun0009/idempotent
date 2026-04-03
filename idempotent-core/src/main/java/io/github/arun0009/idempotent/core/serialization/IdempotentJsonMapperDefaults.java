@@ -1,0 +1,45 @@
+package io.github.arun0009.idempotent.core.serialization;
+
+import com.fasterxml.jackson.annotation.JsonTypeInfo;
+import tools.jackson.databind.DefaultTyping;
+import tools.jackson.databind.JavaType;
+import tools.jackson.databind.json.JsonMapper;
+import tools.jackson.databind.jsontype.BasicPolymorphicTypeValidator;
+import tools.jackson.databind.jsontype.PolymorphicTypeValidator;
+import tools.jackson.databind.jsontype.impl.DefaultTypeResolverBuilder;
+
+/**
+ * Default Jackson settings for idempotent value serialization (polymorphic return types).
+ */
+public final class IdempotentJsonMapperDefaults {
+
+    private IdempotentJsonMapperDefaults() {}
+
+    /**
+     * Applies permissive default typing so arbitrary response types round-trip. Covers Java records,
+     * Kotlin data classes, and all other final types. Suitable only when store contents are trusted.
+     */
+    public static void applyPermissivePolymorphicTyping(JsonMapper.Builder builder) {
+        var ptv = BasicPolymorphicTypeValidator.builder()
+                .allowIfBaseType(Object.class)
+                .allowIfSubType((ctx, clazz) -> true)
+                .build();
+        builder.polymorphicTypeValidator(ptv).setDefaultTyping(new AllTypesResolverBuilder(ptv));
+    }
+
+    /**
+     * Type resolver that writes {@code @class} for all types, including final classes like
+     * Java records and Kotlin data classes.
+     */
+    private static final class AllTypesResolverBuilder extends DefaultTypeResolverBuilder {
+
+        AllTypesResolverBuilder(PolymorphicTypeValidator ptv) {
+            super(ptv, DefaultTyping.NON_FINAL, JsonTypeInfo.As.PROPERTY, JsonTypeInfo.Id.CLASS, "@class");
+        }
+
+        @Override
+        public boolean useForType(JavaType t) {
+            return true;
+        }
+    }
+}

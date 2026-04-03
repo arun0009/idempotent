@@ -2,10 +2,12 @@ package io.github.arun0009.idempotent.dynamo;
 
 import io.github.arun0009.idempotent.core.exception.IdempotentException;
 import io.github.arun0009.idempotent.core.persistence.IdempotentStore;
-import org.springframework.beans.factory.annotation.Value;
+import io.github.arun0009.idempotent.core.serialization.IdempotentPayloadCodec;
+import org.springframework.boot.autoconfigure.AutoConfiguration;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
@@ -16,7 +18,6 @@ import software.amazon.awssdk.enhanced.dynamodb.DynamoDbEnhancedClient;
 import software.amazon.awssdk.enhanced.dynamodb.TableSchema;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
-import software.amazon.awssdk.services.dynamodb.DynamoDbClientBuilder;
 import software.amazon.awssdk.services.dynamodb.model.UpdateTimeToLiveRequest;
 
 import java.net.URI;
@@ -24,36 +25,10 @@ import java.net.URI;
 /**
  * The type Dynamo config.
  */
-@Configuration
+@AutoConfiguration
+@ConditionalOnClass(DynamoDbEnhancedClient.class)
+@EnableConfigurationProperties(DynamoIdempotentProperties.class)
 public class DynamoConfig {
-
-    // dynamodb aws region
-    @Value("${idempotent.aws.region:}")
-    private String awsRegion = "";
-
-    // dynamodb endpoint, set this if using localstack or testcontainers (local dynamodb)
-    @Value("${idempotent.dynamodb.endpoint:}")
-    private String dynamoDbEndpoint = "";
-
-    // aws access key
-    @Value("${idempotent.aws.accessKey:}")
-    private String awsAccessKey = "";
-
-    // aws access secret
-    @Value("${idempotent.aws.accessSecret:}")
-    private String awsAccessSecret = "";
-
-    // set to true if using local dynamo e.g localstack or testcontainers
-    @Value("${idempotent.dynamodb.use.local:false}")
-    private boolean useLocalDynamoDb;
-
-    // set to true if you want dynamo client to create table
-    @Value("${idempotent.dynamodb.table.create:false}")
-    private boolean createTable;
-
-    // set idempotent table name, defaults to Idempotent
-    @Value("${idempotent.dynamodb.table.name:Idempotent}")
-    private String dynamoTableName = "Idempotent";
 
     /**
      * Bean to create Enhanced Dynamo Client .
@@ -63,35 +38,37 @@ public class DynamoConfig {
     @Bean
     @Primary
     @ConditionalOnMissingBean
-    public DynamoDbEnhancedClient dynamoDbEnhancedClient() {
-        DynamoDbClientBuilder dynamoDbClientBuilder = DynamoDbClient.builder().region(Region.of(awsRegion));
+    public DynamoDbEnhancedClient dynamoDbEnhancedClient(DynamoIdempotentProperties properties) {
+        var dynamoDbClientBuilder =
+                DynamoDbClient.builder().region(Region.of(properties.aws().region()));
 
-        if (useLocalDynamoDb) {
+        if (properties.dynamodb().useLocal()) {
             dynamoDbClientBuilder
-                    .endpointOverride(URI.create(dynamoDbEndpoint))
-                    .credentialsProvider(StaticCredentialsProvider.create(
-                            AwsBasicCredentials.create(awsAccessKey, awsAccessSecret)));
+                    .endpointOverride(URI.create(properties.dynamodb().endpoint()))
+                    .credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create(
+                            properties.aws().accessKey(), properties.aws().accessSecret())));
         } else {
             dynamoDbClientBuilder.credentialsProvider(
                     DefaultCredentialsProvider.builder().build());
         }
 
-        DynamoDbEnhancedClient dynamoEnhancedClient = DynamoDbEnhancedClient.builder()
+        var dynamoEnhancedClient = DynamoDbEnhancedClient.builder()
                 .dynamoDbClient(dynamoDbClientBuilder.build())
                 .build();
-        if (createTable) {
+        if (properties.dynamodb().tableCreate()) {
             dynamoEnhancedClient
-                    .table(dynamoTableName, TableSchema.fromBean(IdempotentItem.class))
+                    .table(properties.dynamodb().tableName(), TableSchema.fromBean(IdempotentItem.class))
                     .createTable();
         }
-        UpdateTimeToLiveRequest ttlRequest = UpdateTimeToLiveRequest.builder()
-                .tableName(dynamoTableName)
+        var ttlRequest = UpdateTimeToLiveRequest.builder()
+                .tableName(properties.dynamodb().tableName())
                 .timeToLiveSpecification(s -> s.enabled(true).attributeName("expirationTimeInMilliSeconds"))
                 .build();
         try (var client = dynamoDbClientBuilder.build()) {
             client.updateTimeToLive(ttlRequest);
         } catch (AwsServiceException | SdkClientException e) {
-            throw new IdempotentException("Failed to enable TTL on Dynamo table: " + dynamoTableName);
+            throw new IdempotentException("Failed to enable TTL on Dynamo table: "
+                    + properties.dynamodb().tableName());
         }
         return dynamoEnhancedClient;
     }
@@ -103,7 +80,11 @@ public class DynamoConfig {
      * @return Dynamo IdempotentStore
      */
     @Bean
-    public IdempotentStore dynamoIdempotentStore(DynamoDbEnhancedClient dynamoEnhancedClient) {
-        return new DynamoIdempotentStore(dynamoEnhancedClient, dynamoTableName);
+    public IdempotentStore dynamoIdempotentStore(
+            DynamoDbEnhancedClient dynamoEnhancedClient,
+            DynamoIdempotentProperties properties,
+            IdempotentPayloadCodec idempotentPayloadCodec) {
+        return new DynamoIdempotentStore(
+                dynamoEnhancedClient, properties.dynamodb().tableName(), idempotentPayloadCodec);
     }
 }

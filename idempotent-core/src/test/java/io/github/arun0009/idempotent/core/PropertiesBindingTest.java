@@ -25,10 +25,10 @@ class PropertiesBindingTest {
         @Test
         void shouldLoadProperties() {
             assertNotNull(idempotentProperties);
-            assertEquals("X-Camel-Key-Interval-Millis", idempotentProperties.getKeyHeader());
-            assertEquals(21, idempotentProperties.getInprogress().getMaxRetries());
-            assertEquals(111, idempotentProperties.getInprogress().getRetryInitialIntervalMillis());
-            assertEquals(4, idempotentProperties.getInprogress().getRetryMultiplier());
+            assertEquals("X-Camel-Key-Interval-Millis", idempotentProperties.keyHeader());
+            assertEquals(21, idempotentProperties.inprogress().maxRetries());
+            assertEquals(111, idempotentProperties.inprogress().retryInitialIntervalMillis());
+            assertEquals(4, idempotentProperties.inprogress().retryMultiplier());
         }
     }
 
@@ -48,10 +48,10 @@ class PropertiesBindingTest {
         @Test
         void shouldLoadPropertiesWithKebabCase() {
             assertNotNull(idempotentProperties);
-            assertEquals("X-Kebab-Key-Interval-Millis", idempotentProperties.getKeyHeader());
-            assertEquals(33, idempotentProperties.getInprogress().getMaxRetries());
-            assertEquals(222, idempotentProperties.getInprogress().getRetryInitialIntervalMillis());
-            assertEquals(5, idempotentProperties.getInprogress().getRetryMultiplier());
+            assertEquals("X-Kebab-Key-Interval-Millis", idempotentProperties.keyHeader());
+            assertEquals(33, idempotentProperties.inprogress().maxRetries());
+            assertEquals(222, idempotentProperties.inprogress().retryInitialIntervalMillis());
+            assertEquals(5, idempotentProperties.inprogress().retryMultiplier());
         }
     }
 }

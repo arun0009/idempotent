@@ -21,7 +21,9 @@ import java.time.Duration;
 @AutoConfiguration(
         afterName = {
             "org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration",
-            "org.springframework.boot.autoconfigure.jdbc.JdbcTemplateAutoConfiguration"
+            "org.springframework.boot.autoconfigure.jdbc.JdbcTemplateAutoConfiguration",
+            "org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration",
+            "org.springframework.boot.jdbc.autoconfigure.JdbcTemplateAutoConfiguration"
         })
 @ConditionalOnClass({DataSource.class, JdbcTemplate.class})
 @ConditionalOnBean(DataSource.class)

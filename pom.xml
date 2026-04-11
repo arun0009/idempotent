@@ -40,7 +40,7 @@
 
     <properties>
 
-        <error-prone-core.version>2.49.0</error-prone-core.version>
+        <error-prone-core.version>2.48.0</error-prone-core.version>
         <jreleaser-maven-plugin.version>1.23.0</jreleaser-maven-plugin.version>
 
         <jspecify.version>1.0.0</jspecify.version>

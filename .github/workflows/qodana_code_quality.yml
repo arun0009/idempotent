@@ -28,7 +28,7 @@ jobs:
           fetch-depth: 0
 
       - name: Qodana Scan
-        uses: JetBrains/qodana-action@v2025.3
+        uses: JetBrains/qodana-action@v2026.1
         with:
           # When pr-mode is set to true, Qodana analyzes only the files that have been changed
           pr-mode: false

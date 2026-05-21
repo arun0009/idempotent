@@ -17,38 +17,46 @@ This project provides an idempotent request handling mechanism using Redis for s
 ensures that duplicate requests are handled safely and effectively, avoiding unintended side effects. This is
 particularly useful in scenarios where the same request might be sent multiple times due to retries or client errors.
 
+## Redis Connection
+
+The library uses the standard Spring Data Redis `RedisConnectionFactory` abstraction. This means it works with
+**any** Spring Data Redis driver — Lettuce (Spring Boot's default), Jedis, or any other implementation.
+
+Configure your Redis connection using the standard `spring.data.redis.*` properties:
+
+```properties
+spring.data.redis.host=localhost
+spring.data.redis.port=6379
+```
+
+For cluster, sentinel, SSL, and authentication, use the standard Spring Boot properties:
+
+```properties
+# Cluster
+spring.data.redis.cluster.nodes=host1:6379,host2:6379,host3:6379
+
+# Sentinel
+spring.data.redis.sentinel.master=mymaster
+spring.data.redis.sentinel.nodes=host1:26379,host2:26379
+
+# Authentication
+spring.data.redis.username=myuser
+spring.data.redis.password=secret
+
+# SSL
+spring.data.redis.ssl.enabled=true
+```
+
+See the [Spring Boot Redis documentation](https://docs.spring.io/spring-boot/reference/data/nosql.html#data.nosql.redis)
+for the full list of supported properties.
+
 ## Configuration Properties
-Below are the properties that can be configured for the idempotent Redis cache. These properties can be set in your
-application's configuration file (e.g., application.properties or application.yml) or you can pass your own `RedisConfig`
-with `JedisConnectionFactory` (see below)
 
-### General Properties
+### Core configuration
 
-* Idempotent Key Header
+See [idempotent-core – Configuration](../idempotent-core/README.md#configuration) for `idempotent.key.header`, in-progress retry settings, and serialization.
 
-		Property: idempotent.key.header
-		Default Value: X-Idempotency-Key
-		Description: The header name used to pass the idempotency key in HTTP requests.
-
-* In-Progress Request Max Retries
-
-		Property: idempotent.inprogress.max.retries
-		Default Value: 5
-		Description: The maximum number of retries allowed for in-progress requests to ensure only one request wins.
-
-* In-Progress Status Check Retry Initial Interval
-
-		Property: idempotent.inprogress.retry.initial.intervalMillis
-		Default Value: 100
-		Description: The initial interval (in milliseconds) between retries for checking the status of in-progress requests.
-
-* In-Progress Retry Multiplier
-
-		Property: idempotent.inprogress.retry.multiplier
-		Default Value: 2
-		Description: The multiplier used for exponential backoff during retries.
-
-### Redis Configuration
+### Redis-specific properties
 
 * Redis Enabled
 
@@ -56,98 +64,10 @@ with `JedisConnectionFactory` (see below)
 		Default Value: true
 		Description: Set to false to disable Redis auto-configuration entirely (e.g., for testing or training mode).
 
-* Redis Standalone Host
-
-		Property: idempotent.redis.standalone.host
-		Default Value: (empty)
-		Description: The Redis host in hostname:port format.
-
-* Redis Authentication Enabled
-
-		Property: idempotent.redis.auth.enabled
-		Default Value: false
-		Description: Flag to enable Redis authentication.
-
-* Redis SSL Enabled
-
-		Property: idempotent.redis.ssl.enabled
-		Default Value: false
-		Description: Flag to enable SSL for Redis connections.
-
-* Redis Authentication Username
-
-		Property: idempotent.redis.auth.username
-		Default Value: (empty)
-		Description: The username for Redis authentication. Only set if authentication is enabled.
-
-* Redis Authentication Password
-
-		Property: idempotent.redis.auth.password
-		Default Value: (empty)
-		Description: The password for Redis authentication. Only set if authentication is enabled.
-
-* Redis Cluster Mode Enabled
-
-		Property: idempotent.redis.cluster.enabled
-		Default Value: false
-		Description: Flag to enable Redis cluster mode.
-
-* Redis Cluster Hosts
-
-		Property: idempotent.redis.cluster.hosts
-		Default Value: (empty)
-		Description: A comma-separated list of Redis cluster hosts in hostname:port format.
-
-* Redis Sentinel Mode Enabled
-
-		Property: idempotent.redis.sentinel.enabled
-		Default Value: false
-		Description: Flag to enable Redis Sentinel mode.
-
-* Redis Sentinel Master Host
-
-		Property: idempotent.redis.sentinel.master
-		Default Value: (empty)
-		Description: The master host in Redis Sentinel mode, in hostname:port format.
-
-* Redis Sentinel Nodes
-
-		Property: idempotent.redis.sentinel.nodes
-		Default Value: (empty)
-		Description: A comma-separated list of Redis Sentinel nodes in hostname:port format.
-
-## Using Custom Redis Configuration
-
-By default, the library will create and configure the JedisConnectionFactory using the provided properties. However, if you want to pass your own JedisConnectionFactory bean, you can do so by defining a bean named IdempotentCache. This configuration is conditional and will only be applied if a bean with the name IdempotentCache is not already present.
-
-### Custom JedisConnectionFactory Bean Configuration
-
-If you prefer to configure the JedisConnectionFactory yourself, you can define it as follows (you don't have to set Redis
-Configuration in properties if you choose this option):
-
-```java
-import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
-import org.springframework.data.redis.connection.jedis.JedisConnectionFactory;
-
-@Configuration
-public class RedisConfig {
-
-		@Bean(name = "IdempotentCache")
-		public JedisConnectionFactory jedisConnectionFactory() {
-				JedisConnectionFactory factory = new JedisConnectionFactory();
-				// Customize the factory based on properties
-				return factory;
-		}
-}
-```
-
-
 ## Serialization Strategy
 
 Redis supports the shared `idempotent.serialization.strategy` setting:
-- `json` (default): uses `GenericJacksonJsonRedisSerializer` with polymorphic default typing
+- `json` (default): serializes keys and values via the shared `IdempotentPayloadCodec` (same Jackson setup as core)
 - `java`: uses `JdkSerializationRedisSerializer`
 
 See [idempotent-core README – Payload serialization](../idempotent-core/README.md#payload-serialization-persistent-stores)
@@ -155,20 +75,18 @@ for the `IdempotentPayloadCodec` and `IdempotentJsonMapperCustomizer` documentat
 
 ### Custom Redis serializer
 
-To fully control how values are serialized in Redis, define a bean named `idempotentRedisSerializer`:
+To override Redis serialization, define a bean named `idempotentRedisSerializer` (used for both keys and values):
 
 ```java
 @Bean("idempotentRedisSerializer")
-RedisSerializer<Object> idempotentRedisSerializer() {
-		return GenericJacksonJsonRedisSerializer.builder()
-						.enableDefaultTyping(myPolymorphicTypeValidator)
-						.build();
+RedisSerializer<Object> idempotentRedisSerializer(IdempotentPayloadCodec codec) {
+		return new IdempotentPayloadRedisSerializer<>(codec, Object.class);
 }
 ```
 
 ## Example Application Configuration
 
-Here is an example of how you might configure your application using application.properties:
+Here is an example of how you might configure your application using `application.properties`:
 
 ```properties
 # Idempotent Cache General Properties
@@ -177,17 +95,12 @@ idempotent.inprogress.max.retries=5
 idempotent.inprogress.retry.initial.intervalMillis=100
 idempotent.inprogress.retry.multiplier=2
 
-# Redis Configuration
-idempotent.redis.enabled=true
-idempotent.redis.standalone.host=localhost:6379
-idempotent.redis.auth.enabled=false
-idempotent.redis.ssl.enabled=false
-idempotent.redis.cluster.enabled=false
-idempotent.redis.sentinel.enabled=false
+# Redis Connection (standard Spring Boot properties)
+spring.data.redis.host=localhost
+spring.data.redis.port=6379
 ```
 
 ## Usage
 
 By following these steps and configurations, you can effectively manage idempotent requests using Redis,
-ensuring robust and reliable handling of duplicate requests in your application. If you need to customize the Redis
-connection, you can provide your own JedisConnectionFactory bean named IdempotentCache.
+ensuring robust and reliable handling of duplicate requests in your application.

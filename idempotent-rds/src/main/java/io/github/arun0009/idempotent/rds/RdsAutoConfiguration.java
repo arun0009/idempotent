@@ -1,7 +1,6 @@
 package io.github.arun0009.idempotent.rds;
 
 import io.github.arun0009.idempotent.core.persistence.IdempotentStore;
-import io.github.arun0009.idempotent.core.serialization.IdempotentJsonMapperCustomizer;
 import io.github.arun0009.idempotent.core.serialization.IdempotentPayloadCodec;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
@@ -25,6 +24,7 @@ import java.time.Duration;
         })
 @ConditionalOnClass({DataSource.class, JdbcTemplate.class})
 @ConditionalOnBean(DataSource.class)
+@ConditionalOnProperty(prefix = "idempotent.rds", name = "enabled", matchIfMissing = true)
 @EnableConfigurationProperties(RdsIdempotentProperties.class)
 public class RdsAutoConfiguration {
 
@@ -37,13 +37,6 @@ public class RdsAutoConfiguration {
         Assert.hasText(properties.tableName(), "idempotent.rds.table-name must not be blank");
 
         return new RdsIdempotentStore(jdbcTemplate, properties.tableName(), idempotentPayloadCodec);
-    }
-
-    @Bean
-    @ConditionalOnBean(RdsJacksonJsonBuilderCustomizer.class)
-    IdempotentJsonMapperCustomizer rdsLegacyJacksonCustomizerAdapter(
-            RdsJacksonJsonBuilderCustomizer rdsJacksonJsonBuilderCustomizer) {
-        return rdsJacksonJsonBuilderCustomizer::customize;
     }
 
     @Bean

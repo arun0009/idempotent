@@ -1,7 +1,7 @@
 package io.github.arun0009.idempotent.redis;
 
-import io.github.arun0009.idempotent.core.exception.IdempotentException;
 import io.github.arun0009.idempotent.core.persistence.IdempotentStore;
+import io.github.arun0009.idempotent.core.serialization.IdempotentPayloadCodec;
 import io.github.arun0009.idempotent.core.serialization.IdempotentSerializationProperties;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -11,24 +11,17 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Primary;
-import org.springframework.data.redis.connection.RedisClusterConfiguration;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
-import org.springframework.data.redis.connection.RedisNode;
-import org.springframework.data.redis.connection.RedisSentinelConfiguration;
-import org.springframework.data.redis.connection.RedisStandaloneConfiguration;
-import org.springframework.data.redis.connection.jedis.JedisClientConfiguration;
-import org.springframework.data.redis.connection.jedis.JedisConnectionFactory;
 import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.data.redis.serializer.GenericJacksonJsonRedisSerializer;
 import org.springframework.data.redis.serializer.JdkSerializationRedisSerializer;
 import org.springframework.data.redis.serializer.RedisSerializer;
 
-import java.util.ArrayList;
-import java.util.List;
-
 /**
- * Redis Configuration for Idempotent store.
+ * Redis auto-configuration for the Idempotent store.
+ *
+ * <p>Uses the application's {@link RedisConnectionFactory} (Lettuce, Jedis, or any other
+ * Spring Data Redis driver) rather than managing its own connection. Configure Redis
+ * via the standard {@code spring.data.redis.*} properties.
  */
 @AutoConfiguration
 @ConditionalOnClass(RedisConnectionFactory.class)
@@ -36,135 +29,45 @@ import java.util.List;
 @EnableConfigurationProperties(RedisIdempotentProperties.class)
 public class RedisConfig {
 
-    /**
-     * Jedis connection factory to connect to Redis standalone, cluster, or sentinel instance. You can
-     * pass your own JedisConnectionFactory with @Bean("IdempotentCache")
-     *
-     * @return the jedis connection factory
-     */
-    @Bean
-    @Primary
-    @ConditionalOnMissingBean(name = "IdempotentCache")
-    public JedisConnectionFactory jedisConnectionFactory(RedisIdempotentProperties properties) {
-        var jedisClientConfiguration = JedisClientConfiguration.builder();
-        if (properties.ssl().enabled()) {
-            jedisClientConfiguration.useSsl();
-        }
-
-        JedisConnectionFactory jedisConnectionFactory;
-        if (properties.cluster().enabled()) {
-            jedisConnectionFactory = redisClusteredConnection(jedisClientConfiguration, properties);
-        } else if (properties.sentinel().enabled()) {
-            jedisConnectionFactory = redisSentinelConnection(jedisClientConfiguration, properties);
-        } else {
-            jedisConnectionFactory = redisStandaloneConnection(jedisClientConfiguration, properties);
-        }
-
-        return jedisConnectionFactory;
-    }
-
-    private JedisConnectionFactory redisClusteredConnection(
-            JedisClientConfiguration.JedisClientConfigurationBuilder jedisClientConfiguration,
-            RedisIdempotentProperties properties) {
-        var redisClusterConfiguration = new RedisClusterConfiguration(
-                List.of(properties.cluster().hosts().split(",")));
-        if (properties.auth().enabled()) {
-            redisClusterConfiguration.setUsername(properties.auth().username());
-            redisClusterConfiguration.setPassword(properties.auth().password());
-        }
-        return new JedisConnectionFactory(redisClusterConfiguration, jedisClientConfiguration.build());
-    }
-
-    private JedisConnectionFactory redisSentinelConnection(
-            JedisClientConfiguration.JedisClientConfigurationBuilder jedisClientConfiguration,
-            RedisIdempotentProperties properties) {
-        if (properties.sentinel().master().isEmpty()
-                || properties.sentinel().nodes().isEmpty()) {
-            throw new IdempotentException(
-                    "Both idempotent.redis.sentinel.master and idempotent.redis.sentinel.nodes must be configured for sentinel setup");
-        }
-
-        List<RedisNode> nodes = new ArrayList<>();
-
-        for (String node : properties.sentinel().nodes().split(",", -1)) {
-            String[] hostPort = node.split(":", -1);
-            if (hostPort.length != 2) {
-                throw new IdempotentException("Invalid sentinel node: " + node);
-            }
-            nodes.add(new RedisNode(hostPort[0], Integer.parseInt(hostPort[1])));
-        }
-
-        var sentinelConfig =
-                new RedisSentinelConfiguration().master(properties.sentinel().master());
-        sentinelConfig.setSentinels(nodes);
-
-        if (properties.auth().enabled()) {
-            sentinelConfig.setUsername(properties.auth().username());
-            sentinelConfig.setPassword(properties.auth().password());
-        }
-
-        return new JedisConnectionFactory(sentinelConfig, jedisClientConfiguration.build());
-    }
-
-    private JedisConnectionFactory redisStandaloneConnection(
-            JedisClientConfiguration.JedisClientConfigurationBuilder jedisClientConfiguration,
-            RedisIdempotentProperties properties) {
-        String[] hostPort = properties.standalone().host().split(":", -1);
-        if (hostPort.length != 2) {
-            throw new IdempotentException("idempotent.redis.standalone.host must be in the format host:port for "
-                    + properties.standalone().host());
-        }
-
-        var redisStandaloneConfiguration = new RedisStandaloneConfiguration(hostPort[0], Integer.parseInt(hostPort[1]));
-        if (properties.auth().enabled()) {
-            redisStandaloneConfiguration.setUsername(properties.auth().username());
-            redisStandaloneConfiguration.setPassword(properties.auth().password());
-        }
-        return new JedisConnectionFactory(redisStandaloneConfiguration, jedisClientConfiguration.build());
-    }
-
-    /** Redis serializer used by idempotent RedisTemplate values and keys. */
-    @Bean
-    @ConditionalOnMissingBean(name = "idempotentRedisSerializer")
-    RedisSerializer<Object> idempotentRedisSerializer(
-            IdempotentSerializationProperties properties,
-            ObjectProvider<IdempotentJacksonJsonBuilderCustomizer> legacyCustomizerProvider) {
-        return switch (properties.strategy()) {
-            case JAVA -> new JdkSerializationRedisSerializer();
-            case JSON -> {
-                var legacyCustomizer = legacyCustomizerProvider.getIfAvailable();
-                if (legacyCustomizer != null) {
-                    var builder = GenericJacksonJsonRedisSerializer.builder();
-                    legacyCustomizer.customize(builder);
-                    yield builder.build();
-                }
-                yield GenericJacksonJsonRedisSerializer.builder()
-                        .enableUnsafeDefaultTyping()
-                        .build();
-            }
-        };
-    }
-
-    @Bean
-    public RedisTemplate<IdempotentStore.IdempotentKey, IdempotentStore.Value> redisTemplate(
+    @Bean(name = "idempotentRedisTemplate")
+    @ConditionalOnMissingBean(name = "idempotentRedisTemplate")
+    public RedisTemplate<IdempotentStore.IdempotentKey, IdempotentStore.Value> idempotentRedisTemplate(
             RedisConnectionFactory connectionFactory,
-            @Qualifier("idempotentRedisSerializer") RedisSerializer<Object> idempotentRedisSerializer) {
+            IdempotentSerializationProperties properties,
+            IdempotentPayloadCodec idempotentPayloadCodec,
+            @Qualifier("idempotentRedisSerializer") ObjectProvider<RedisSerializer<Object>> idempotentRedisSerializerProvider) {
         var template = new RedisTemplate<IdempotentStore.IdempotentKey, IdempotentStore.Value>();
         template.setConnectionFactory(connectionFactory);
-        template.setKeySerializer(idempotentRedisSerializer);
-        template.setDefaultSerializer(idempotentRedisSerializer);
+
+        var customSerializer = idempotentRedisSerializerProvider.getIfAvailable();
+        if (customSerializer != null) {
+            template.setKeySerializer(customSerializer);
+            template.setValueSerializer(customSerializer);
+            return template;
+        }
+
+        switch (properties.strategy()) {
+            case JAVA -> {
+                var jdkSerializer = new JdkSerializationRedisSerializer();
+                template.setKeySerializer(jdkSerializer);
+                template.setValueSerializer(jdkSerializer);
+            }
+            case JSON -> {
+                var keySerializer = new IdempotentPayloadRedisSerializer<>(
+                        idempotentPayloadCodec, IdempotentStore.IdempotentKey.class);
+                var valueSerializer =
+                        new IdempotentPayloadRedisSerializer<>(idempotentPayloadCodec, IdempotentStore.Value.class);
+                template.setKeySerializer(keySerializer);
+                template.setValueSerializer(valueSerializer);
+            }
+        }
         return template;
     }
 
-    /**
-     * Create a Redis based Idempotent Store.
-     *
-     * @param redisTemplate the redis template
-     * @return Redis IdempotentStore
-     */
     @Bean
+    @ConditionalOnMissingBean(IdempotentStore.class)
     public IdempotentStore redisIdempotentStore(
-            RedisTemplate<IdempotentStore.IdempotentKey, IdempotentStore.Value> redisTemplate) {
-        return new RedisIdempotentStore(redisTemplate);
+            @Qualifier("idempotentRedisTemplate") RedisTemplate<IdempotentStore.IdempotentKey, IdempotentStore.Value> idempotentRedisTemplate) {
+        return new RedisIdempotentStore(idempotentRedisTemplate);
     }
 }

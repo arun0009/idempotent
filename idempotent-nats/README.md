@@ -23,11 +23,15 @@ particularly useful in scenarios where the same request might be sent multiple t
 Below are the properties that can be configured for the idempotent NATS cache. These properties can be set in your
 application's configuration file (e.g., application.properties or application.yml).
 
-### General Properties
+### Core configuration
+
+See [idempotent-core – Configuration](../idempotent-core/README.md#configuration) for `idempotent.key.header`, in-progress retry settings, and serialization.
+
+### NATS properties
 
 * NATS Client Enabled
 
-		Property: idempotent.nats.enable
+		Property: idempotent.nats.enabled
 		Default Value: true
 		Description: Enable or disable NATS client configuration.
 
@@ -125,10 +129,10 @@ establish secure connections.
 Example:
 
 ```properties
-spring.ssl.bundle.jks.nats-client.protocol=TLSv1.3,
-spring.ssl.bundle.jks.nats-client.keystore.location=classpath:client.p12,
-spring.ssl.bundle.jks.nats-client.keystore.password=password,
-spring.ssl.bundle.jks.nats-client.truststore.location=classpath:ca.jks,
+spring.ssl.bundle.jks.nats-client.protocol=TLSv1.3
+spring.ssl.bundle.jks.nats-client.keystore.location=classpath:client.p12
+spring.ssl.bundle.jks.nats-client.keystore.password=password
+spring.ssl.bundle.jks.nats-client.truststore.location=classpath:ca.jks
 spring.ssl.bundle.jks.nats-client.truststore.password=password
 ```
 
@@ -161,7 +165,7 @@ idempotent.inprogress.max.retries=5
 idempotent.inprogress.retry.initial.intervalMillis=100
 idempotent.inprogress.retry.multiplier=2
 # NATS Configuration
-idempotent.nats.enable=true
+idempotent.nats.enabled=true
 idempotent.nats.servers=nats://localhost:4222
 idempotent.nats.bucket-config.name=idempotent
 ```

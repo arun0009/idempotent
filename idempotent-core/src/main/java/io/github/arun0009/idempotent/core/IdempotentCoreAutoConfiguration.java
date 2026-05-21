@@ -3,6 +3,7 @@ package io.github.arun0009.idempotent.core;
 import io.github.arun0009.idempotent.core.aspect.IdempotentAspect;
 import io.github.arun0009.idempotent.core.persistence.IdempotentStore;
 import io.github.arun0009.idempotent.core.persistence.InMemoryIdempotentStore;
+import io.github.arun0009.idempotent.core.retry.WaitStrategy;
 import io.github.arun0009.idempotent.core.service.IdempotentService;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.AutoConfigureOrder;
@@ -30,7 +31,12 @@ class IdempotentCoreAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean(IdempotentService.class)
-    IdempotentService idempotentService(IdempotentStore idempotentStore) {
-        return new IdempotentService(idempotentStore);
+    IdempotentService idempotentService(IdempotentStore idempotentStore, IdempotentProperties properties) {
+        var inprogress = properties.inprogress();
+        var waitStrategy = new WaitStrategy(
+                inprogress.maxRetries(),
+                java.time.Duration.ofMillis(inprogress.retryInitialIntervalMillis()),
+                inprogress.retryMultiplier());
+        return new IdempotentService(idempotentStore, waitStrategy);
     }
 }

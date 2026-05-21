@@ -12,7 +12,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
 @SpringBootTest(classes = NatsTestApplication.class)
-@TestPropertySource(properties = {"idempotent.nats.enable=false"})
+@TestPropertySource(properties = {"idempotent.nats.enabled=false"})
 class NoopNatsTest {
     @Autowired
     private IdempotentStore idempotentStore;

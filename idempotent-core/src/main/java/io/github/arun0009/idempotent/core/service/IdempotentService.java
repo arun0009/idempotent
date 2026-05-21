@@ -9,6 +9,7 @@ import io.github.arun0009.idempotent.core.retry.WaitStrategy;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.ResponseEntity;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -43,7 +44,7 @@ public class IdempotentService {
      * @param operation the operation to execute (must not be null)
      * @param ttl       the time to live for the idempotent result (must not be null)
      * @param <T>       the return type of the operation
-     * @return the result of the operation if completed, or {@code null} if not completed, the wait times out, or the entry has expired
+     * @return the result of the operation if completed, or {@code null} when no value should be cached
      * @throws NullPointerException if any parameter is null
      * @throws IdempotentException  if there is an error executing the operation
      * @throws IdempotentWaitExhaustedException if the wait times out
@@ -60,7 +61,7 @@ public class IdempotentService {
      * @param operation   the operation to execute (must not be null)
      * @param ttl         the time to live for the idempotent result (must not be null)
      * @param <T>         the return type of the operation
-     * @return the result of the operation if completed, or {@code null} if not completed, the wait times out, or the entry has expired
+     * @return the result of the operation if completed, or {@code null} when no value should be cached
      * @throws NullPointerException if any parameter is null
      * @throws IdempotentException  if there is an error executing the operation
      * @throws IdempotentWaitExhaustedException if the wait times out
@@ -82,7 +83,7 @@ public class IdempotentService {
      * @param operation     the operation to execute (must not be null)
      * @param ttl           the time to live for the idempotent result (must not be null)
      * @param <T>           the return type
-     * @return the result of the operation if completed, or {@code null} if not completed, the wait times out, or the entry has expired
+     * @return the result of the operation if completed, or {@code null} when no value should be cached
      * @throws NullPointerException if any parameter is null
      * @throws IdempotentException  if there is an error executing the operation
      * @throws IdempotentWaitExhaustedException if the wait times out
@@ -91,28 +92,27 @@ public class IdempotentService {
         Objects.requireNonNull(idempotentKey, "idempotentKey cannot be null");
         Objects.requireNonNull(operation, "operation cannot be null");
         Objects.requireNonNull(ttl, "ttl cannot be null");
-        // Check if the operation already exists
         IdempotentStore.Value existingValue = idempotentStore.getValue(idempotentKey, Object.class);
-        if (existingValue != null) {
+        if (existingValue == null) {
+            return handleNewOperation(idempotentKey, operation, ttl);
+        }
+        if (isExistingRequest(existingValue)) {
             return handleExistingOperation(idempotentKey, existingValue);
         }
 
-        // Execute the operation
         return handleNewOperation(idempotentKey, operation, ttl);
     }
 
     @SuppressWarnings("unchecked")
     private <T> @Nullable T handleExistingOperation(
             IdempotentStore.IdempotentKey idempotentKey, IdempotentStore.Value value) {
-        // Return a cached result if completed
-        if (COMPLETED.is(value.status())) {
+        if (value.status() == COMPLETED) {
             return (T) value.response();
         }
 
-        // If in progress, wait with exponential backoff, then check again
-        if (INPROGRESS.is(value.status())) {
+        if (value.status() == INPROGRESS) {
             value = completionAwaiter.wait(idempotentKey, value);
-            if (value != null && COMPLETED.is(value.status())) {
+            if (value != null && value.status() == COMPLETED) {
                 return (T) value.response();
             }
         }
@@ -125,31 +125,41 @@ public class IdempotentService {
     private <T> @Nullable T handleNewOperation(
             IdempotentStore.IdempotentKey idempotentKey, Supplier<T> operation, Duration ttl) {
         try {
-            // Mark as in progress
             long expirationTime = Instant.now().plus(ttl).toEpochMilli();
-            var inProgressValue = new IdempotentStore.Value(INPROGRESS.name(), expirationTime, null);
+            var inProgressValue = new IdempotentStore.Value(INPROGRESS, expirationTime, null);
             idempotentStore.store(idempotentKey, inProgressValue);
 
-            // Execute the operation
             T result = operation.get();
-
-            // Store the completed result
-            var completedValue = new IdempotentStore.Value(COMPLETED.name(), expirationTime, result);
-            idempotentStore.update(idempotentKey, completedValue);
+            updateStoreWithResponse(idempotentKey, result, expirationTime);
 
             return result;
         } catch (IdempotentKeyConflictException e) {
             log.info("Idempotent key conflict detected for key: {}", idempotentKey.key());
             IdempotentStore.Value value = idempotentStore.getValue(idempotentKey, Object.class);
             if (value == null) {
-                throw new IdempotentException(
-                        "Idempotent entry disappeared after conflict for key: " + idempotentKey.key(), e);
+                return handleNewOperation(idempotentKey, operation, ttl);
             }
             return handleExistingOperation(idempotentKey, value);
         } catch (Exception e) {
-            // Clean up on error
             idempotentStore.remove(idempotentKey);
             throw new IdempotentException("Error executing idempotent operation", e);
+        }
+    }
+
+    private boolean isExistingRequest(IdempotentStore.Value value) {
+        return Instant.now().isBefore(Instant.ofEpochMilli(value.expirationTimeInMilliSeconds()));
+    }
+
+    private void updateStoreWithResponse(
+            IdempotentStore.IdempotentKey idempotentKey, @Nullable Object response, long expiryTimeInMilliseconds) {
+        if (response instanceof ResponseEntity<?> responseEntity
+                && !responseEntity.getStatusCode().is2xxSuccessful()) {
+            idempotentStore.remove(idempotentKey);
+        } else if (response != null) {
+            idempotentStore.update(
+                    idempotentKey, new IdempotentStore.Value(COMPLETED, expiryTimeInMilliseconds, response));
+        } else {
+            idempotentStore.remove(idempotentKey);
         }
     }
 }

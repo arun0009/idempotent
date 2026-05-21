@@ -1,60 +1,69 @@
 {
   "groups": [
     {
-      "name": "idempotent.dynamodb",
-      "type": "io.github.arun0009.idempotent.dynamo.DynamoIdempotentProperties",
-      "sourceType": "io.github.arun0009.idempotent.dynamo.DynamoIdempotentProperties"
+      "name": "idempotent.aws",
+      "type": "io.github.arun0009.idempotent.dynamo.DynamoIdempotentProperties$Aws",
+      "sourceType": "io.github.arun0009.idempotent.dynamo.DynamoIdempotentProperties",
+      "sourceMethod": "aws()"
     },
     {
-      "name": "idempotent.aws",
-      "type": "io.github.arun0009.idempotent.dynamo.DynamoIdempotentProperties",
-      "sourceType": "io.github.arun0009.idempotent.dynamo.DynamoIdempotentProperties"
+      "name": "idempotent.dynamodb",
+      "type": "io.github.arun0009.idempotent.dynamo.DynamoIdempotentProperties$DynamoDb",
+      "sourceType": "io.github.arun0009.idempotent.dynamo.DynamoIdempotentProperties",
+      "sourceMethod": "dynamodb()"
     }
   ],
   "properties": [
     {
       "name": "idempotent.aws.region",
       "type": "java.lang.String",
-      "description": "AWS region for DynamoDB operations.",
-      "sourceType": "io.github.arun0009.idempotent.dynamo.DynamoIdempotentProperties"
+      "description": "AWS region for the default DynamoDbClient when the application does not define one.",
+      "sourceType": "io.github.arun0009.idempotent.dynamo.DynamoIdempotentProperties$Aws"
     },
     {
       "name": "idempotent.aws.access-key",
       "type": "java.lang.String",
-      "description": "AWS Access Key for authentication.",
-      "sourceType": "io.github.arun0009.idempotent.dynamo.DynamoIdempotentProperties"
+      "description": "Optional static access key used with a custom DynamoDB endpoint.",
+      "sourceType": "io.github.arun0009.idempotent.dynamo.DynamoIdempotentProperties$Aws"
     },
     {
       "name": "idempotent.aws.access-secret",
       "type": "java.lang.String",
-      "description": "AWS Access Secret for authentication.",
-      "sourceType": "io.github.arun0009.idempotent.dynamo.DynamoIdempotentProperties"
+      "description": "Optional static access secret used with a custom DynamoDB endpoint.",
+      "sourceType": "io.github.arun0009.idempotent.dynamo.DynamoIdempotentProperties$Aws"
+    },
+    {
+      "name": "idempotent.dynamodb.enabled",
+      "type": "java.lang.Boolean",
+      "description": "Whether the DynamoDB idempotent store auto-configuration is active.",
+      "sourceType": "io.github.arun0009.idempotent.dynamo.DynamoIdempotentProperties$DynamoDb",
+      "defaultValue": true
     },
     {
       "name": "idempotent.dynamodb.endpoint",
       "type": "java.lang.String",
-      "description": "Custom DynamoDB endpoint (useful for LocalStack or Testcontainers).",
-      "sourceType": "io.github.arun0009.idempotent.dynamo.DynamoIdempotentProperties"
-    },
-    {
-      "name": "idempotent.dynamodb.use-local",
-      "type": "java.lang.Boolean",
-      "description": "Set to true if using a local DynamoDB instance like LocalStack.",
-      "sourceType": "io.github.arun0009.idempotent.dynamo.DynamoIdempotentProperties",
-      "defaultValue": false
+      "description": "Optional endpoint override for local/test DynamoDB.",
+      "sourceType": "io.github.arun0009.idempotent.dynamo.DynamoIdempotentProperties$DynamoDb"
     },
     {
       "name": "idempotent.dynamodb.table-create",
       "type": "java.lang.Boolean",
-      "description": "Whether the client should attempt to create the DynamoDB table automatically on startup.",
-      "sourceType": "io.github.arun0009.idempotent.dynamo.DynamoIdempotentProperties",
+      "description": "Whether to create the DynamoDB table automatically on startup.",
+      "sourceType": "io.github.arun0009.idempotent.dynamo.DynamoIdempotentProperties$DynamoDb",
       "defaultValue": false
+    },
+    {
+      "name": "idempotent.dynamodb.ttl-enabled",
+      "type": "java.lang.Boolean",
+      "description": "Whether to enable DynamoDB TTL on the expiresAtEpochSeconds attribute at startup.",
+      "sourceType": "io.github.arun0009.idempotent.dynamo.DynamoIdempotentProperties$DynamoDb",
+      "defaultValue": true
     },
     {
       "name": "idempotent.dynamodb.table-name",
       "type": "java.lang.String",
       "description": "The name of the DynamoDB table used for storing idempotent data.",
-      "sourceType": "io.github.arun0009.idempotent.dynamo.DynamoIdempotentProperties",
+      "sourceType": "io.github.arun0009.idempotent.dynamo.DynamoIdempotentProperties$DynamoDb",
       "defaultValue": "Idempotent"
     }
   ],

@@ -209,11 +209,11 @@ public class IdempotentAspect {
      */
     private @Nullable Object handleExistingRequest(
             IdempotentStore.IdempotentKey idempotentKey, IdempotentStore.Value existingValue) {
-        if (IdempotentStore.Status.INPROGRESS.is(existingValue.status())) {
+        if (existingValue.status() == IdempotentStore.Status.INPROGRESS) {
             existingValue = completionAwaiter.wait(idempotentKey, existingValue);
         }
 
-        if (existingValue != null && IdempotentStore.Status.COMPLETED.is(existingValue.status())) {
+        if (existingValue != null && existingValue.status() == IdempotentStore.Status.COMPLETED) {
             return existingValue.response();
         }
 
@@ -237,7 +237,7 @@ public class IdempotentAspect {
         long expiryTimeInMilliseconds = Instant.now().plus(ttl).toEpochMilli();
         idempotentStore.store(
                 idempotentKey,
-                new IdempotentStore.Value(IdempotentStore.Status.INPROGRESS.name(), expiryTimeInMilliseconds, null));
+                new IdempotentStore.Value(IdempotentStore.Status.INPROGRESS, expiryTimeInMilliseconds, null));
 
         try {
             Object response = pjp.proceed();
@@ -264,8 +264,7 @@ public class IdempotentAspect {
         } else if (response != null) {
             idempotentStore.update(
                     idempotentKey,
-                    new IdempotentStore.Value(
-                            IdempotentStore.Status.COMPLETED.name(), expiryTimeInMilliseconds, response));
+                    new IdempotentStore.Value(IdempotentStore.Status.COMPLETED, expiryTimeInMilliseconds, response));
         } else {
             idempotentStore.remove(idempotentKey);
         }

@@ -63,7 +63,7 @@ public interface IdempotentStore {
      * @param response this is response received from downstream apis.
      */
     record Value(
-            String status,
+            Status status,
             Long expirationTimeInMilliSeconds,
             @Nullable Object response) implements Serializable {}
 
@@ -73,9 +73,5 @@ public interface IdempotentStore {
     enum Status {
         INPROGRESS,
         COMPLETED;
-
-        public boolean is(String status) {
-            return name().equals(status);
-        }
     }
 }

@@ -61,11 +61,13 @@ class NatsIdempotentStore implements IdempotentStore {
             KeyValueEntry entry = kv.get(key);
             if (entry == null) return null;
 
-            Wrappers.Value wrapperValue = payloadCodec.deserializeFromBytes(entry.getValue(), Wrappers.Value.class);
+            byte[] rawValue = entry.getValue();
+            if (rawValue == null) return null;
+
+            Wrappers.Value wrapperValue = payloadCodec.deserializeFromBytes(rawValue, Wrappers.Value.class);
             return wrapperValue.value();
         } catch (IOException | JetStreamApiException e) {
-            log.error("Error reading value from nats store", e);
-            return null;
+            throw new NatsIdempotentException("Error reading value from NATS store", e);
         }
     }
 
@@ -82,9 +84,9 @@ class NatsIdempotentStore implements IdempotentStore {
             if (e.getApiErrorCode() == 10071) {
                 throw new IdempotentKeyConflictException("NATS Key already exists: " + key, idemKey);
             }
-            throw new NatsIdempotentExceptions("Api error storing value in nats", e);
+            throw new NatsIdempotentException("API error storing value in NATS", e);
         } catch (IOException e) {
-            throw new NatsIdempotentExceptions("Error storing value in nats", e);
+            throw new NatsIdempotentException("Error storing value in NATS", e);
         }
     }
 
@@ -95,7 +97,7 @@ class NatsIdempotentStore implements IdempotentStore {
             var key = encodeIfNotValid(idemKey);
             kv.delete(key);
         } catch (JetStreamApiException | IOException e) {
-            throw new NatsIdempotentExceptions("Error removing value from nats store", e);
+            throw new NatsIdempotentException("Error removing value from NATS store", e);
         }
     }
 
@@ -108,7 +110,7 @@ class NatsIdempotentStore implements IdempotentStore {
             byte[] content = payloadCodec.serializeToBytes(new Wrappers.Value(value));
             kv.put(key, content);
         } catch (IOException | JetStreamApiException e) {
-            throw new NatsIdempotentExceptions("Error storing value in nats", e);
+            throw new NatsIdempotentException("Error updating value in NATS", e);
         }
     }
 }

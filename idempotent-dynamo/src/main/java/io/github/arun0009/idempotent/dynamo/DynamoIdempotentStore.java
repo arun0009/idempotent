@@ -4,6 +4,7 @@ import io.github.arun0009.idempotent.core.exception.IdempotentException;
 import io.github.arun0009.idempotent.core.exception.IdempotentKeyConflictException;
 import io.github.arun0009.idempotent.core.persistence.IdempotentStore;
 import io.github.arun0009.idempotent.core.serialization.IdempotentPayloadCodec;
+import io.github.arun0009.idempotent.core.serialization.IdempotentPayloadCodecException;
 import org.jspecify.annotations.Nullable;
 import software.amazon.awssdk.enhanced.dynamodb.DynamoDbEnhancedClient;
 import software.amazon.awssdk.enhanced.dynamodb.DynamoDbTable;
@@ -47,6 +48,7 @@ public class DynamoIdempotentStore implements IdempotentStore {
         item.setProcessName(idempotentKey.processName());
         item.setStatus(value.status());
         item.setExpirationTimeInMilliSeconds(value.expirationTimeInMilliSeconds());
+        item.setExpiresAtEpochSeconds(value.expirationTimeInMilliSeconds() / 1000);
         item.setResponse(
                 value.response() == null
                         ? ""
@@ -87,8 +89,8 @@ public class DynamoIdempotentStore implements IdempotentStore {
             getTable().putItem(putRequest);
         } catch (ConditionalCheckFailedException e) {
             throw new IdempotentKeyConflictException("Idempotent key already exists in DynamoDB", idempotentKey);
-        } catch (IllegalArgumentException e) {
-            throw new IdempotentException("error storing idempotent item", e);
+        } catch (IdempotentPayloadCodecException e) {
+            throw new IdempotentException("Error storing idempotent item", e);
         }
     }
 
@@ -103,8 +105,8 @@ public class DynamoIdempotentStore implements IdempotentStore {
     public void update(IdempotentKey idempotentKey, Value value) {
         try {
             getTable().putItem(toItem(idempotentKey, value));
-        } catch (IllegalArgumentException e) {
-            throw new IdempotentException("error updating idempotent item", e);
+        } catch (IdempotentPayloadCodecException e) {
+            throw new IdempotentException("Error updating idempotent item", e);
         }
     }
 }

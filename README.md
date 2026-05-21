@@ -35,6 +35,12 @@ In API development, idempotency helps in the following ways:
 * **Handling In-Progress Concurrent/Duplicate Requests**: Concurrent or duplicate requests will wait for the first request to complete (within a given configurable time frame and retries) and return the same response as the first request.
 * **Customizable payload serialization**: Redis, RDS, DynamoDB, and NATS share one configurable serialization strategy (`json`/`java`) for stored responses, and you can override it with Spring beans. See [idempotent-core – Payload serialization](idempotent-core/README.md#payload-serialization-persistent-stores).
 
+## Requirements
+
+- Java 17+
+- Spring Boot 4.x
+- Upgrading from 2.x? See [docs/MIGRATION.md](docs/MIGRATION.md#upgrading-to-30-from-2x)
+
 ## Getting Started
 
 ### Annotation-Based Approach (AOP)
@@ -56,8 +62,6 @@ public PaymentResponse postPayment(@RequestBody PaymentDetails paymentDetails) {
 }
 ```
 
-> **Note:** The `ttlInSeconds` parameter is deprecated. Please use the `duration` parameter instead, which accepts ISO-8601 duration strings (e.g., "PT1M" for 1 minute, "PT1H" for 1 hour).
-
 ### Service-Based Approach (Programmatic)
 
 The service-based approach uses `Duration` for specifying TTL, providing better type safety and flexibility:
@@ -68,15 +72,18 @@ For more control or non-Spring applications, use the `IdempotentService`:
 @Service
 public class PaymentService {
 
-	@Autowired
 	private final IdempotentService idempotentService;
+
+	public PaymentService(IdempotentService idempotentService) {
+			this.idempotentService = idempotentService;
+	}
 
 	public PaymentResponse processPayment(String paymentId) {
 			return idempotentService.execute(
 					paymentId,
 					"process-payment",
 					() -> callPaymentGateway(paymentId),
-					Duration.ofMinutes(30) // 30 minutes TTL as Duration
+					Duration.ofMinutes(30)
 			);
 	}
 }

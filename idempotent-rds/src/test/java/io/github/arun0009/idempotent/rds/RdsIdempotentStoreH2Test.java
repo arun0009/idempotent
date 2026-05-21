@@ -4,6 +4,7 @@ import com.zaxxer.hikari.HikariDataSource;
 import io.github.arun0009.idempotent.core.exception.IdempotentKeyConflictException;
 import io.github.arun0009.idempotent.core.persistence.IdempotentStore;
 import io.github.arun0009.idempotent.core.persistence.IdempotentStore.IdempotentKey;
+import io.github.arun0009.idempotent.core.persistence.IdempotentStore.Status;
 import io.github.arun0009.idempotent.core.persistence.IdempotentStore.Value;
 import io.github.arun0009.idempotent.core.serialization.IdempotentJsonMapperDefaults;
 import io.github.arun0009.idempotent.core.serialization.JacksonIdempotentPayloadCodec;
@@ -95,13 +96,13 @@ class RdsIdempotentStoreH2Test {
     @Test
     void testStoreAndGet() {
         IdempotentKey key = new IdempotentKey("test-key", "test-process");
-        Value value = new Value("COMPLETED", System.currentTimeMillis() + 5000, "success");
+        Value value = new Value(Status.COMPLETED, System.currentTimeMillis() + 5000, "success");
 
         idempotentStore.store(key, value);
 
         Value retrieved = idempotentStore.getValue(key, String.class);
         assertNotNull(retrieved);
-        assertEquals("COMPLETED", retrieved.status());
+        assertEquals(Status.COMPLETED, retrieved.status());
         assertEquals("success", retrieved.response());
     }
 
@@ -115,27 +116,27 @@ class RdsIdempotentStoreH2Test {
     @Test
     void testDuplicateStoreThrowsException() {
         IdempotentKey key = new IdempotentKey("race-key", "race-process");
-        Value value1 = new Value("INPROGRESS", System.currentTimeMillis() + 10000, null);
+        Value value1 = new Value(Status.INPROGRESS, System.currentTimeMillis() + 10000, null);
         idempotentStore.store(key, value1);
 
-        Value value2 = new Value("COMPLETED", System.currentTimeMillis() + 20000, "overwritten");
+        Value value2 = new Value(Status.COMPLETED, System.currentTimeMillis() + 20000, "overwritten");
         assertThrows(IdempotentKeyConflictException.class, () -> idempotentStore.store(key, value2));
 
         Value retrieved = idempotentStore.getValue(key, String.class);
         assertNotNull(retrieved);
-        assertEquals("INPROGRESS", retrieved.status());
+        assertEquals(Status.INPROGRESS, retrieved.status());
     }
 
     @Test
     void testRecordPayloadRoundTrip() {
         IdempotentKey key = new IdempotentKey("record-key", "test-process");
-        Value value = new Value("COMPLETED", System.currentTimeMillis() + 5000, new TestRecord("hello", 42));
+        Value value = new Value(Status.COMPLETED, System.currentTimeMillis() + 5000, new TestRecord("hello", 42));
 
         idempotentStore.store(key, value);
 
         Value retrieved = idempotentStore.getValue(key, Object.class);
         assertNotNull(retrieved);
-        assertEquals("COMPLETED", retrieved.status());
+        assertEquals(Status.COMPLETED, retrieved.status());
         assertNotNull(retrieved.response());
         assertEquals(TestRecord.class, retrieved.response().getClass());
         assertEquals("hello", ((TestRecord) retrieved.response()).name());

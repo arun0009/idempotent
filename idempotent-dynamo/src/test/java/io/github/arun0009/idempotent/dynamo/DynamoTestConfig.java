@@ -8,6 +8,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
+import software.amazon.awssdk.enhanced.dynamodb.DynamoDbEnhancedClient;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 
@@ -19,16 +20,7 @@ public class DynamoTestConfig {
     public static class Initializer implements ApplicationContextInitializer<ConfigurableApplicationContext> {
         @Override
         public void initialize(ConfigurableApplicationContext context) {
-            TestPropertyValues.of(
-                            "idempotent.dynamodb.endpoint=" + "http://"
-                                    + SharedDynamoContainer.DYNAMO_CONTAINER.getHost() + ":"
-                                    + SharedDynamoContainer.DYNAMO_CONTAINER.getFirstMappedPort(),
-                            "idempotent.dynamodb.use-local=true",
-                            "idempotent.dynamodb.table-name=Idempotent",
-                            "idempotent.dynamodb.table-create=true",
-                            "idempotent.aws.access-key=accessKey",
-                            "idempotent.aws.access-secret=secretKey",
-                            "idempotent.aws.region=us-east-1")
+            TestPropertyValues.of("idempotent.dynamodb.table-name=Idempotent", "idempotent.dynamodb.table-create=true")
                     .applyTo(context.getEnvironment());
         }
     }
@@ -43,5 +35,10 @@ public class DynamoTestConfig {
                         StaticCredentialsProvider.create(AwsBasicCredentials.create("accessKey", "secretKey")))
                 .region(Region.US_EAST_1)
                 .build();
+    }
+
+    @Bean
+    public DynamoDbEnhancedClient dynamoDbEnhancedClient(DynamoDbClient dynamoDbClient) {
+        return DynamoDbEnhancedClient.builder().dynamoDbClient(dynamoDbClient).build();
     }
 }

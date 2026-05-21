@@ -1,5 +1,6 @@
 package io.github.arun0009.idempotent.dynamo;
 
+import io.github.arun0009.idempotent.core.persistence.IdempotentStore;
 import org.jspecify.annotations.Nullable;
 import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbAttribute;
 import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbBean;
@@ -13,8 +14,9 @@ import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbSortK
 public class IdempotentItem {
     private String key = "";
     private String processName = "";
-    private String status = "";
+    private IdempotentStore.Status status = IdempotentStore.Status.INPROGRESS;
     private Long expirationTimeInMilliSeconds = 0L;
+    private Long expiresAtEpochSeconds = 0L;
     private @Nullable String response;
 
     /**
@@ -63,7 +65,7 @@ public class IdempotentItem {
      * @return the status
      */
     @DynamoDbAttribute("status")
-    public String getStatus() {
+    public IdempotentStore.Status getStatus() {
         return status;
     }
 
@@ -72,7 +74,7 @@ public class IdempotentItem {
      *
      * @param status the status
      */
-    public void setStatus(String status) {
+    public void setStatus(IdempotentStore.Status status) {
         this.status = status;
     }
 
@@ -96,6 +98,25 @@ public class IdempotentItem {
     }
 
     /**
+     * Gets expiration timestamp in epoch-seconds for DynamoDB TTL.
+     *
+     * @return expiration timestamp in seconds
+     */
+    @DynamoDbAttribute("expiresAtEpochSeconds")
+    public Long getExpiresAtEpochSeconds() {
+        return expiresAtEpochSeconds;
+    }
+
+    /**
+     * Sets expiration timestamp in epoch-seconds for DynamoDB TTL.
+     *
+     * @param expiresAtEpochSeconds expiration timestamp in seconds
+     */
+    public void setExpiresAtEpochSeconds(Long expiresAtEpochSeconds) {
+        this.expiresAtEpochSeconds = expiresAtEpochSeconds;
+    }
+
+    /**
      * Gets response stored for given idempotent key.
      *
      * @return the response
@@ -110,13 +131,13 @@ public class IdempotentItem {
      *
      * @param response the response
      */
-    public void setResponse(String response) {
+    public void setResponse(@Nullable String response) {
         this.response = response;
     }
 
     @Override
     public String toString() {
-        return "IdempotentItem{key='%s', processName='%s', status='%s', expirationTimeInMilliSeconds=%d, response='%s'}"
-                .formatted(key, processName, status, expirationTimeInMilliSeconds, response);
+        return "IdempotentItem{key='%s', processName='%s', status='%s', expirationTimeInMilliSeconds=%d, expiresAtEpochSeconds=%d, response='%s'}"
+                .formatted(key, processName, status, expirationTimeInMilliSeconds, expiresAtEpochSeconds, response);
     }
 }

@@ -2,6 +2,8 @@
 
 A Java library providing idempotency utilities for Java applications. Supports both annotation-based (AOP) and programmatic service-based approaches.
 
+Upgrading from 2.x? See [docs/MIGRATION.md](../docs/MIGRATION.md#upgrading-to-30-from-2x).
+
 ## Features
 - **Annotation-based** idempotency with Spring AOP
 - **Programmatic API** for fine-grained control
@@ -88,8 +90,8 @@ IdempotentPayloadCodec idempotentPayloadCodec() {
 
 The `IdempotentPayloadCodec` interface has four methods: `serializeToBytes`, `deserializeFromBytes`,
 `serializeToString`, and `deserializeFromString`. The byte-oriented methods are used by NATS; the
-string-oriented methods are used by RDS and DynamoDB. Redis has its own serializer path via
-`GenericJacksonJsonRedisSerializer` and honors the `idempotent.serialization.strategy` setting independently.
+string-oriented methods are used by RDS and DynamoDB. Redis uses the same `IdempotentPayloadCodec` for JSON
+serialization when `idempotent.serialization.strategy=json`.
 
 ### Storage Backends
 
@@ -145,8 +147,8 @@ String result2 = idempotentService.execute("payment-123", "payment-process", () 
 String email = idempotentService.execute("user-456", "send-email",
 		() -> sendWelcomeEmail("user-456"), Duration.ofMinutes(10));
 
-// Advanced usage with IdempotentKey
-IdempotentKey key = new IdempotentKey("order-789", "process-payment");
+// Advanced usage with IdempotentStore.IdempotentKey
+IdempotentStore.IdempotentKey key = new IdempotentStore.IdempotentKey("order-789", "process-payment");
 PaymentResult result = idempotentService.execute(key,
 		() -> paymentGateway.processPayment(order), Duration.ofMinutes(30));
 ```
@@ -187,10 +189,6 @@ public class IdempotentConfig {
 				return new CustomIdempotentStore();
 		}
 
-		@Bean
-		public IdempotentAspect idempotentAspect(IdempotentStore idempotentStore, IdempotentProperties properties) {
-				return new IdempotentAspect(idempotentStore, properties);
-		}
 }
 ```
 
@@ -199,6 +197,8 @@ public class IdempotentConfig {
 - **In-Memory**: `InMemoryIdempotentStore` (default)
 - **Redis**: [idempotent-redis](../idempotent-redis)
 - **DynamoDB**: [idempotent-dynamo](../idempotent-dynamo)
+- **NATS**: [idempotent-nats](../idempotent-nats)
+- **RDS (JDBC)**: [idempotent-rds](../idempotent-rds)
 
 ## Advanced Topics
 
@@ -214,7 +214,7 @@ public class IdempotentConfig {
 - Choose appropriate TTL values based on your use case
 - Monitor storage usage for high-throughput applications
 
-### Redis and DynamoDB Implementations
-While idempotent-core provides the core functionality, you can use specific implementations like Redis or DynamoDB
-by including the respective modules ([idempotent-redis](../idempotent-redis), [idempotent-dynamo](../idempotent-dynamo)).
-However, if you prefer to use a different storage solution, you can implement your own store as described above.
+### Storage Implementations
+While idempotent-core provides the core functionality, you can use specific implementations like
+[Redis](../idempotent-redis), [DynamoDB](../idempotent-dynamo), [NATS](../idempotent-nats), or [RDS](../idempotent-rds)
+by including the respective modules. If you prefer a different storage solution, implement your own store as described above.

@@ -34,7 +34,7 @@ public class IdempotentCompletionAwaiter {
     public IdempotentStore.@Nullable Value wait(
             IdempotentStore.IdempotentKey idempotentKey, IdempotentStore.Value value) {
         int attempt = 0;
-        while (attempt < waitStrategy.maxAttempts() && INPROGRESS.is(value.status())) {
+        while (attempt < waitStrategy.maxAttempts() && value.status() == INPROGRESS) {
             try {
                 long delay = waitStrategy.nextDelayOf(attempt);
                 log.debug("Waiting for idempotent operation to complete. Attempt: {}, Delay: {}ms", attempt, delay);

@@ -35,17 +35,29 @@ CREATE INDEX idx_expiration_time ON idempotent(expiration_time_millis);
 
 ## Configuration Properties
 
-### General Properties
+### Core configuration
 
-See main [README](../README.md) for general idempotent configuration.
+See [idempotent-core – Configuration](../idempotent-core/README.md#configuration) for `idempotent.key.header`, in-progress retry settings, and serialization.
 
 ### RDS Configuration
+
+*   Enabled
+
+		Property: `idempotent.rds.enabled`
+		Default Value: `true`
+		Description: Set to `false` to disable RDS auto-configuration.
 
 *   Table Name
 
 		Property: `idempotent.rds.table-name`
 		Default Value: `idempotent`
 		Description: The name of the database table to use.
+
+*   Cleanup Enabled
+
+		Property: `idempotent.rds.cleanup.enabled`
+		Default Value: `true`
+		Description: Set to `false` to disable the automatic cleanup task.
 
 *   Cleanup Schedule
 

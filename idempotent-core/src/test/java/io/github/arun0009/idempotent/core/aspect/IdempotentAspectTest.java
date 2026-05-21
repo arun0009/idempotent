@@ -93,13 +93,11 @@ class IdempotentAspectTest {
         IdempotentStore.IdempotentKey idempotentKey =
                 new IdempotentStore.IdempotentKey("testKey", "__IdempotentAspectTest.testMethod()");
         IdempotentStore.Value inProgressValue = new IdempotentStore.Value(
-                IdempotentStore.Status.INPROGRESS.name(),
-                Instant.now().plusSeconds(10).toEpochMilli(),
-                null);
+                IdempotentStore.Status.INPROGRESS, Instant.now().plusSeconds(10).toEpochMilli(), null);
         when(idempotentStore.getValue(eq(idempotentKey), any()))
                 .thenReturn(inProgressValue)
                 .thenReturn(new IdempotentStore.Value(
-                        IdempotentStore.Status.COMPLETED.name(),
+                        IdempotentStore.Status.COMPLETED,
                         Instant.now().plusSeconds(10).toEpochMilli(),
                         new ResponseEntity<>("cached response", HttpStatus.OK)));
 
@@ -129,7 +127,7 @@ class IdempotentAspectTest {
         IdempotentStore.IdempotentKey idempotentKey =
                 new IdempotentStore.IdempotentKey("testKey", "__IdempotentAspectTest.testMethod()");
         IdempotentStore.Value completedValue = new IdempotentStore.Value(
-                IdempotentStore.Status.COMPLETED.name(),
+                IdempotentStore.Status.COMPLETED,
                 Instant.now().plusSeconds(10).toEpochMilli(),
                 new ResponseEntity<>("cached response", HttpStatus.OK));
         when(idempotentStore.getValue(any(IdempotentStore.IdempotentKey.class), any()))

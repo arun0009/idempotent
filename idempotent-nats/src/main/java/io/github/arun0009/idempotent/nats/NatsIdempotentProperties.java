@@ -14,8 +14,8 @@ import java.util.List;
 @ConfigurationProperties(prefix = "idempotent.nats")
 class NatsIdempotentProperties {
 
-    /** Enable or disable nats client configuration. */
-    private boolean enable = true;
+    /** Enable or disable NATS client configuration. */
+    private boolean enabled = true;
 
     /** Add an array of servers to the list of known servers. */
     private List<String> servers = List.of(Options.DEFAULT_URL);
@@ -43,7 +43,7 @@ class NatsIdempotentProperties {
     private final BucketConfig bucketConfig;
 
     NatsIdempotentProperties(
-            @Nullable Boolean enable,
+            @Nullable Boolean enabled,
             @Nullable List<String> servers,
             @Nullable Boolean verbose,
             @Nullable Duration pingInterval,
@@ -52,7 +52,7 @@ class NatsIdempotentProperties {
             @Nullable Duration connectionTimeout,
             @Nullable AuthUser auth,
             @DefaultValue BucketConfig bucketConfig) {
-        if (enable != null) this.enable = enable;
+        if (enabled != null) this.enabled = enabled;
         if (servers != null) this.servers = servers;
         if (verbose != null) this.verbose = verbose;
         if (pingInterval != null) this.pingInterval = pingInterval;
@@ -87,8 +87,8 @@ class NatsIdempotentProperties {
         return builder;
     }
 
-    public boolean isEnable() {
-        return enable;
+    public boolean isEnabled() {
+        return enabled;
     }
 
     /**

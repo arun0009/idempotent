@@ -15,7 +15,6 @@ import org.springframework.scheduling.concurrent.SimpleAsyncTaskScheduler;
 import org.springframework.util.Assert;
 
 import javax.sql.DataSource;
-import java.time.Duration;
 
 @AutoConfiguration(
         afterName = {
@@ -46,7 +45,10 @@ public class RdsAutoConfiguration {
     public RdsCleanupTask rdsCleanupTask(
             JdbcTemplate jdbcTemplate, RdsIdempotentProperties properties, TaskScheduler rdsCleanupTaskScheduler) {
         Assert.isTrue(properties.cleanup().batchSize() > 0, "idempotent.rds.cleanup.batch-size must be positive");
-        Assert.isTrue(properties.cleanup().fixedDelay() > 0, "idempotent.rds.cleanup.fixed-delay must be positive");
+        Assert.isTrue(
+                !properties.cleanup().fixedDelay().isZero()
+                        && !properties.cleanup().fixedDelay().isNegative(),
+                "idempotent.rds.cleanup.fixed-delay must be positive");
 
         RdsDialect dialect = RdsDialect.detect(jdbcTemplate);
         var cleanupTask = new RdsCleanupTask(
@@ -55,7 +57,7 @@ public class RdsAutoConfiguration {
                 dialect,
                 properties.cleanup().batchSize());
         rdsCleanupTaskScheduler.scheduleWithFixedDelay(
-                cleanupTask::cleanup, Duration.ofMillis(properties.cleanup().fixedDelay()));
+                cleanupTask::cleanup, properties.cleanup().fixedDelay());
         return cleanupTask;
     }
 

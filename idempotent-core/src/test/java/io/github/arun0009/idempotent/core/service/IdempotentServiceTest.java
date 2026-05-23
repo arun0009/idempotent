@@ -1,6 +1,5 @@
 package io.github.arun0009.idempotent.core.service;
 
-import io.github.arun0009.idempotent.core.exception.IdempotentException;
 import io.github.arun0009.idempotent.core.persistence.IdempotentStore;
 import io.github.arun0009.idempotent.core.persistence.InMemoryIdempotentStore;
 import org.junit.jupiter.api.BeforeEach;
@@ -88,17 +87,17 @@ class IdempotentServiceTest {
     }
 
     @Test
-    void testExecuteWithException() {
+    void testExecuteRethrowsDomainException() {
         Supplier<String> operation = () -> {
-            throw new RuntimeException("Test exception");
+            throw new IllegalStateException("Test exception");
         };
 
-        // Should throw IdempotentException and not cache the result
-        assertThrows(
-                IdempotentException.class,
+        var thrown = assertThrows(
+                IllegalStateException.class,
                 () -> idempotentService.execute("test-key", operation, Duration.ofMinutes(5)));
+        assertEquals("Test exception", thrown.getMessage());
 
-        // Verify the key was removed after exception
+        // Verify the key was removed after the exception.
         IdempotentStore.IdempotentKey key = new IdempotentStore.IdempotentKey("test-key", "default");
         assertNull(store.getValue(key, Object.class));
     }
@@ -122,14 +121,20 @@ class IdempotentServiceTest {
     }
 
     @Test
-    void testExecuteWithNullResult() {
-        Supplier<String> nullOperation = () -> null;
+    void testExecuteWithNullResultCachesNullAndRunsOperationOnce() {
+        AtomicInteger counter = new AtomicInteger(0);
+        Supplier<String> nullOperation = () -> {
+            counter.incrementAndGet();
+            return null;
+        };
 
         String result1 = idempotentService.execute("null-key", nullOperation, Duration.ofMinutes(5));
         assertNull(result1);
 
         String result2 = idempotentService.execute("null-key", nullOperation, Duration.ofMinutes(5));
         assertNull(result2);
+
+        assertEquals(1, counter.get(), "null result must be cached so the operation runs only once");
     }
 
     @Test
@@ -145,6 +150,19 @@ class IdempotentServiceTest {
         assertNotNull(result2);
         assertEquals("test", result2.name);
         assertEquals(123, result2.value);
+    }
+
+    @Test
+    void testExecuteWithExplicitReturnType() {
+        AtomicInteger counter = new AtomicInteger(0);
+        Supplier<String> operation = () -> "typed-" + counter.incrementAndGet();
+
+        String first = idempotentService.execute("typed-key", String.class, operation, Duration.ofMinutes(5));
+        String second = idempotentService.execute("typed-key", String.class, operation, Duration.ofMinutes(5));
+
+        assertEquals("typed-1", first);
+        assertEquals("typed-1", second);
+        assertEquals(1, counter.get());
     }
 
     @Test

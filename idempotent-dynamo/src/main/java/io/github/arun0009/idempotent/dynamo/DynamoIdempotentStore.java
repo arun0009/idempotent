@@ -3,6 +3,7 @@ package io.github.arun0009.idempotent.dynamo;
 import io.github.arun0009.idempotent.core.exception.IdempotentException;
 import io.github.arun0009.idempotent.core.exception.IdempotentKeyConflictException;
 import io.github.arun0009.idempotent.core.persistence.IdempotentStore;
+import io.github.arun0009.idempotent.core.persistence.IdempotentValues;
 import io.github.arun0009.idempotent.core.serialization.IdempotentPayloadCodec;
 import io.github.arun0009.idempotent.core.serialization.IdempotentPayloadCodecException;
 import org.jspecify.annotations.Nullable;
@@ -47,8 +48,7 @@ public class DynamoIdempotentStore implements IdempotentStore {
         item.setKey(idempotentKey.key());
         item.setProcessName(idempotentKey.processName());
         item.setStatus(value.status());
-        item.setExpirationTimeInMilliSeconds(value.expirationTimeInMilliSeconds());
-        item.setExpiresAtEpochSeconds(value.expirationTimeInMilliSeconds() / 1000);
+        item.setExpiresAt(value.expiresAt());
         item.setResponse(
                 value.response() == null
                         ? ""
@@ -72,7 +72,8 @@ public class DynamoIdempotentStore implements IdempotentStore {
         Object response = serializedResponse == null || serializedResponse.isEmpty()
                 ? null
                 : payloadCodec.deserializeFromString(serializedResponse, returnType);
-        return new Value(idempotentItem.getStatus(), idempotentItem.getExpirationTimeInMilliSeconds(), response);
+        var value = new Value(idempotentItem.getStatus(), idempotentItem.getExpiresAt(), response);
+        return IdempotentValues.withoutExpired(value, () -> remove(idempotentKey));
     }
 
     @Override
@@ -104,7 +105,17 @@ public class DynamoIdempotentStore implements IdempotentStore {
     @Override
     public void update(IdempotentKey idempotentKey, Value value) {
         try {
-            getTable().putItem(toItem(idempotentKey, value));
+            var putRequest = PutItemEnhancedRequest.builder(IdempotentItem.class)
+                    .item(toItem(idempotentKey, value))
+                    .conditionExpression(Expression.builder()
+                            .expression("attribute_exists(#pk) AND attribute_exists(#sk)")
+                            .putExpressionName("#pk", "key")
+                            .putExpressionName("#sk", "processName")
+                            .build())
+                    .build();
+            getTable().putItem(putRequest);
+        } catch (ConditionalCheckFailedException ignored) {
+            // No-op when the key is missing: update must not resurrect a removed entry.
         } catch (IdempotentPayloadCodecException e) {
             throw new IdempotentException("Error updating idempotent item", e);
         }

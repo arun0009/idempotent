@@ -2,6 +2,7 @@ package io.github.arun0009.idempotent.nats;
 
 import io.github.arun0009.idempotent.core.exception.IdempotentKeyConflictException;
 import io.github.arun0009.idempotent.core.persistence.IdempotentStore;
+import io.github.arun0009.idempotent.core.persistence.IdempotentValues;
 import io.github.arun0009.idempotent.core.serialization.IdempotentPayloadCodec;
 import io.nats.client.JetStreamApiException;
 import io.nats.client.KeyValue;
@@ -29,9 +30,9 @@ class NatsIdempotentStore implements IdempotentStore {
         this.payloadCodec = payloadCodec;
     }
 
-    private static MessageTtl fromExpirationTimeInMs(long value) {
-        int ttl = (int) Duration.ofMillis(value - Instant.now().toEpochMilli()).toSeconds();
-        return MessageTtl.seconds(ttl + 1);
+    private static MessageTtl fromExpiresAt(Instant expiresAt) {
+        int ttl = (int) Duration.between(Instant.now(), expiresAt).toSeconds();
+        return MessageTtl.seconds(Math.max(1, ttl + 1));
     }
 
     /**
@@ -65,7 +66,7 @@ class NatsIdempotentStore implements IdempotentStore {
             if (rawValue == null) return null;
 
             Wrappers.Value wrapperValue = payloadCodec.deserializeFromBytes(rawValue, Wrappers.Value.class);
-            return wrapperValue.value();
+            return IdempotentValues.withoutExpired(wrapperValue.value(), () -> remove(idemKey));
         } catch (IOException | JetStreamApiException e) {
             throw new NatsIdempotentException("Error reading value from NATS store", e);
         }
@@ -77,7 +78,7 @@ class NatsIdempotentStore implements IdempotentStore {
         var key = encodeIfNotValid(idemKey);
         try {
             byte[] content = payloadCodec.serializeToBytes(new Wrappers.Value(value));
-            MessageTtl messageTtl = fromExpirationTimeInMs(value.expirationTimeInMilliSeconds());
+            MessageTtl messageTtl = fromExpiresAt(value.expiresAt());
             kv.create(key, content, messageTtl);
         } catch (JetStreamApiException e) {
             // Wrong last sequence, the key already exists.
@@ -107,8 +108,22 @@ class NatsIdempotentStore implements IdempotentStore {
             log.atDebug().log("Updating key {} with status {}", idemKey, value.status());
             log.atTrace().log(value::toString);
             var key = encodeIfNotValid(idemKey);
+            KeyValueEntry existing = kv.get(key);
+            if (existing == null) {
+                // No-op when the key is missing: update must not resurrect a removed entry.
+                return;
+            }
             byte[] content = payloadCodec.serializeToBytes(new Wrappers.Value(value));
-            kv.put(key, content);
+            try {
+                // CAS update: fails if another writer changed or deleted the entry between
+                // the read above and this update, preserving no-op-if-missing semantics.
+                kv.update(key, content, existing.getRevision());
+            } catch (JetStreamApiException casFailure) {
+                if (casFailure.getApiErrorCode() == 10071) {
+                    return;
+                }
+                throw casFailure;
+            }
         } catch (IOException | JetStreamApiException e) {
             throw new NatsIdempotentException("Error updating value in NATS", e);
         }

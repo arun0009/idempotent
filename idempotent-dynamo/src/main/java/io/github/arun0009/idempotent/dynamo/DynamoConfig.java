@@ -3,6 +3,7 @@ package io.github.arun0009.idempotent.dynamo;
 import io.github.arun0009.idempotent.core.exception.IdempotentException;
 import io.github.arun0009.idempotent.core.persistence.IdempotentStore;
 import io.github.arun0009.idempotent.core.serialization.IdempotentPayloadCodec;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
@@ -46,17 +47,17 @@ public class DynamoConfig {
         var dynamodb = properties.dynamodb();
         var builder = DynamoDbClient.builder();
 
-        if (!dynamodb.endpoint().isBlank()) {
+        if (hasText(dynamodb.endpoint())) {
             builder.endpointOverride(URI.create(dynamodb.endpoint()));
             // Local/test endpoints still require credentials in the SDK client, any static values work.
-            if (!aws.accessKey().isBlank() && !aws.accessSecret().isBlank()) {
+            if (hasText(aws.accessKey()) && hasText(aws.accessSecret())) {
                 builder.credentialsProvider(StaticCredentialsProvider.create(
                         AwsBasicCredentials.create(aws.accessKey(), aws.accessSecret())));
             } else {
                 builder.credentialsProvider(
                         StaticCredentialsProvider.create(AwsBasicCredentials.create("dummy", "dummy")));
             }
-            builder.region(aws.region().isBlank() ? Region.US_EAST_1 : Region.of(aws.region()));
+            builder.region(hasText(aws.region()) ? Region.of(aws.region()) : Region.US_EAST_1);
             return builder.build();
         }
 
@@ -108,5 +109,9 @@ public class DynamoConfig {
                 throw new IdempotentException("Failed to enable TTL on DynamoDB table: " + tableName, e);
             }
         }
+    }
+
+    private static boolean hasText(@Nullable String value) {
+        return value != null && !value.isBlank();
     }
 }

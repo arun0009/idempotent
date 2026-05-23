@@ -21,7 +21,8 @@ public class InMemoryIdempotentStore implements IdempotentStore {
 
     @Override
     public @Nullable Value getValue(IdempotentKey idempotentKey, Class<?> returnType) {
-        return map.get(idempotentKey);
+        Value stored = map.get(idempotentKey);
+        return IdempotentValues.withoutExpired(stored, () -> map.remove(idempotentKey));
     }
 
     @Override

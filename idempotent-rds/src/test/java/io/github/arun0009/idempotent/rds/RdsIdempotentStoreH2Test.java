@@ -21,9 +21,11 @@ import org.springframework.test.context.junit.jupiter.SpringExtension;
 import tools.jackson.databind.json.JsonMapper;
 
 import javax.sql.DataSource;
+import java.time.Instant;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
@@ -83,20 +85,20 @@ class RdsIdempotentStoreH2Test {
                     key_id VARCHAR(255) NOT NULL,
                     process_name VARCHAR(255) NOT NULL,
                     status VARCHAR(50),
-                    expiration_time_millis BIGINT,
+                    expires_at BIGINT,
                     response TEXT,
                     PRIMARY KEY (key_id, process_name)
                 )
                 """);
 
-        jdbcTemplate.update("CREATE INDEX IF NOT EXISTS idx_expiration_time ON idempotent(expiration_time_millis)");
+        jdbcTemplate.update("CREATE INDEX IF NOT EXISTS idx_expires_at ON idempotent(expires_at)");
         jdbcTemplate.update("DELETE FROM idempotent");
     }
 
     @Test
     void testStoreAndGet() {
         IdempotentKey key = new IdempotentKey("test-key", "test-process");
-        Value value = new Value(Status.COMPLETED, System.currentTimeMillis() + 5000, "success");
+        Value value = new Value(Status.COMPLETED, Instant.now().plusMillis(5000), "success");
 
         idempotentStore.store(key, value);
 
@@ -116,21 +118,31 @@ class RdsIdempotentStoreH2Test {
     @Test
     void testDuplicateStoreThrowsException() {
         IdempotentKey key = new IdempotentKey("race-key", "race-process");
-        Value value1 = new Value(Status.INPROGRESS, System.currentTimeMillis() + 10000, null);
+        Value value1 = new Value(Status.IN_PROGRESS, Instant.now().plusMillis(10000), null);
         idempotentStore.store(key, value1);
 
-        Value value2 = new Value(Status.COMPLETED, System.currentTimeMillis() + 20000, "overwritten");
+        Value value2 = new Value(Status.COMPLETED, Instant.now().plusMillis(20000), "overwritten");
         assertThrows(IdempotentKeyConflictException.class, () -> idempotentStore.store(key, value2));
 
         Value retrieved = idempotentStore.getValue(key, String.class);
         assertNotNull(retrieved);
-        assertEquals(Status.INPROGRESS, retrieved.status());
+        assertEquals(Status.IN_PROGRESS, retrieved.status());
+    }
+
+    @Test
+    void testUpdateIsNoOpWhenKeyIsMissing() {
+        IdempotentKey key = new IdempotentKey("missing-key", "test-process");
+
+        idempotentStore.update(
+                key, new Value(Status.COMPLETED, Instant.now().plusMillis(60_000), "should-not-resurrect"));
+
+        assertNull(idempotentStore.getValue(key, String.class));
     }
 
     @Test
     void testRecordPayloadRoundTrip() {
         IdempotentKey key = new IdempotentKey("record-key", "test-process");
-        Value value = new Value(Status.COMPLETED, System.currentTimeMillis() + 5000, new TestRecord("hello", 42));
+        Value value = new Value(Status.COMPLETED, Instant.now().plusMillis(5000), new TestRecord("hello", 42));
 
         idempotentStore.store(key, value);
 

@@ -3,6 +3,8 @@ package io.github.arun0009.idempotent.rds;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.bind.DefaultValue;
 
+import java.time.Duration;
+
 /**
  * Configuration properties for RDS-based idempotency implementation.
  *
@@ -21,10 +23,10 @@ public record RdsIdempotentProperties(
      *
      * @param enabled    whether the cleanup task should run
      * @param batchSize  maximum number of expired records to delete per batch
-     * @param fixedDelay delay in milliseconds between cleanup executions
+     * @param fixedDelay delay between cleanup executions
      */
     public record Cleanup(
             @DefaultValue("true") boolean enabled,
             @DefaultValue("1000") int batchSize,
-            @DefaultValue("60000") long fixedDelay) {}
+            @DefaultValue("PT1M") Duration fixedDelay) {}
 }

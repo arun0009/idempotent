@@ -1,118 +1,65 @@
-# Idempotent Cache with DynamoDB Storage
+# idempotent-dynamo
 
-To integrate the idempotent cache with DynamoDB into your project, add the following dependency to your `pom.xml` file:
+DynamoDB-backed `IdempotentStore` using the AWS SDK v2 enhanced client.
+
+Upgrading from 2.x? See [docs/MIGRATION.md](../docs/MIGRATION.md#upgrading-to-30-from-2x).
+
+## Dependency
 
 ```xml
 <dependency>
-	<groupId>io.github.arun0009</groupId>
-	<artifactId>idempotent-dynamo</artifactId>
-	<!-- get latest idempotent version from Maven Central -->
-	<version>${idempotent.version}</version>
+  <groupId>io.github.arun0009</groupId>
+  <artifactId>idempotent-dynamo</artifactId>
+  <version>${idempotent.version}</version>
 </dependency>
 ```
 
-## Overview
+## DynamoDB client
 
-This project provides an idempotent request handling mechanism using DynamoDB for storage/cache. The idempotent cache
-ensures that duplicate requests are handled safely and effectively, avoiding unintended side effects.
-
-## DynamoDB Client
-
-If your app provides `DynamoDbClient` and/or `DynamoDbEnhancedClient` beans, the library uses them. Otherwise it
-creates defaults from `idempotent.aws.*` (client/region/credentials) and `idempotent.dynamodb.*` (endpoint/table).
+If the application defines `DynamoDbClient` and/or `DynamoDbEnhancedClient` beans, those are used. Otherwise the library creates clients from `idempotent.aws.*` and `idempotent.dynamodb.*`.
 
 ```java
-@Configuration
-public class DynamoDBConfig {
+@Bean
+DynamoDbClient dynamoDbClient() {
+  return DynamoDbClient.builder().region(Region.US_EAST_1).build();
+}
 
-		@Bean
-		public DynamoDbClient dynamoDbClient() {
-				return DynamoDbClient.builder()
-						.region(Region.of("us-east-1"))
-						.build();
-		}
-
-		@Bean
-		public DynamoDbEnhancedClient dynamoDbEnhancedClient(DynamoDbClient dynamoDbClient) {
-				return DynamoDbEnhancedClient.builder()
-						.dynamoDbClient(dynamoDbClient)
-						.build();
-		}
+@Bean
+DynamoDbEnhancedClient dynamoDbEnhancedClient(DynamoDbClient client) {
+  return DynamoDbEnhancedClient.builder().dynamoDbClient(client).build();
 }
 ```
 
-## Configuration Properties
+## Properties
 
-### Core configuration
+Core settings: [idempotent-core – Configuration](../idempotent-core/README.md#configuration).
 
-See [idempotent-core – Configuration](../idempotent-core/README.md#configuration) for `idempotent.key.header`, in-progress retry settings, and serialization.
+### `idempotent.aws.*` (default client only)
 
-### AWS client properties (`idempotent.aws.*`)
+| Property | Description |
+|----------|-------------|
+| `idempotent.aws.region` | AWS region when no `DynamoDbClient` bean is provided |
+| `idempotent.aws.access-key` | Optional static credentials (e.g. local DynamoDB) |
+| `idempotent.aws.access-secret` | Optional static secret |
 
-Used when the library creates the default `DynamoDbClient`.
+### `idempotent.dynamodb.*`
 
-* Region
+| Property | Default | Description |
+|----------|---------|-------------|
+| `idempotent.dynamodb.enabled` | `true` | Disable DynamoDB auto-configuration |
+| `idempotent.dynamodb.endpoint` | — | Endpoint override (local/test) |
+| `idempotent.dynamodb.table-name` | `Idempotent` | Table name |
+| `idempotent.dynamodb.table-create` | `false` | Create table on startup |
+| `idempotent.dynamodb.ttl-enabled` | `true` | Enable TTL on `expiresAtEpochSeconds` at startup; set `false` if TTL is already configured |
 
-		Property: idempotent.aws.region
-		Default Value: (empty)
-		Description: AWS region for default client creation when no `DynamoDbClient` bean is provided.
+Serialization: `idempotent.serialization.strategy` (`json` | `java`). See [payload serialization](../idempotent-core/README.md#payload-serialization).
 
-* Access Key
-
-		Property: idempotent.aws.access-key
-		Default Value: (empty)
-		Description: Optional static access key used with a custom DynamoDB endpoint.
-
-* Access Secret
-
-		Property: idempotent.aws.access-secret
-		Default Value: (empty)
-		Description: Optional static access secret used with a custom DynamoDB endpoint.
-
-### DynamoDB properties (`idempotent.dynamodb.*`)
-
-* Enabled
-
-		Property: idempotent.dynamodb.enabled
-		Default Value: true
-		Description: Set to false to disable DynamoDB auto-configuration.
-
-* Endpoint
-
-		Property: idempotent.dynamodb.endpoint
-		Default Value: (empty)
-		Description: Optional endpoint override (useful for local/test DynamoDB).
-
-* Table Name
-
-		Property: idempotent.dynamodb.table-name
-		Default Value: Idempotent
-		Description: The name of the DynamoDB table used for storing idempotent requests.
-
-* Create Table
-
-		Property: idempotent.dynamodb.table-create
-		Default Value: false
-		Description: Whether to create the DynamoDB table on startup.
-
-* TTL setup
-
-		Property: idempotent.dynamodb.ttl-enabled
-		Default Value: true
-		Description: Whether to enable TTL on `expiresAtEpochSeconds` at startup. Set to `false` when you manage TTL on an existing table.
-
-## Serialization
-
-Stored responses use the shared `idempotent.serialization.strategy` setting (`json` or `java`).
-See [idempotent-core – Payload serialization](../idempotent-core/README.md#payload-serialization-persistent-stores).
-
-## Example Application Configuration
+## Example
 
 ```properties
-# AWS client (when library creates DynamoDbClient)
 idempotent.aws.region=us-east-1
-
-# DynamoDB table
 idempotent.dynamodb.table-name=Idempotent
 idempotent.dynamodb.table-create=true
 ```
+
+Partition key: `key`. Sort key: `processName`. TTL attribute: `expiresAtEpochSeconds` (epoch seconds).

@@ -1,6 +1,5 @@
 package io.github.arun0009.idempotent.nats;
 
-import io.github.arun0009.idempotent.core.exception.IdempotentException;
 import io.github.arun0009.idempotent.core.service.IdempotentService;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
@@ -125,21 +124,19 @@ class NatsIdempotentServiceTest {
     }
 
     @Test
-    @DisplayName("Does not cache failed executions")
+    @DisplayName("Does not cache failed executions and rethrows the original exception")
     void testFailureNotCached() {
         Supplier<String> failingOperation = () -> {
-            throw new RuntimeException("Simulated failure");
+            throw new IllegalStateException("Simulated failure");
         };
 
-        // First call should fail
         assertThatThrownBy(() -> service.execute("error-key", failingOperation, Duration.ofMinutes(5)))
-                .isInstanceOf(IdempotentException.class)
-                .hasCause(new RuntimeException("Simulated failure"));
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Simulated failure");
 
-        // Second call should also fail (no caching of errors)
         assertThatThrownBy(() -> service.execute("error-key", failingOperation, Duration.ofMinutes(5)))
-                .isInstanceOf(IdempotentException.class)
-                .hasCause(new RuntimeException("Simulated failure"));
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Simulated failure");
 
         var result = service.execute("test-key-1", () -> "success", Duration.ofMinutes(5));
         assertThat(result).isEqualTo("success");

@@ -1,220 +1,131 @@
-# Idempotent Core
+# idempotent-core
 
-A Java library providing idempotency utilities for Java applications. Supports both annotation-based (AOP) and programmatic service-based approaches.
+Core idempotency for Spring applications: `@Idempotent` on methods, programmatic `IdempotentService`, in-memory store, and shared payload serialization.
 
 Upgrading from 2.x? See [docs/MIGRATION.md](../docs/MIGRATION.md#upgrading-to-30-from-2x).
 
-## Features
-- **Annotation-based** idempotency with Spring AOP
-- **Programmatic API** for fine-grained control
-- **Extensible storage** with multiple implementations
-- **Configurable** behavior through properties
-
-## Quick Start
-
-### Maven Dependency
+## Dependency
 
 ```xml
 <dependency>
-		<groupId>io.github.arun0009</groupId>
-		<artifactId>idempotent-core</artifactId>
-		<version>${idempotent.version}</version>
+  <groupId>io.github.arun0009</groupId>
+  <artifactId>idempotent-core</artifactId>
+  <version>${idempotent.version}</version>
 </dependency>
 ```
 
+Add a storage module (Redis, DynamoDB, NATS, or RDS) for production. Without one, `InMemoryIdempotentStore` is used.
+
+For `@Idempotent`, add `spring-boot-starter-aop`.
+
 ## Configuration
 
-### Core Properties
-
 | Property | Default | Description |
 |----------|---------|-------------|
-| `idempotent.key.header` | `X-Idempotency-Key` | HTTP header for idempotency key |
-| `idempotent.inprogress.max.retries` | `5` | Max retries for in-progress requests |
-| `idempotent.inprogress.retry.initial.intervalMillis` | `100` | Initial retry interval in ms |
+| `idempotent.key.header` | `X-Idempotency-Key` | HTTP header; takes precedence over SpEL `key` when set |
+| `idempotent.inprogress.max.retries` | `5` | Max polls while another request holds `IN_PROGRESS` |
+| `idempotent.inprogress.retry.initial.interval` | `PT0.1S` | Initial backoff (`100ms`, `PT0.1S`, …) |
 | `idempotent.inprogress.retry.multiplier` | `2` | Exponential backoff multiplier |
 
-### Payload serialization (persistent stores)
+### Payload serialization
 
-Redis, RDS, DynamoDB, and NATS share one payload codec (`IdempotentPayloadCodec`) for serializing stored responses.
+Persistent stores share `IdempotentPayloadCodec`.
 
 | Property | Default | Description |
 |----------|---------|-------------|
-| `idempotent.serialization.strategy` | `json` | `json` (Jackson) or `java` (JDK native serialization) |
+| `idempotent.serialization.strategy` | `json` | `json` (Jackson) or `java` (JDK serialization; payloads must implement `Serializable`) |
 
-- `json` strategy uses Jackson with permissive polymorphic typing (logs a warning at startup).
-- `java` strategy uses JDK serialization and requires payloads to implement `Serializable`.
+`json` enables permissive polymorphic typing by default (a warning is logged at startup). Restrict types with an `IdempotentJsonMapperCustomizer` bean, or replace serialization entirely with a custom `IdempotentPayloadCodec` bean.
 
-#### Customizing Jackson (JSON strategy)
-
-Define an `IdempotentJsonMapperCustomizer` bean to restrict polymorphic typing or add Jackson modules.
-If you use `Object.class` deserialization with final payload types (Kotlin data classes, Java records), use
-an all-types resolver:
+Example customizer (restrict packages and enable typing for records / `Object` retrieval):
 
 ```java
 @Bean
 IdempotentJsonMapperCustomizer idempotentJsonMapperCustomizer() {
-		return builder -> {
-				var ptv = BasicPolymorphicTypeValidator.builder()
-								.allowIfBaseType("com.myapp.")
-								.build();
-				builder.polymorphicTypeValidator(ptv)
-								.setDefaultTyping(new DefaultTypeResolverBuilder(
-												ptv,
-												DefaultTyping.NON_FINAL,
-												JsonTypeInfo.As.PROPERTY,
-												JsonTypeInfo.Id.CLASS,
-												"@class") {
-										@Override
-										public boolean useForType(JavaType t) {
-												return true;
-										}
-								});
-		};
+  return builder -> {
+    var ptv = BasicPolymorphicTypeValidator.builder()
+        .allowIfBaseType("com.myapp.")
+        .build();
+    builder.polymorphicTypeValidator(ptv)
+        .setDefaultTyping(new DefaultTypeResolverBuilder(
+            ptv, DefaultTyping.NON_FINAL, JsonTypeInfo.As.PROPERTY,
+            JsonTypeInfo.Id.CLASS, "@class") {
+          @Override
+          public boolean useForType(JavaType t) {
+            return true;
+          }
+        });
+  };
 }
 ```
 
-> **Important:** when you define your own `IdempotentJsonMapperCustomizer`, you take full ownership of the mapper
-> configuration. The library's default permissive typing is no longer applied. If your payloads require polymorphic
-> typing (e.g., `Object.class` retrieval, interfaces, records, Kotlin data classes), configure it explicitly.
-
-#### Fully replacing the codec
-
-Define an `IdempotentPayloadCodec` bean to replace the default serialization entirely:
-
-```java
-@Bean
-IdempotentPayloadCodec idempotentPayloadCodec() {
-		return new MyCustomPayloadCodec();
-}
-```
-
-The `IdempotentPayloadCodec` interface has four methods: `serializeToBytes`, `deserializeFromBytes`,
-`serializeToString`, and `deserializeFromString`. The byte-oriented methods are used by NATS; the
-string-oriented methods are used by RDS and DynamoDB. Redis uses the same `IdempotentPayloadCodec` for JSON
-serialization when `idempotent.serialization.strategy=json`.
-
-### Storage Backends
-
-#### In-Memory (Default)
-No additional configuration needed. The in-memory store is used by default if no other store is configured.
-
-#### Redis
-For Redis configuration and customizations, please refer to the [idempotent-redis README](../idempotent-redis/README.md).
-
-#### DynamoDB
-For DynamoDB configuration and customizations, please refer to the [idempotent-dynamo README](../idempotent-dynamo/README.md).
-
-#### Custom Store
-To implement a custom store, create a class that implements `IdempotentStore` and define it as a `@Bean`:
-
-```java
-@Configuration
-public class CustomIdempotentConfig {
-		@Bean
-		@Primary
-		public IdempotentStore customIdempotentStore() {
-				return new CustomIdempotentStore();
-		}
-}
-```
+Defining your own customizer replaces the library default; configure polymorphic typing explicitly if you need it.
 
 ## Usage
 
-### Annotation-based (AOP)
+### `@Idempotent`
 
 ```java
-@Idempotent(key = "#paymentDetails", duration = "PT1M", hashKey=true)
-@PostMapping("/payments")
-public PaymentResponse postPayment(@RequestBody PaymentDetails paymentDetails) {
-		// Method implementation - only executes once per unique paymentDetails
+@Idempotent(key = "#orderId", duration = "5m")
+@PostMapping("/orders")
+public Order createOrder(@RequestBody CreateOrderRequest request) {
+  return orderService.create(request);
 }
 ```
 
-### Programmatic API
+- **Key** — request header (if present), else SpEL `key`. Empty key: method runs without idempotency (warned once per method).
+- **duration** — ISO-8601 or Spring short form (`5m`, `100ms`, `PT5M`).
+- **hashKey** — SHA-256 hash of the key string before storage (useful for large or sensitive keys).
+
+### `IdempotentService`
 
 ```java
-// Basic usage with Duration
-String result = idempotentService.execute("payment-123", () -> {
-		return processPayment("123");
-}, Duration.ofMinutes(1));
+// Untyped (uses Object.class for deserialization)
+String result = idempotentService.execute("payment-123",
+    () -> processPayment("123"),
+    Duration.ofMinutes(5));
 
-// Or using ISO-8601 duration string
-String result2 = idempotentService.execute("payment-123", "payment-process", () -> {
-		return processPayment("123");
-}, Duration.parse("PT1M"));
+// With process scope (same key, different process = separate entries)
+String result = idempotentService.execute("payment-123", "charge",
+    () -> processPayment("123"),
+    Duration.ofMinutes(5));
 
-// Different operations with same key
-String email = idempotentService.execute("user-456", "send-email",
-		() -> sendWelcomeEmail("user-456"), Duration.ofMinutes(10));
-
-// Advanced usage with IdempotentStore.IdempotentKey
-IdempotentStore.IdempotentKey key = new IdempotentStore.IdempotentKey("order-789", "process-payment");
-PaymentResult result = idempotentService.execute(key,
-		() -> paymentGateway.processPayment(order), Duration.ofMinutes(30));
+// Typed (preferred when return type is known)
+Order order = idempotentService.execute("order-789", Order.class,
+    () -> orderService.get("789"),
+    Duration.ofMinutes(30));
 ```
 
-### Supported Return Types
+**Behavior:**
+
+- Successful results are cached, including `null` (void methods).
+- Non-2xx `ResponseEntity` responses are not cached; the entry is removed so the client can retry.
+- Operation exceptions propagate as-is; the in-progress entry is removed before the throw.
+- `IdempotentException` / `IdempotentWaitExhaustedException` are reserved for library conditions.
+
+## Storage
+
+| Module | Link |
+|--------|------|
+| In-memory (default) | `InMemoryIdempotentStore` |
+| Redis | [idempotent-redis](../idempotent-redis/README.md) |
+| DynamoDB | [idempotent-dynamo](../idempotent-dynamo/README.md) |
+| NATS KV | [idempotent-nats](../idempotent-nats/README.md) |
+| JDBC | [idempotent-rds](../idempotent-rds/README.md) |
+
+### Custom `IdempotentStore`
+
+Implement `IdempotentStore` and register a `@Bean` (use `@Primary` if replacing the auto-configured store):
+
+- **`store`** — strict insert only; conflicts throw `IdempotentKeyConflictException`.
+- **`update`** — no-op when the key is missing (never resurrect deleted or expired entries).
+- **`getValue`** — return `null` for missing or expired entries; remove expired entries on read (best-effort).
+- **`remove`** — idempotent delete.
 
 ```java
-// Primitives
-int count = idempotentService.execute("count",
-		() -> userRepo.count(), Duration.ofMinutes(1));
-
-// Complex objects
-Order order = idempotentService.execute("order-123",
-		() -> orderService.getOrder("123"), Duration.ofMinutes(5));
-
-// Null values
-String data = idempotentService.execute("optional",
-		() -> maybeGetData(), Duration.ofMinutes(2));
-```
-
-## Custom Storage
-
-Implement the `IdempotentStore` interface to use your preferred storage:
-
-```java
-public class CustomIdempotentStore implements IdempotentStore {
-		// Implement required methods
+@Bean
+@Primary
+IdempotentStore customIdempotentStore() {
+  return new CustomIdempotentStore();
 }
 ```
-
-Then configure it in your Spring configuration:
-
-```java
-@Configuration
-public class IdempotentConfig {
-		@Bean
-		public IdempotentStore idempotentStore() {
-				return new CustomIdempotentStore();
-		}
-
-}
-```
-
-## Available Implementations
-
-- **In-Memory**: `InMemoryIdempotentStore` (default)
-- **Redis**: [idempotent-redis](../idempotent-redis)
-- **DynamoDB**: [idempotent-dynamo](../idempotent-dynamo)
-- **NATS**: [idempotent-nats](../idempotent-nats)
-- **RDS (JDBC)**: [idempotent-rds](../idempotent-rds)
-
-## Advanced Topics
-
-### Error Handling
-
-- Failed operations are automatically cleaned up
-- In-progress state is maintained during retries
-- Configurable retry policies for concurrent requests
-
-### Performance Considerations
-
-- Use `hashKey=true` for large objects to store hashes instead of serialized objects
-- Choose appropriate TTL values based on your use case
-- Monitor storage usage for high-throughput applications
-
-### Storage Implementations
-While idempotent-core provides the core functionality, you can use specific implementations like
-[Redis](../idempotent-redis), [DynamoDB](../idempotent-dynamo), [NATS](../idempotent-nats), or [RDS](../idempotent-rds)
-by including the respective modules. If you prefer a different storage solution, implement your own store as described above.

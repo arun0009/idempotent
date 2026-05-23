@@ -4,6 +4,8 @@ import io.github.arun0009.idempotent.core.IdempotentProperties;
 import io.github.arun0009.idempotent.core.IdempotentTest;
 import io.github.arun0009.idempotent.core.annotation.Idempotent;
 import io.github.arun0009.idempotent.core.persistence.IdempotentStore;
+import io.github.arun0009.idempotent.core.retry.WaitStrategy;
+import io.github.arun0009.idempotent.core.service.IdempotentService;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.reflect.MethodSignature;
 import org.junit.jupiter.api.BeforeEach;
@@ -16,6 +18,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
 import java.lang.reflect.Method;
+import java.time.Duration;
 import java.time.Instant;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -41,9 +44,11 @@ class IdempotentAspectTest {
     @SuppressWarnings("resource")
     void setUp() {
         MockitoAnnotations.openMocks(this);
+        var idempotentService = new IdempotentService(idempotentStore, new WaitStrategy(5, Duration.ofMillis(100), 2));
         idempotentAspect = new IdempotentAspect(
-                idempotentStore,
-                new IdempotentProperties("X-Idempotency-Key", new IdempotentProperties.InProgress(5, 100, 2)));
+                idempotentService,
+                new IdempotentProperties(
+                        "X-Idempotency-Key", new IdempotentProperties.InProgress(5, Duration.ofMillis(100), 2)));
     }
 
     @Test
@@ -53,6 +58,7 @@ class IdempotentAspectTest {
         when(proceedingJoinPoint.getSignature()).thenReturn(methodSignature);
         when(methodSignature.getParameterNames()).thenReturn(new String[] {"asset"});
         when(methodSignature.getName()).thenReturn("testMethod");
+        when(methodSignature.getReturnType()).thenAnswer(invocation -> ResponseEntity.class);
         // Mock the target object
         Object target = this;
         when(proceedingJoinPoint.getTarget()).thenReturn(target);
@@ -85,6 +91,7 @@ class IdempotentAspectTest {
             new IdempotentTest.Asset("1", new IdempotentTest.AssetType("test-category", "1.0"), "Test API")
         });
         when(methodSignature.getName()).thenReturn("testMethod");
+        when(methodSignature.getReturnType()).thenAnswer(invocation -> ResponseEntity.class);
         // Mock the target object
         Object target = this;
         when(proceedingJoinPoint.getTarget()).thenReturn(target);
@@ -93,12 +100,12 @@ class IdempotentAspectTest {
         IdempotentStore.IdempotentKey idempotentKey =
                 new IdempotentStore.IdempotentKey("testKey", "__IdempotentAspectTest.testMethod()");
         IdempotentStore.Value inProgressValue = new IdempotentStore.Value(
-                IdempotentStore.Status.INPROGRESS, Instant.now().plusSeconds(10).toEpochMilli(), null);
+                IdempotentStore.Status.IN_PROGRESS, Instant.now().plusSeconds(10), null);
         when(idempotentStore.getValue(eq(idempotentKey), any()))
                 .thenReturn(inProgressValue)
                 .thenReturn(new IdempotentStore.Value(
                         IdempotentStore.Status.COMPLETED,
-                        Instant.now().plusSeconds(10).toEpochMilli(),
+                        Instant.now().plusSeconds(10),
                         new ResponseEntity<>("cached response", HttpStatus.OK)));
 
         Object response = idempotentAspect.around(proceedingJoinPoint);
@@ -118,6 +125,7 @@ class IdempotentAspectTest {
             new IdempotentTest.Asset("1", new IdempotentTest.AssetType("test-category", "1.0"), "Test API")
         });
         when(methodSignature.getName()).thenReturn("testMethod");
+        when(methodSignature.getReturnType()).thenAnswer(invocation -> ResponseEntity.class);
 
         // Mock the target object
         Object target = this;
@@ -128,7 +136,7 @@ class IdempotentAspectTest {
                 new IdempotentStore.IdempotentKey("testKey", "__IdempotentAspectTest.testMethod()");
         IdempotentStore.Value completedValue = new IdempotentStore.Value(
                 IdempotentStore.Status.COMPLETED,
-                Instant.now().plusSeconds(10).toEpochMilli(),
+                Instant.now().plusSeconds(10),
                 new ResponseEntity<>("cached response", HttpStatus.OK));
         when(idempotentStore.getValue(any(IdempotentStore.IdempotentKey.class), any()))
                 .thenReturn(completedValue);
@@ -140,9 +148,35 @@ class IdempotentAspectTest {
         assertEquals("cached response", ((ResponseEntity<?>) response).getBody());
     }
 
+    @Test
+    void testAround_acceptsShortFormDurationAnnotation() throws Throwable {
+        Method method = this.getClass().getDeclaredMethod("methodWithShortFormDuration");
+        MethodSignature methodSignature = mock(MethodSignature.class);
+        when(proceedingJoinPoint.getSignature()).thenReturn(methodSignature);
+        when(methodSignature.getParameterNames()).thenReturn(new String[] {});
+        when(methodSignature.getName()).thenReturn("methodWithShortFormDuration");
+        when(methodSignature.getReturnType()).thenAnswer(invocation -> ResponseEntity.class);
+        when(proceedingJoinPoint.getTarget()).thenReturn(this);
+        when(proceedingJoinPoint.getArgs()).thenReturn(new Object[] {});
+        when(methodSignature.getMethod()).thenReturn(method);
+        when(proceedingJoinPoint.proceed()).thenReturn(new ResponseEntity<>("ok", HttpStatus.OK));
+        when(idempotentStore.getValue(any(IdempotentStore.IdempotentKey.class), any()))
+                .thenReturn(null);
+
+        Object response = idempotentAspect.around(proceedingJoinPoint);
+
+        assertInstanceOf(ResponseEntity.class, response);
+    }
+
     @SuppressWarnings("unused")
     @Idempotent(key = "'testKey'", duration = "PT1M")
     private ResponseEntity<String> testMethod() {
         return new ResponseEntity<>("response", HttpStatus.OK);
+    }
+
+    @SuppressWarnings("unused")
+    @Idempotent(key = "'shortFormKey'", duration = "500ms")
+    private ResponseEntity<String> methodWithShortFormDuration() {
+        return new ResponseEntity<>("ok", HttpStatus.OK);
     }
 }

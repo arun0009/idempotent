@@ -4,140 +4,88 @@ import io.github.arun0009.idempotent.core.persistence.IdempotentStore;
 import org.jspecify.annotations.Nullable;
 import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbAttribute;
 import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbBean;
+import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbIgnore;
 import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbPartitionKey;
 import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbSortKey;
 
+import java.time.Instant;
+
 /**
- * Idempotent item is a copy of Idempotent Store's IdempotentKey/Value to store in Dynamo.
+ * DynamoDB persistence model for idempotent entries.
+ *
+ * <p>{@code expiresAtEpochSeconds} is the sole expiry field (epoch seconds) and is used for DynamoDB TTL.
  */
 @DynamoDbBean
 public class IdempotentItem {
     private String key = "";
     private String processName = "";
-    private IdempotentStore.Status status = IdempotentStore.Status.INPROGRESS;
-    private Long expirationTimeInMilliSeconds = 0L;
+    private IdempotentStore.Status status = IdempotentStore.Status.IN_PROGRESS;
     private Long expiresAtEpochSeconds = 0L;
     private @Nullable String response;
 
-    /**
-     * Gets idempotent key.
-     *
-     * @return the idempotent key.
-     */
     @DynamoDbPartitionKey
     @DynamoDbAttribute("key")
     public String getKey() {
         return key;
     }
 
-    /**
-     * Sets idempotent key.
-     *
-     * @param key the idempotent key
-     */
     public void setKey(String key) {
         this.key = key;
     }
 
-    /**
-     * Gets process name.
-     *
-     * @return the process name
-     */
     @DynamoDbSortKey
     @DynamoDbAttribute("processName")
     public String getProcessName() {
         return processName;
     }
 
-    /**
-     * Sets process name.
-     *
-     * @param processName the process name
-     */
     public void setProcessName(String processName) {
         this.processName = processName;
     }
 
-    /**
-     * Gets status.
-     *
-     * @return the status
-     */
     @DynamoDbAttribute("status")
     public IdempotentStore.Status getStatus() {
         return status;
     }
 
-    /**
-     * Sets status.
-     *
-     * @param status the status
-     */
     public void setStatus(IdempotentStore.Status status) {
         this.status = status;
     }
 
-    /**
-     * Gets expiration time of idempotent item in milliseconds.
-     *
-     * @return the expiration time in milliseconds
-     */
-    @DynamoDbAttribute("expirationTimeInMilliSeconds")
-    public Long getExpirationTimeInMilliSeconds() {
-        return expirationTimeInMilliSeconds;
-    }
-
-    /**
-     * Sets expiration time of idempotent item in milliseconds.
-     *
-     * @param expirationTimeInMilliSeconds the expiration time in milliseconds
-     */
-    public void setExpirationTimeInMilliSeconds(Long expirationTimeInMilliSeconds) {
-        this.expirationTimeInMilliSeconds = expirationTimeInMilliSeconds;
-    }
-
-    /**
-     * Gets expiration timestamp in epoch-seconds for DynamoDB TTL.
-     *
-     * @return expiration timestamp in seconds
-     */
+    /** Epoch-second expiry; also the DynamoDB TTL attribute. */
     @DynamoDbAttribute("expiresAtEpochSeconds")
     public Long getExpiresAtEpochSeconds() {
         return expiresAtEpochSeconds;
     }
 
-    /**
-     * Sets expiration timestamp in epoch-seconds for DynamoDB TTL.
-     *
-     * @param expiresAtEpochSeconds expiration timestamp in seconds
-     */
     public void setExpiresAtEpochSeconds(Long expiresAtEpochSeconds) {
         this.expiresAtEpochSeconds = expiresAtEpochSeconds;
     }
 
-    /**
-     * Gets response stored for given idempotent key.
-     *
-     * @return the response
-     */
+    /** Convenience setter; not persisted (the persisted attribute is {@link #expiresAtEpochSeconds}). */
+    @DynamoDbIgnore
+    public void setExpiresAt(Instant expiresAt) {
+        this.expiresAtEpochSeconds = expiresAt.getEpochSecond();
+    }
+
+    /** Convenience getter; not persisted (the persisted attribute is {@link #expiresAtEpochSeconds}). */
+    @DynamoDbIgnore
+    public Instant getExpiresAt() {
+        return Instant.ofEpochSecond(expiresAtEpochSeconds);
+    }
+
     @DynamoDbAttribute("response")
     public @Nullable String getResponse() {
         return response;
     }
 
-    /**
-     * Sets response.
-     *
-     * @param response the response
-     */
     public void setResponse(@Nullable String response) {
         this.response = response;
     }
 
     @Override
     public String toString() {
-        return "IdempotentItem{key='%s', processName='%s', status='%s', expirationTimeInMilliSeconds=%d, expiresAtEpochSeconds=%d, response='%s'}"
-                .formatted(key, processName, status, expirationTimeInMilliSeconds, expiresAtEpochSeconds, response);
+        return "IdempotentItem{key='%s', processName='%s', status='%s', expiresAtEpochSeconds=%d, response='%s'}"
+                .formatted(key, processName, status, expiresAtEpochSeconds, response);
     }
 }

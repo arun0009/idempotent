@@ -35,7 +35,7 @@ final class ValueConverter {
     private static IdempotentStore.Value toEntityWrapper(IdempotentStore.Value value, ResponseEntity<?> response) {
         return new IdempotentStore.Value(
                 value.status(),
-                value.expirationTimeInMilliSeconds(),
+                value.expiresAt(),
                 new Wrappers.ResponseEntity<>(
                         response.getStatusCode().value(),
                         response.getHeaders().toSingleValueMap(),
@@ -48,7 +48,7 @@ final class ValueConverter {
         headers.setAll(response.headers());
         return new IdempotentStore.Value(
                 value.status(),
-                value.expirationTimeInMilliSeconds(),
+                value.expiresAt(),
                 ResponseEntity.status(response.status()).headers(headers).body(response.body()));
     }
 }

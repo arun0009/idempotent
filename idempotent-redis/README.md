@@ -1,10 +1,23 @@
+<div align="center">
+
 # idempotent-redis
 
-Redis-backed `IdempotentStore` using Spring Data Redis.
+[![Maven Central](https://img.shields.io/maven-central/v/io.github.arun0009/idempotent-redis?label=Maven%20Central)](https://central.sonatype.com/artifact/io.github.arun0009/idempotent-redis)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+[![Java](https://img.shields.io/badge/Java-17%2B-blue.svg)](https://adoptium.net)
+[![Spring Boot](https://img.shields.io/badge/Spring%20Boot-4.x-brightgreen.svg)](https://spring.io/projects/spring-boot)
 
-Upgrading from 2.x? See [docs/MIGRATION.md](../docs/MIGRATION.md#upgrading-to-30-from-2x).
+</div>
 
-## Dependency
+**Sub-millisecond idempotency on the Redis you already run.** Reuses your app's `RedisConnectionFactory` and aligns native Redis TTL with each entry's `expiresAt`.
+
+## When Redis is the right choice
+
+- Redis already lives in your stack (cache, sessions, rate limits).
+- You want single-digit-ms lookups at high throughput.
+- You want per-key TTL handled by Redis itself, not a cron.
+
+## Install
 
 ```xml
 <dependency>
@@ -14,28 +27,34 @@ Upgrading from 2.x? See [docs/MIGRATION.md](../docs/MIGRATION.md#upgrading-to-30
 </dependency>
 ```
 
-## Redis connection
-
-Uses your application's `RedisConnectionFactory` (Lettuce by default in Spring Boot). Configure with standard `spring.data.redis.*` properties:
-
 ```properties
-spring.data.redis.host=localhost
+spring.data.redis.host=redis.internal
 spring.data.redis.port=6379
 ```
 
-Cluster, sentinel, auth, and SSL use the usual Spring Boot Redis properties — see [Spring Boot Redis docs](https://docs.spring.io/spring-boot/reference/data/nosql.html#data.nosql.redis).
+Cluster, sentinel, TLS, and auth use standard Spring Boot properties — see [Spring Boot Redis docs](https://docs.spring.io/spring-boot/reference/data/nosql.html#data.nosql.redis). Now annotate a method (see [core README](../idempotent-core/README.md)).
 
-## Properties
+## Under the hood
 
-Core settings (`idempotent.key.header`, in-progress retries, serialization): [idempotent-core – Configuration](../idempotent-core/README.md#configuration).
+| Operation | Redis primitive | Why it matters |
+|-----------|-----------------|----------------|
+| First claim | `SET key value NX PX <ttl>` | Two callers cannot both think they were first |
+| Complete | `SET key value XX PX <ttl>` | Never resurrects a key that was deleted or expired |
+| Read | `GET key` + shared lazy delete | Expired entries are removed on read so the key is reusable |
+| Expiry | Native Redis TTL aligned with `expiresAt` | Self-evicting — no cleanup job needed |
+
+## Configuration
+
+Shared retry / header / serialization properties live in [idempotent-core – Configuration](../idempotent-core/README.md#configuration).
 
 | Property | Default | Description |
 |----------|---------|-------------|
 | `idempotent.redis.enabled` | `true` | Set `false` to disable Redis auto-configuration |
+| `idempotent.serialization.strategy` | `json` | `json` (Jackson) or `java` (`Serializable`) |
 
-Serialization: `idempotent.serialization.strategy` (`json` | `java`). See [payload serialization](../idempotent-core/README.md#payload-serialization).
+### Custom serializer
 
-### Custom Redis serializer
+Override Redis serialization with a single bean (used for keys and values):
 
 ```java
 @Bean("idempotentRedisSerializer")
@@ -44,16 +63,4 @@ RedisSerializer<Object> idempotentRedisSerializer(IdempotentPayloadCodec codec) 
 }
 ```
 
-## Example
-
-```properties
-idempotent.key.header=X-Idempotency-Key
-idempotent.inprogress.max.retries=5
-idempotent.inprogress.retry.initial.interval=100ms
-idempotent.inprogress.retry.multiplier=2
-
-spring.data.redis.host=localhost
-spring.data.redis.port=6379
-```
-
-Keys use Redis TTL aligned with each entry's `expiresAt` (`SET NX` on insert, `SET XX` on update).
+Back to the [project overview](../README.md).

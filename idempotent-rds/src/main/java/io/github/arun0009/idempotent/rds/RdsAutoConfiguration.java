@@ -44,12 +44,6 @@ public class RdsAutoConfiguration {
     @ConditionalOnProperty(prefix = "idempotent.rds.cleanup", name = "enabled", matchIfMissing = true)
     public RdsCleanupTask rdsCleanupTask(
             JdbcTemplate jdbcTemplate, RdsIdempotentProperties properties, TaskScheduler rdsCleanupTaskScheduler) {
-        Assert.isTrue(properties.cleanup().batchSize() > 0, "idempotent.rds.cleanup.batch-size must be positive");
-        Assert.isTrue(
-                !properties.cleanup().fixedDelay().isZero()
-                        && !properties.cleanup().fixedDelay().isNegative(),
-                "idempotent.rds.cleanup.fixed-delay must be positive");
-
         RdsDialect dialect = RdsDialect.detect(jdbcTemplate);
         var cleanupTask = new RdsCleanupTask(
                 jdbcTemplate,

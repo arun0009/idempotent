@@ -28,5 +28,15 @@ public record RdsIdempotentProperties(
     public record Cleanup(
             @DefaultValue("true") boolean enabled,
             @DefaultValue("1000") int batchSize,
-            @DefaultValue("PT1M") Duration fixedDelay) {}
+            @DefaultValue("PT1M") Duration fixedDelay) {
+
+        public Cleanup {
+            if (batchSize <= 0) {
+                throw new IllegalArgumentException("idempotent.rds.cleanup.batch-size must be positive");
+            }
+            if (fixedDelay.compareTo(Duration.ZERO) <= 0) {
+                throw new IllegalArgumentException("idempotent.rds.cleanup.fixed-delay must be positive");
+            }
+        }
+    }
 }

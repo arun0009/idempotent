@@ -21,8 +21,10 @@ import org.springframework.test.context.junit.jupiter.SpringExtension;
 import tools.jackson.databind.json.JsonMapper;
 
 import javax.sql.DataSource;
+import java.time.Duration;
 import java.time.Instant;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -153,6 +155,24 @@ class RdsIdempotentStoreH2Test {
         assertEquals(TestRecord.class, retrieved.response().getClass());
         assertEquals("hello", ((TestRecord) retrieved.response()).name());
         assertEquals(42, ((TestRecord) retrieved.response()).value());
+    }
+
+    @Test
+    void cleanupAcceptsPositiveValues() {
+        assertDoesNotThrow(() -> new RdsIdempotentProperties.Cleanup(true, 1000, Duration.ofMinutes(1)));
+    }
+
+    @Test
+    void cleanupRejectsNonPositiveBatchSize() {
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new RdsIdempotentProperties.Cleanup(true, 0, Duration.ofMinutes(1)));
+    }
+
+    @Test
+    void cleanupRejectsNonPositiveFixedDelay() {
+        assertThrows(
+                IllegalArgumentException.class, () -> new RdsIdempotentProperties.Cleanup(true, 1000, Duration.ZERO));
     }
 
     public record TestRecord(String name, int value) {}

@@ -13,8 +13,9 @@ public class RedisTestConfig {
     public static class Initializer implements ApplicationContextInitializer<ConfigurableApplicationContext> {
         @Override
         public void initialize(ConfigurableApplicationContext applicationContext) {
-            TestPropertyValues.of("idempotent.redis.standalone.host=" + SharedRedisContainer.REDIS_CONTAINER.getHost()
-                            + ":" + SharedRedisContainer.REDIS_CONTAINER.getFirstMappedPort())
+            TestPropertyValues.of(
+                            "spring.data.redis.host=" + SharedRedisContainer.REDIS_CONTAINER.getHost(),
+                            "spring.data.redis.port=" + SharedRedisContainer.REDIS_CONTAINER.getFirstMappedPort())
                     .applyTo(applicationContext.getEnvironment());
         }
     }

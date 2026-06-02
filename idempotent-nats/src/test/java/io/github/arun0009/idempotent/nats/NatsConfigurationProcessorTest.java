@@ -48,7 +48,7 @@ class NatsConfigurationProcessorTest {
                         "idempotent.nats.bucket-config.storage-type",
                         "idempotent.nats.bucket-config.ttl",
                         "idempotent.nats.connection-timeout",
-                        "idempotent.nats.enable",
+                        "idempotent.nats.enabled",
                         "idempotent.nats.max-reconnects",
                         "idempotent.nats.ping-interval",
                         "idempotent.nats.reconnect-wait",

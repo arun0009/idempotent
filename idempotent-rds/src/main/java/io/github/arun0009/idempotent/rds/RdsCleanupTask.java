@@ -4,6 +4,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.JdbcTemplate;
 
+import java.time.Instant;
+
 public class RdsCleanupTask {
 
     private static final Logger log = LoggerFactory.getLogger(RdsCleanupTask.class);
@@ -20,7 +22,7 @@ public class RdsCleanupTask {
     }
 
     public void cleanup() {
-        var now = System.currentTimeMillis();
+        var now = Instant.now().toEpochMilli();
         var totalDeleted = 0;
         int batchDeleted;
 
@@ -38,20 +40,20 @@ public class RdsCleanupTask {
         return switch (dialect) {
             case MYSQL -> {
                 String sql = """
-                        DELETE FROM %s WHERE expiration_time_millis < ? LIMIT ?
+                        DELETE FROM %s WHERE expires_at < ? LIMIT ?
                         """.formatted(tableName);
                 yield jdbcTemplate.update(sql, now, batchSize);
             }
             case POSTGRES -> {
                 String sql = """
-                        DELETE FROM %s WHERE ctid IN (SELECT ctid FROM %s WHERE expiration_time_millis < ? LIMIT ?)
+                        DELETE FROM %s WHERE ctid IN (SELECT ctid FROM %s WHERE expires_at < ? LIMIT ?)
                         """.formatted(tableName, tableName);
                 yield jdbcTemplate.update(sql, now, batchSize);
             }
             case H2, GENERIC -> {
                 // H2 in MySQL mode supports LIMIT
                 String sql = """
-                        DELETE FROM %s WHERE expiration_time_millis < ? LIMIT ?
+                        DELETE FROM %s WHERE expires_at < ? LIMIT ?
                         """.formatted(tableName);
                 yield jdbcTemplate.update(sql, now, batchSize);
             }

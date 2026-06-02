@@ -42,9 +42,10 @@ class DynamoConfigurationProcessorTest {
                         "idempotent.aws.region",
                         "idempotent.aws.access-key",
                         "idempotent.aws.access-secret",
+                        "idempotent.dynamodb.enabled",
                         "idempotent.dynamodb.endpoint",
-                        "idempotent.dynamodb.use-local",
                         "idempotent.dynamodb.table-create",
+                        "idempotent.dynamodb.ttl-enabled",
                         "idempotent.dynamodb.table-name"),
                 names);
     }

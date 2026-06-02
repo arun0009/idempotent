@@ -4,46 +4,47 @@ import io.github.arun0009.idempotent.core.exception.IdempotentException;
 import io.github.arun0009.idempotent.core.exception.IdempotentKeyConflictException;
 import io.github.arun0009.idempotent.core.persistence.IdempotentStore;
 import io.github.arun0009.idempotent.core.serialization.IdempotentPayloadCodec;
+import io.github.arun0009.idempotent.core.serialization.IdempotentPayloadCodecException;
 import org.jspecify.annotations.Nullable;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 
+import java.time.Instant;
+
 /**
- * RDS idempotent store using JdbcTemplate with atomic race condition
- * protection.
+ * RDS idempotent store using JdbcTemplate with atomic race condition protection.
  */
 public class RdsIdempotentStore implements IdempotentStore {
 
     private final JdbcTemplate jdbcTemplate;
     private final String tableName;
     private final IdempotentPayloadCodec payloadCodec;
-    private final RdsDialect dialect;
 
     public RdsIdempotentStore(JdbcTemplate jdbcTemplate, String tableName, IdempotentPayloadCodec payloadCodec) {
         this.jdbcTemplate = jdbcTemplate;
         this.tableName = tableName;
         this.payloadCodec = payloadCodec;
-        this.dialect = RdsDialect.detect(jdbcTemplate);
     }
 
     @Override
-    public @Nullable Value getValue(IdempotentKey key, Class<?> returnType) {
+    public @Nullable Value loadValue(IdempotentKey key, Class<?> returnType) {
         var sql = """
-                SELECT status, expiration_time_millis, response FROM %s WHERE key_id = ? AND process_name = ?
+                SELECT status, expires_at, response FROM %s WHERE key_id = ? AND process_name = ?
                 """.formatted(tableName);
         try {
-            return jdbcTemplate.queryForObject(
+            var value = jdbcTemplate.queryForObject(
                     sql,
                     (rs, rowNum) -> {
-                        String status = rs.getString("status");
-                        long expirationTime = rs.getLong("expiration_time_millis");
+                        var status = IdempotentStore.Status.valueOf(rs.getString("status"));
+                        Instant expiresAt = Instant.ofEpochMilli(rs.getLong("expires_at"));
                         String serializedResponse = rs.getString("response");
                         Object response = payloadCodec.deserializeFromString(serializedResponse, returnType);
-                        return new Value(status, expirationTime, response);
+                        return new Value(status, expiresAt, response);
                     },
                     key.key(),
                     key.processName());
+            return value;
         } catch (EmptyResultDataAccessException e) {
             return null;
         }
@@ -53,51 +54,22 @@ public class RdsIdempotentStore implements IdempotentStore {
     public void store(IdempotentKey key, Value value) {
         try {
             var serializedResponse = payloadCodec.serializeToString(value.response());
-            switch (dialect) {
-                case POSTGRES -> storePostgres(key, value, serializedResponse);
-                case MYSQL -> storeMySQL(key, value, serializedResponse);
-                case H2, GENERIC -> storeGeneric(key, value, serializedResponse);
-            }
-        } catch (IllegalArgumentException e) {
+            var sql = """
+                    INSERT INTO %s (key_id, process_name, status, expires_at, response)
+                    VALUES (?, ?, ?, ?, ?)
+                    """.formatted(tableName);
+            jdbcTemplate.update(
+                    sql,
+                    key.key(),
+                    key.processName(),
+                    value.status().name(),
+                    value.expiresAt().toEpochMilli(),
+                    serializedResponse);
+        } catch (IdempotentPayloadCodecException e) {
             throw new IdempotentException("Error serializing value response", e);
         } catch (DuplicateKeyException e) {
-            throw new IdempotentKeyConflictException("Idempotent key already exists in " + dialect, key);
+            throw new IdempotentKeyConflictException("Idempotent key already exists", key);
         }
-    }
-
-    private void storePostgres(IdempotentKey key, Value value, @Nullable String serializedResponse) {
-        var sql = """
-                INSERT INTO %s (key_id, process_name, status, expiration_time_millis, response)
-                VALUES (?, ?, ?, ?, ?)
-                """.formatted(tableName);
-        jdbcTemplate.update(
-                sql,
-                key.key(),
-                key.processName(),
-                value.status(),
-                value.expirationTimeInMilliSeconds(),
-                serializedResponse);
-    }
-
-    private void storeMySQL(IdempotentKey key, Value value, @Nullable String serializedResponse) {
-        var sql = """
-                INSERT INTO %s (key_id, process_name, status, expiration_time_millis, response) VALUES (?, ?, ?, ?, ?)
-                """.formatted(tableName);
-        jdbcTemplate.update(
-                sql,
-                key.key(),
-                key.processName(),
-                value.status(),
-                value.expirationTimeInMilliSeconds(),
-                serializedResponse);
-    }
-
-    private void storeGeneric(IdempotentKey key, Value value, @Nullable String response) {
-        var sql = """
-                INSERT INTO %s (key_id, process_name, status, expiration_time_millis, response) VALUES (?, ?, ?, ?, ?)
-                """.formatted(tableName);
-        jdbcTemplate.update(
-                sql, key.key(), key.processName(), value.status(), value.expirationTimeInMilliSeconds(), response);
     }
 
     @Override
@@ -112,18 +84,18 @@ public class RdsIdempotentStore implements IdempotentStore {
     public void update(IdempotentKey key, Value value) {
         try {
             var serializedResponse = payloadCodec.serializeToString(value.response());
-            var updateSql = """
-                    UPDATE %s SET status = ?, expiration_time_millis = ?, response = ?
+            var sql = """
+                    UPDATE %s SET status = ?, expires_at = ?, response = ?
                     WHERE key_id = ? AND process_name = ?
                     """.formatted(tableName);
             jdbcTemplate.update(
-                    updateSql,
-                    value.status(),
-                    value.expirationTimeInMilliSeconds(),
+                    sql,
+                    value.status().name(),
+                    value.expiresAt().toEpochMilli(),
                     serializedResponse,
                     key.key(),
                     key.processName());
-        } catch (IllegalArgumentException e) {
+        } catch (IdempotentPayloadCodecException e) {
             throw new IdempotentException("Error serializing response", e);
         }
     }

@@ -39,13 +39,13 @@ class RedisIdempotentServiceIntegrationTest {
 
     private ExecutorService executor;
 
-    // A static class to initialize the Spring context with the Testcontainers properties
     @SuppressWarnings("unused")
     public static class Initializer implements ApplicationContextInitializer<ConfigurableApplicationContext> {
         @Override
         public void initialize(ConfigurableApplicationContext context) {
-            TestPropertyValues.of("idempotent.redis.standalone.host=" + SharedRedisContainer.REDIS_CONTAINER.getHost()
-                            + ":" + SharedRedisContainer.REDIS_CONTAINER.getFirstMappedPort())
+            TestPropertyValues.of(
+                            "spring.data.redis.host=" + SharedRedisContainer.REDIS_CONTAINER.getHost(),
+                            "spring.data.redis.port=" + SharedRedisContainer.REDIS_CONTAINER.getFirstMappedPort())
                     .applyTo(context.getEnvironment());
         }
     }

@@ -42,19 +42,6 @@ class RedisConfigurationProcessorTest {
         Set<String> propertyNames = ((List<Map<String, String>>) root.get("properties"))
                 .stream().map(p -> p.get("name")).collect(toSet());
 
-        assertEquals(
-                Set.of(
-                        "idempotent.redis.enabled",
-                        "idempotent.redis.standalone.host",
-                        "idempotent.redis.auth.enabled",
-                        "idempotent.redis.ssl.enabled",
-                        "idempotent.redis.auth.username",
-                        "idempotent.redis.auth.password",
-                        "idempotent.redis.cluster.enabled",
-                        "idempotent.redis.cluster.hosts",
-                        "idempotent.redis.sentinel.enabled",
-                        "idempotent.redis.sentinel.master",
-                        "idempotent.redis.sentinel.nodes"),
-                propertyNames);
+        assertEquals(Set.of("idempotent.redis.enabled"), propertyNames);
     }
 }

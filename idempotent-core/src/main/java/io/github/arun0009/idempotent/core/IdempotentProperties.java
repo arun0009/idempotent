@@ -4,6 +4,8 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.bind.DefaultValue;
 import org.springframework.boot.context.properties.bind.Name;
 
+import java.time.Duration;
+
 /**
  * Configuration properties for the idempotent library.
  * These properties can be configured in application.properties or application.yml.
@@ -12,7 +14,7 @@ import org.springframework.boot.context.properties.bind.Name;
  * <pre>
  * idempotent.key.header=X-Idempotency-Key
  * idempotent.inprogress.max.retries=5
- * idempotent.inprogress.retry.initial.interval-millis=100
+ * idempotent.inprogress.retry.initial.interval=100ms
  * idempotent.inprogress.retry.multiplier=2
  * </pre>
  */
@@ -30,8 +32,8 @@ public record IdempotentProperties(
     public record InProgress(
             @Name("max.retries") @DefaultValue("5") int maxRetries,
 
-            @Name("retry.initial.interval-millis") @DefaultValue("100")
-            int retryInitialIntervalMillis,
+            @Name("retry.initial.interval") @DefaultValue("PT0.1S")
+            Duration retryInitialInterval,
 
             @Name("retry.multiplier") @DefaultValue("2") int retryMultiplier) {}
 }

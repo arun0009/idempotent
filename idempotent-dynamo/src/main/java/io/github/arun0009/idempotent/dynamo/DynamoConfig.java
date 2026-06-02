@@ -3,12 +3,16 @@ package io.github.arun0009.idempotent.dynamo;
 import io.github.arun0009.idempotent.core.exception.IdempotentException;
 import io.github.arun0009.idempotent.core.persistence.IdempotentStore;
 import io.github.arun0009.idempotent.core.serialization.IdempotentPayloadCodec;
+import org.jspecify.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Primary;
+import org.springframework.util.Assert;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
@@ -23,68 +27,91 @@ import software.amazon.awssdk.services.dynamodb.model.UpdateTimeToLiveRequest;
 import java.net.URI;
 
 /**
- * The type Dynamo config.
+ * DynamoDB auto-configuration for the Idempotent store.
+ *
+ * <p>Creates default {@link DynamoDbClient} and {@link DynamoDbEnhancedClient} beans from
+ * {@code idempotent.aws.*} and {@code idempotent.dynamodb.*} properties only when the application
+ * does not provide them. If the application defines either client bean, the library backs off.
  */
 @AutoConfiguration
 @ConditionalOnClass(DynamoDbEnhancedClient.class)
+@ConditionalOnProperty(prefix = "idempotent.dynamodb", name = "enabled", matchIfMissing = true)
 @EnableConfigurationProperties(DynamoIdempotentProperties.class)
 public class DynamoConfig {
+    private static final Logger log = LoggerFactory.getLogger(DynamoConfig.class);
 
-    /**
-     * Bean to create Enhanced Dynamo Client .
-     *
-     * @return the dynamodb v2 enhanced client
-     */
     @Bean
-    @Primary
-    @ConditionalOnMissingBean
-    public DynamoDbEnhancedClient dynamoDbEnhancedClient(DynamoIdempotentProperties properties) {
-        var dynamoDbClientBuilder =
-                DynamoDbClient.builder().region(Region.of(properties.aws().region()));
+    @ConditionalOnMissingBean({DynamoDbClient.class, DynamoDbEnhancedClient.class})
+    public DynamoDbClient dynamoDbClient(DynamoIdempotentProperties properties) {
+        var aws = properties.aws();
+        var dynamodb = properties.dynamodb();
+        var builder = DynamoDbClient.builder();
 
-        if (properties.dynamodb().useLocal()) {
-            dynamoDbClientBuilder
-                    .endpointOverride(URI.create(properties.dynamodb().endpoint()))
-                    .credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create(
-                            properties.aws().accessKey(), properties.aws().accessSecret())));
-        } else {
-            dynamoDbClientBuilder.credentialsProvider(
-                    DefaultCredentialsProvider.builder().build());
+        if (hasText(dynamodb.endpoint())) {
+            builder.endpointOverride(URI.create(dynamodb.endpoint()));
+            // Local/test endpoints still require credentials in the SDK client, any static values work.
+            if (hasText(aws.accessKey()) && hasText(aws.accessSecret())) {
+                builder.credentialsProvider(StaticCredentialsProvider.create(
+                        AwsBasicCredentials.create(aws.accessKey(), aws.accessSecret())));
+            } else {
+                builder.credentialsProvider(
+                        StaticCredentialsProvider.create(AwsBasicCredentials.create("dummy", "dummy")));
+            }
+            builder.region(hasText(aws.region()) ? Region.of(aws.region()) : Region.US_EAST_1);
+            return builder.build();
         }
 
-        var dynamoEnhancedClient = DynamoDbEnhancedClient.builder()
-                .dynamoDbClient(dynamoDbClientBuilder.build())
-                .build();
-        if (properties.dynamodb().tableCreate()) {
-            dynamoEnhancedClient
-                    .table(properties.dynamodb().tableName(), TableSchema.fromBean(IdempotentItem.class))
-                    .createTable();
-        }
-        var ttlRequest = UpdateTimeToLiveRequest.builder()
-                .tableName(properties.dynamodb().tableName())
-                .timeToLiveSpecification(s -> s.enabled(true).attributeName("expirationTimeInMilliSeconds"))
-                .build();
-        try (var client = dynamoDbClientBuilder.build()) {
-            client.updateTimeToLive(ttlRequest);
-        } catch (AwsServiceException | SdkClientException e) {
-            throw new IdempotentException("Failed to enable TTL on Dynamo table: "
-                    + properties.dynamodb().tableName());
-        }
-        return dynamoEnhancedClient;
+        Assert.hasText(aws.region(), "idempotent.aws.region must be provided when no DynamoDbClient bean is supplied");
+        builder.region(Region.of(aws.region()));
+        builder.credentialsProvider(DefaultCredentialsProvider.builder().build());
+        return builder.build();
     }
 
-    /**
-     * Create a Dynamo based Idempotent Store
-     *
-     * @param dynamoEnhancedClient dynamo v2 client
-     * @return Dynamo IdempotentStore
-     */
     @Bean
+    @ConditionalOnMissingBean(DynamoDbEnhancedClient.class)
+    public DynamoDbEnhancedClient dynamoDbEnhancedClient(DynamoDbClient dynamoDbClient) {
+        return DynamoDbEnhancedClient.builder().dynamoDbClient(dynamoDbClient).build();
+    }
+
+    @Bean
+    @ConditionalOnMissingBean(IdempotentStore.class)
     public IdempotentStore dynamoIdempotentStore(
             DynamoDbEnhancedClient dynamoEnhancedClient,
+            DynamoDbClient dynamoDbClient,
             DynamoIdempotentProperties properties,
             IdempotentPayloadCodec idempotentPayloadCodec) {
+        initializeTableIfRequested(dynamoEnhancedClient, dynamoDbClient, properties);
         return new DynamoIdempotentStore(
                 dynamoEnhancedClient, properties.dynamodb().tableName(), idempotentPayloadCodec);
+    }
+
+    private void initializeTableIfRequested(
+            DynamoDbEnhancedClient dynamoEnhancedClient,
+            DynamoDbClient dynamoDbClient,
+            DynamoIdempotentProperties properties) {
+        var dynamodb = properties.dynamodb();
+        var tableName = dynamodb.tableName();
+        if (dynamodb.tableCreate()) {
+            dynamoEnhancedClient
+                    .table(tableName, TableSchema.fromBean(IdempotentItem.class))
+                    .createTable();
+            log.info("Created DynamoDB table: {}", tableName);
+        }
+
+        if (dynamodb.ttlEnabled()) {
+            try {
+                var ttlRequest = UpdateTimeToLiveRequest.builder()
+                        .tableName(tableName)
+                        .timeToLiveSpecification(s -> s.enabled(true).attributeName("expiresAtEpochSeconds"))
+                        .build();
+                dynamoDbClient.updateTimeToLive(ttlRequest);
+            } catch (AwsServiceException | SdkClientException e) {
+                throw new IdempotentException("Failed to enable TTL on DynamoDB table: " + tableName, e);
+            }
+        }
+    }
+
+    private static boolean hasText(@Nullable String value) {
+        return value != null && !value.isBlank();
     }
 }

@@ -26,7 +26,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
         classes = TestApplication.class,
         properties = {
             "idempotent.inprogress.max.retries=2",
-            "idempotent.inprogress.retry.initial.intervalMillis=50",
+            "idempotent.inprogress.retry.initial.interval=50ms",
         })
 class IdempotentControllerWaitTest {
     @Autowired

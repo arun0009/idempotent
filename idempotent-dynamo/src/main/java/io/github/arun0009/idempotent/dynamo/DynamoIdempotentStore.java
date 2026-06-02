@@ -4,6 +4,7 @@ import io.github.arun0009.idempotent.core.exception.IdempotentException;
 import io.github.arun0009.idempotent.core.exception.IdempotentKeyConflictException;
 import io.github.arun0009.idempotent.core.persistence.IdempotentStore;
 import io.github.arun0009.idempotent.core.serialization.IdempotentPayloadCodec;
+import io.github.arun0009.idempotent.core.serialization.IdempotentPayloadCodecException;
 import org.jspecify.annotations.Nullable;
 import software.amazon.awssdk.enhanced.dynamodb.DynamoDbEnhancedClient;
 import software.amazon.awssdk.enhanced.dynamodb.DynamoDbTable;
@@ -46,7 +47,7 @@ public class DynamoIdempotentStore implements IdempotentStore {
         item.setKey(idempotentKey.key());
         item.setProcessName(idempotentKey.processName());
         item.setStatus(value.status());
-        item.setExpirationTimeInMilliSeconds(value.expirationTimeInMilliSeconds());
+        item.setExpiresAt(value.expiresAt());
         item.setResponse(
                 value.response() == null
                         ? ""
@@ -57,7 +58,7 @@ public class DynamoIdempotentStore implements IdempotentStore {
     }
 
     @Override
-    public @Nullable Value getValue(IdempotentKey idempotentKey, Class<?> returnType) {
+    public @Nullable Value loadValue(IdempotentKey idempotentKey, Class<?> returnType) {
         var dynamoKey = Key.builder()
                 .partitionValue(idempotentKey.key())
                 .sortValue(idempotentKey.processName())
@@ -70,7 +71,7 @@ public class DynamoIdempotentStore implements IdempotentStore {
         Object response = serializedResponse == null || serializedResponse.isEmpty()
                 ? null
                 : payloadCodec.deserializeFromString(serializedResponse, returnType);
-        return new Value(idempotentItem.getStatus(), idempotentItem.getExpirationTimeInMilliSeconds(), response);
+        return new Value(idempotentItem.getStatus(), idempotentItem.getExpiresAt(), response);
     }
 
     @Override
@@ -87,8 +88,8 @@ public class DynamoIdempotentStore implements IdempotentStore {
             getTable().putItem(putRequest);
         } catch (ConditionalCheckFailedException e) {
             throw new IdempotentKeyConflictException("Idempotent key already exists in DynamoDB", idempotentKey);
-        } catch (IllegalArgumentException e) {
-            throw new IdempotentException("error storing idempotent item", e);
+        } catch (IdempotentPayloadCodecException e) {
+            throw new IdempotentException("Error storing idempotent item", e);
         }
     }
 
@@ -102,9 +103,19 @@ public class DynamoIdempotentStore implements IdempotentStore {
     @Override
     public void update(IdempotentKey idempotentKey, Value value) {
         try {
-            getTable().putItem(toItem(idempotentKey, value));
-        } catch (IllegalArgumentException e) {
-            throw new IdempotentException("error updating idempotent item", e);
+            var putRequest = PutItemEnhancedRequest.builder(IdempotentItem.class)
+                    .item(toItem(idempotentKey, value))
+                    .conditionExpression(Expression.builder()
+                            .expression("attribute_exists(#pk) AND attribute_exists(#sk)")
+                            .putExpressionName("#pk", "key")
+                            .putExpressionName("#sk", "processName")
+                            .build())
+                    .build();
+            getTable().putItem(putRequest);
+        } catch (ConditionalCheckFailedException ignored) {
+            // No-op when the key is missing: update must not resurrect a removed entry.
+        } catch (IdempotentPayloadCodecException e) {
+            throw new IdempotentException("Error updating idempotent item", e);
         }
     }
 }

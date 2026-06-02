@@ -1,176 +1,95 @@
-# Idempotent Cache with DynamoDB Storage/Cache
+<div align="center">
 
-To integrate the idempotent cache with DynamoDB storage/cache into your project, add the following dependency to your
-pom.xml file:
+# idempotent-dynamo
+
+[![Maven Central](https://img.shields.io/maven-central/v/io.github.arun0009/idempotent-dynamo?label=Maven%20Central)](https://central.sonatype.com/artifact/io.github.arun0009/idempotent-dynamo)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+[![Java](https://img.shields.io/badge/Java-17%2B-blue.svg)](https://adoptium.net)
+[![Spring Boot](https://img.shields.io/badge/Spring%20Boot-4.x-brightgreen.svg)](https://spring.io/projects/spring-boot)
+
+</div>
+
+**Serverless-grade idempotency on AWS.** Conditional `PutItem` for atomic key claims, native TTL on `expiresAtEpochSeconds`, and the AWS SDK v2 enhanced client — zero servers to operate.
+
+## When DynamoDB is the right choice
+
+- You run on **AWS** (Lambda, ECS, EKS, Fargate) and want a managed store.
+- You need **horizontal scale** without provisioning clusters.
+- You want **TTL-driven expiry** so no cleanup job is required.
+- You already use a DynamoDB **single-table** pattern and want to colocate idempotency keys.
+
+## Install
 
 ```xml
 <dependency>
-	<groupId>io.github.arun0009</groupId>
-	<artifactId>idempotent-dynamo</artifactId>
-	<!-- get latest idempotent version from Maven Central -->
-	<version>${idempotent.version}</version>
+  <groupId>io.github.arun0009</groupId>
+  <artifactId>idempotent-dynamo</artifactId>
+  <version>${idempotent.version}</version>
 </dependency>
 ```
 
-## Overview
+### Use your own DynamoDB clients (recommended in production)
 
-This project provides an idempotent request handling mechanism using DynamoDB for storage/cache. The idempotent cache
-ensures that duplicate requests are handled safely and effectively, avoiding unintended side effects.
-This is particularly useful in scenarios where the same request might be sent multiple times due to retries or client errors.
-
-## Serialization
-
-Stored responses use the same shared idempotent serialization strategy
-(`idempotent.serialization.strategy=json|java`) as Redis, RDS, and NATS. See
-[idempotent-core – Payload serialization](../idempotent-core/README.md#payload-serialization-persistent-stores).
-
-## Migrating from 2.3.x
-
-DynamoDB configuration switched from `@Value` injection to type-safe `@ConfigurationProperties`.
-The following property names **must** be updated (dot-separated names no longer bind correctly):
-
-| Old (2.3.x) | New (2.4.0+) |
-|---|---|
-| `idempotent.dynamodb.use.local` | `idempotent.dynamodb.use-local` |
-| `idempotent.dynamodb.table.create` | `idempotent.dynamodb.table-create` |
-| `idempotent.dynamodb.table.name` | `idempotent.dynamodb.table-name` |
-
-Properties that already used simple nesting (`idempotent.aws.region`, `idempotent.dynamodb.endpoint`)
-and camelCase variants (`idempotent.aws.accessKey`) continue to work via Spring Boot relaxed binding.
-
-## Configuration Properties
-
-Below are the properties that can be configured for the idempotent cache. These properties can be set in your
-application's configuration file (e.g., application.properties or application.yml).
-
-### General Properties
-
-* Idempotent Key Header
-
-		Property: idempotent.key.header
-		Default Value: X-Idempotency-Key
-		Description: The header name used to pass the idempotency key in HTTP requests.
-
-* In-Progress Request Max Retries
-
-		Property: idempotent.inprogress.max.retries
-		Default Value: 5
-		Description: The maximum number of retries allowed for in-progress requests to ensure only one request wins.
-
-* In-Progress Status Check Retry Initial Interval
-
-		Property: idempotent.inprogress.retry.initial.intervalMillis
-		Default Value: 100
-		Description: The initial interval (in milliseconds) between retries for checking the status of in-progress requests.
-
-* In-Progress Retry Multiplier
-
-		Property: idempotent.inprogress.retry.multiplier
-		Default Value: 2
-		Description: The multiplier used for exponential backoff during retries.
-
-### DynamoDB Configuration
-
-* AWS Region
-
-		Property: idempotent.aws.region
-		Default Value: (empty)
-		Description: The AWS region where DynamoDB is hosted.
-
-* DynamoDB Endpoint
-
-		Property: idempotent.dynamodb.endpoint
-		Default Value: (empty)
-		Description: The DynamoDB endpoint URL. Useful for local testing with LocalStack or TestContainers.
-
-* AWS Access Key
-
-		Property: idempotent.aws.access-key
-		Default Value: (empty)
-		Description: The AWS access key for authentication.
-
-* AWS Access Secret
-
-		Property: idempotent.aws.access-secret
-		Default Value: (empty)
-		Description: The AWS access secret for authentication.
-
-* Use Local DynamoDB
-
-		Property: idempotent.dynamodb.use-local
-		Default Value: false
-		Description: Flag to indicate whether to use a local DynamoDB instance (e.g., LocalStack or TestContainers).
-
-* Create DynamoDB Table
-
-		Property: idempotent.dynamodb.table-create
-		Default Value: false
-		Description: Flag to indicate whether the DynamoDB client should create the table.
-
-* DynamoDB Table Name
-
-		Property: idempotent.dynamodb.table-name
-		Default Value: Idempotent
-		Description: The name of the DynamoDB table used for storing idempotent requests.
-
-## Custom DynamoDbEnhancedClient Bean
-
-By default, the library will create and configure the DynamoDbEnhancedClient using the provided properties.
-However, if you want to pass your own DynamoDbEnhancedClient bean, you can do so by defining it as follows:
-
-### Custom DynamoDbEnhancedClient Bean Configuration
-
-If you prefer to configure the DynamoDbEnhancedClient yourself, you can define it as follows:
+If your app exposes `DynamoDbClient` and/or `DynamoDbEnhancedClient` beans, the library uses them — credentials, region, retry policy, and HTTP client are entirely yours to control.
 
 ```java
-import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
-import software.amazon.awssdk.enhanced.dynamodb.DynamoDbEnhancedClient;
-import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
+@Bean
+DynamoDbClient dynamoDbClient() {
+  return DynamoDbClient.builder().region(Region.US_EAST_1).build();
+}
 
-@Configuration
-public class DynamoDBConfig {
-
-		@Bean
-		@ConditionalOnMissingBean(DynamoDbEnhancedClient.class)
-		public DynamoDbEnhancedClient dynamoDbEnhancedClient() {
-				DynamoDbClient dynamoDbClient = DynamoDbClient.builder()
-						.region(Region.of("your-aws-region"))
-						.endpointOverride(URI.create("your-dynamodb-endpoint"))  // Optional, for local testing
-						.credentialsProvider(StaticCredentialsProvider.create(
-								AwsBasicCredentials.create("your-access-key", "your-secret-key")
-						))
-						.build();
-
-				return DynamoDbEnhancedClient.builder()
-						.dynamoDbClient(dynamoDbClient)
-						.build();
-		}
+@Bean
+DynamoDbEnhancedClient enhanced(DynamoDbClient client) {
+  return DynamoDbEnhancedClient.builder().dynamoDbClient(client).build();
 }
 ```
 
-## Example Application Configuration
+### Or let the library configure one
 
-Here is an example of how you might configure your application using application.properties:
+Useful for local development and tests:
 
 ```properties
-# Idempotent Cache General Properties
-idempotent.key.header=X-Idempotency-Key
-idempotent.inprogress.max.retries=5
-idempotent.inprogress.retry.initial.intervalMillis=100
-idempotent.inprogress.retry.multiplier=2
-
-# DynamoDB Configuration
-idempotent.aws.region=us-west-2
-idempotent.dynamodb.endpoint=http://localhost:8000
-idempotent.aws.access-key=your-access-key
-idempotent.aws.access-secret=your-secret-key
-idempotent.dynamodb.use-local=true
-idempotent.dynamodb.table-create=true
-idempotent.dynamodb.table-name=Idempotent
+idempotent.aws.region=us-east-1
+idempotent.dynamodb.endpoint=http://localhost:8000     # DynamoDB Local
+idempotent.aws.access-key=local
+idempotent.aws.access-secret=local
 ```
 
-By following these steps and configurations, you can effectively manage idempotent requests using DynamoDB, ensuring
-robust and reliable handling of duplicate requests in your application. If you need to customize the DynamoDB client,
-you can provide your own DynamoDbEnhancedClient bean.
+## Under the hood
+
+| Operation | DynamoDB mechanism |
+|-----------|--------------------|
+| First claim | `PutItem` with `attribute_not_exists(key) AND attribute_not_exists(processName)` |
+| Complete | `PutItem` with `attribute_exists(...)` — no-op if the row is already gone |
+| Read | `GetItem` + shared lazy delete on expiry |
+| Expiry | `expiresAtEpochSeconds` attribute; **table TTL** auto-enabled at startup |
+
+Partition key `key`, sort key `processName`. One row per `(idempotency key, process scope)`.
+
+## Configuration
+
+Shared retry / header / serialization properties: [idempotent-core – Configuration](../idempotent-core/README.md#configuration).
+
+### `idempotent.aws.*` (library-created client only)
+
+| Property | Description |
+|----------|-------------|
+| `idempotent.aws.region` | AWS region |
+| `idempotent.aws.access-key` / `access-secret` | Static credentials (e.g. DynamoDB Local). Skip in real AWS — let the SDK resolve creds. |
+
+### `idempotent.dynamodb.*`
+
+| Property | Default | Description |
+|----------|---------|-------------|
+| `idempotent.dynamodb.enabled` | `true` | Disable auto-configuration |
+| `idempotent.dynamodb.endpoint` | — | Endpoint override (DynamoDB Local, LocalStack, …) |
+| `idempotent.dynamodb.table-name` | `Idempotent` | Table name |
+| `idempotent.dynamodb.table-create` | `false` | Create the table on startup (use only in dev) |
+| `idempotent.dynamodb.ttl-enabled` | `true` | Enable TTL on `expiresAtEpochSeconds` at startup; set `false` if TTL is already configured |
+| `idempotent.serialization.strategy` | `json` | Shared codec strategy |
+
+## Pre-existing tables
+
+If you manage the table yourself, use partition key `key` (String), sort key `processName` (String), and enable TTL on `expiresAtEpochSeconds`.
+
+Back to the [project overview](../README.md).

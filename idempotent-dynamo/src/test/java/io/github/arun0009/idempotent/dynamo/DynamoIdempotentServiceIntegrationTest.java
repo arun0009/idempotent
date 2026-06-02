@@ -37,7 +37,7 @@ class DynamoIdempotentServiceIntegrationTest {
     @Autowired
     private DynamoDbClient dynamoDbClient;
 
-    @Value("${idempotent.dynamodb.table.name:Idempotent}")
+    @Value("${idempotent.dynamodb.table-name:Idempotent}")
     private String dynamoTableName = "Idempotent";
 
     @Autowired

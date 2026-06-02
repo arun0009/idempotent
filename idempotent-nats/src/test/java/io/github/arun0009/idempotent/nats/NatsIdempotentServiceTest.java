@@ -1,6 +1,6 @@
 package io.github.arun0009.idempotent.nats;
 
-import io.github.arun0009.idempotent.core.exception.IdempotentException;
+import io.github.arun0009.idempotent.core.persistence.IdempotentStore;
 import io.github.arun0009.idempotent.core.service.IdempotentService;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
@@ -14,6 +14,7 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 
 import java.time.Duration;
+import java.time.Instant;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -22,6 +23,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
 
+import static io.github.arun0009.idempotent.core.persistence.IdempotentStore.Status.COMPLETED;
+import static io.github.arun0009.idempotent.core.persistence.IdempotentStore.Status.IN_PROGRESS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testcontainers.utility.DockerImageName.parse;
@@ -33,6 +36,9 @@ class NatsIdempotentServiceTest {
 
     @Autowired
     private IdempotentService service;
+
+    @Autowired
+    private IdempotentStore store;
 
     private ExecutorService executor;
 
@@ -125,21 +131,19 @@ class NatsIdempotentServiceTest {
     }
 
     @Test
-    @DisplayName("Does not cache failed executions")
+    @DisplayName("Does not cache failed executions and rethrows the original exception")
     void testFailureNotCached() {
         Supplier<String> failingOperation = () -> {
-            throw new RuntimeException("Simulated failure");
+            throw new IllegalStateException("Simulated failure");
         };
 
-        // First call should fail
         assertThatThrownBy(() -> service.execute("error-key", failingOperation, Duration.ofMinutes(5)))
-                .isInstanceOf(IdempotentException.class)
-                .hasCause(new RuntimeException("Simulated failure"));
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Simulated failure");
 
-        // Second call should also fail (no caching of errors)
         assertThatThrownBy(() -> service.execute("error-key", failingOperation, Duration.ofMinutes(5)))
-                .isInstanceOf(IdempotentException.class)
-                .hasCause(new RuntimeException("Simulated failure"));
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Simulated failure");
 
         var result = service.execute("test-key-1", () -> "success", Duration.ofMinutes(5));
         assertThat(result).isEqualTo("success");
@@ -162,6 +166,31 @@ class NatsIdempotentServiceTest {
                 .isNotNull()
                 .extracting(TestData::name, TestData::value)
                 .containsExactly("record-name", 99);
+    }
+
+    @Test
+    @DisplayName("Removes expired entry on read so the key can be stored again")
+    void removesExpiredEntryOnReadSoKeyCanBeStoredAgain() {
+        var key = new IdempotentStore.IdempotentKey("expired-key", "store-test");
+
+        store.store(key, new IdempotentStore.Value(COMPLETED, Instant.now().minusSeconds(1), "stale"));
+
+        assertThat(store.getValue(key, String.class)).isNull();
+
+        store.store(key, new IdempotentStore.Value(IN_PROGRESS, Instant.now().plusSeconds(60), null));
+
+        var stored = store.getValue(key, Object.class);
+        assertThat(stored).isNotNull().extracting(IdempotentStore.Value::status).isEqualTo(IN_PROGRESS);
+    }
+
+    @Test
+    @DisplayName("Update is a no-op when the key is missing")
+    void updateIsNoOpWhenKeyIsMissing() {
+        var key = new IdempotentStore.IdempotentKey("missing-key", "store-test");
+
+        store.update(key, new IdempotentStore.Value(COMPLETED, Instant.now().plusSeconds(60), "should-not-resurrect"));
+
+        assertThat(store.getValue(key, Object.class)).isNull();
     }
 
     public record TestData(String name, int value) {}

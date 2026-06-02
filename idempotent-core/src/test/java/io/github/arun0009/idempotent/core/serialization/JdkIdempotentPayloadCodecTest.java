@@ -37,6 +37,6 @@ class JdkIdempotentPayloadCodecTest {
     @Test
     void nonSerializableThrows() {
         record NotSerializable(String name) {}
-        assertThrows(IllegalArgumentException.class, () -> codec.serializeToBytes(new NotSerializable("x")));
+        assertThrows(IdempotentPayloadCodecException.class, () -> codec.serializeToBytes(new NotSerializable("x")));
     }
 }

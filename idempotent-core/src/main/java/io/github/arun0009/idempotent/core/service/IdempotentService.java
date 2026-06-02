@@ -9,6 +9,7 @@ import io.github.arun0009.idempotent.core.retry.WaitStrategy;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.ResponseEntity;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -16,14 +17,26 @@ import java.util.Objects;
 import java.util.function.Supplier;
 
 import static io.github.arun0009.idempotent.core.persistence.IdempotentStore.Status.COMPLETED;
-import static io.github.arun0009.idempotent.core.persistence.IdempotentStore.Status.INPROGRESS;
+import static io.github.arun0009.idempotent.core.persistence.IdempotentStore.Status.IN_PROGRESS;
 
 /**
- * Service-based API for idempotent operations.
- * Provides programmatic access to idempotency functionality without requiring annotations.
+ * Programmatic API for idempotent operations.
+ *
+ * <h2>Untyped vs typed overloads</h2>
+ * The untyped {@link #execute(IdempotentStore.IdempotentKey, Supplier, Duration) execute} overloads
+ * pass {@code Object.class} to the store and rely on the codec's polymorphic typing to reconstruct
+ * the concrete response type. The typed overloads accept a {@link Class} hint and let stores that
+ * support typed deserialization (RDS, DynamoDB) round-trip without relying on polymorphic
+ * {@code @class} metadata. Prefer the typed overloads when the response type is known.
+ *
+ * <h2>Exception propagation</h2>
+ * Domain exceptions thrown by the operation propagate to the caller as-is (no wrapping in
+ * {@link IdempotentException}). Cleanup of the in-progress entry happens before the throw.
  */
 public class IdempotentService {
+
     private static final Logger log = LoggerFactory.getLogger(IdempotentService.class);
+
     private final IdempotentStore idempotentStore;
     private final IdempotentCompletionAwaiter completionAwaiter;
 
@@ -36,120 +49,130 @@ public class IdempotentService {
         this.completionAwaiter = new IdempotentCompletionAwaiter(idempotentStore, waitStrategy);
     }
 
-    /**
-     * Execute an operation idempotently using a string key with default process name.
-     *
-     * @param key       the idempotent key (must not be null)
-     * @param operation the operation to execute (must not be null)
-     * @param ttl       the time to live for the idempotent result (must not be null)
-     * @param <T>       the return type of the operation
-     * @return the result of the operation if completed, or {@code null} if not completed, the wait times out, or the entry has expired
-     * @throws NullPointerException if any parameter is null
-     * @throws IdempotentException  if there is an error executing the operation
-     * @throws IdempotentWaitExhaustedException if the wait times out
-     */
+    // ---- Untyped Supplier-based overloads (use Object.class internally) -----------------------
+
     public <T> @Nullable T execute(String key, Supplier<T> operation, Duration ttl) {
         return execute(key, "default", operation, ttl);
     }
 
-    /**
-     * Execute an operation idempotently using a string key and process name.
-     *
-     * @param key         the idempotent key (must not be null)
-     * @param processName the process name for namespacing (must not be null)
-     * @param operation   the operation to execute (must not be null)
-     * @param ttl         the time to live for the idempotent result (must not be null)
-     * @param <T>         the return type of the operation
-     * @return the result of the operation if completed, or {@code null} if not completed, the wait times out, or the entry has expired
-     * @throws NullPointerException if any parameter is null
-     * @throws IdempotentException  if there is an error executing the operation
-     * @throws IdempotentWaitExhaustedException if the wait times out
-     */
     public <T> @Nullable T execute(String key, String processName, Supplier<T> operation, Duration ttl) {
         Objects.requireNonNull(key, "key cannot be null");
         Objects.requireNonNull(processName, "processName cannot be null");
-        Objects.requireNonNull(operation, "operation cannot be null");
-        Objects.requireNonNull(ttl, "ttl cannot be null");
-
-        var idempotentKey = new IdempotentStore.IdempotentKey(key, processName);
-        return execute(idempotentKey, operation, ttl);
+        return execute(new IdempotentStore.IdempotentKey(key, processName), operation, ttl);
     }
+
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    public <T> @Nullable T execute(IdempotentStore.IdempotentKey idempotentKey, Supplier<T> operation, Duration ttl) {
+        Class<T> objectType = (Class) Object.class;
+        return execute(idempotentKey, objectType, operation, ttl);
+    }
+
+    // ---- Typed Supplier-based overloads ------------------------------------------------------
+
+    public <T> @Nullable T execute(String key, Class<T> returnType, Supplier<T> operation, Duration ttl) {
+        return execute(key, "default", returnType, operation, ttl);
+    }
+
+    public <T> @Nullable T execute(
+            String key, String processName, Class<T> returnType, Supplier<T> operation, Duration ttl) {
+        Objects.requireNonNull(key, "key cannot be null");
+        Objects.requireNonNull(processName, "processName cannot be null");
+        return execute(new IdempotentStore.IdempotentKey(key, processName), returnType, operation, ttl);
+    }
+
+    public <T> @Nullable T execute(
+            IdempotentStore.IdempotentKey idempotentKey, Class<T> returnType, Supplier<T> operation, Duration ttl) {
+        Objects.requireNonNull(operation, "operation cannot be null");
+        try {
+            return executeThrowable(idempotentKey, returnType, operation::get, ttl);
+        } catch (RuntimeException | Error e) {
+            throw e;
+        } catch (Throwable t) {
+            // Unreachable: Supplier.get() cannot throw checked Throwables.
+            throw new IdempotentException("Unexpected exception", t);
+        }
+    }
+
+    // ---- Canonical execution -----------------------------------------------------------------
 
     /**
-     * Execute an operation idempotently using an IdempotentKey.
-     *
-     * @param idempotentKey the idempotent key (must not be null)
-     * @param operation     the operation to execute (must not be null)
-     * @param ttl           the time to live for the idempotent result (must not be null)
-     * @param <T>           the return type
-     * @return the result of the operation if completed, or {@code null} if not completed, the wait times out, or the entry has expired
-     * @throws NullPointerException if any parameter is null
-     * @throws IdempotentException  if there is an error executing the operation
-     * @throws IdempotentWaitExhaustedException if the wait times out
+     * Canonical idempotent execution that accepts an operation able to throw any {@link Throwable}.
+     * Used by {@code IdempotentAspect} to forward {@code ProceedingJoinPoint::proceed} without
+     * losing the original exception.
      */
-    public <T> @Nullable T execute(IdempotentStore.IdempotentKey idempotentKey, Supplier<T> operation, Duration ttl) {
+    @SuppressWarnings("unchecked")
+    public <T> @Nullable T executeThrowable(
+            IdempotentStore.IdempotentKey idempotentKey,
+            Class<T> returnType,
+            IdempotentOperation<T> operation,
+            Duration ttl)
+            throws Throwable {
         Objects.requireNonNull(idempotentKey, "idempotentKey cannot be null");
+        Objects.requireNonNull(returnType, "returnType cannot be null");
         Objects.requireNonNull(operation, "operation cannot be null");
         Objects.requireNonNull(ttl, "ttl cannot be null");
-        // Check if the operation already exists
-        IdempotentStore.Value existingValue = idempotentStore.getValue(idempotentKey, Object.class);
-        if (existingValue != null) {
-            return handleExistingOperation(idempotentKey, existingValue);
-        }
 
-        // Execute the operation
-        return handleNewOperation(idempotentKey, operation, ttl);
+        IdempotentStore.Value existing = idempotentStore.getValue(idempotentKey, returnType);
+        if (existing != null) {
+            return (T) handleExisting(idempotentKey, existing);
+        }
+        return handleNew(idempotentKey, returnType, operation, ttl);
     }
 
-    @SuppressWarnings("unchecked")
-    private <T> @Nullable T handleExistingOperation(
-            IdempotentStore.IdempotentKey idempotentKey, IdempotentStore.Value value) {
-        // Return a cached result if completed
-        if (COMPLETED.is(value.status())) {
-            return (T) value.response();
+    private @Nullable Object handleExisting(IdempotentStore.IdempotentKey idempotentKey, IdempotentStore.Value value) {
+        if (value.status() == COMPLETED) {
+            return value.response();
         }
-
-        // If in progress, wait with exponential backoff, then check again
-        if (INPROGRESS.is(value.status())) {
-            value = completionAwaiter.wait(idempotentKey, value);
-            if (value != null && COMPLETED.is(value.status())) {
-                return (T) value.response();
-            }
+        IdempotentStore.Value awaited = completionAwaiter.wait(idempotentKey, value);
+        if (awaited != null && awaited.status() == COMPLETED) {
+            return awaited.response();
         }
-
         idempotentStore.remove(idempotentKey);
         throw new IdempotentWaitExhaustedException(
                 "Operation wait exhausted in progress after multiple retries", idempotentKey);
     }
 
-    private <T> @Nullable T handleNewOperation(
-            IdempotentStore.IdempotentKey idempotentKey, Supplier<T> operation, Duration ttl) {
+    private <T> @Nullable T handleNew(
+            IdempotentStore.IdempotentKey idempotentKey,
+            Class<T> returnType,
+            IdempotentOperation<T> operation,
+            Duration ttl)
+            throws Throwable {
+        Instant expiresAt = Instant.now().plus(ttl);
         try {
-            // Mark as in progress
-            long expirationTime = Instant.now().plus(ttl).toEpochMilli();
-            var inProgressValue = new IdempotentStore.Value(INPROGRESS.name(), expirationTime, null);
-            idempotentStore.store(idempotentKey, inProgressValue);
-
-            // Execute the operation
-            T result = operation.get();
-
-            // Store the completed result
-            var completedValue = new IdempotentStore.Value(COMPLETED.name(), expirationTime, result);
-            idempotentStore.update(idempotentKey, completedValue);
-
-            return result;
+            idempotentStore.store(idempotentKey, new IdempotentStore.Value(IN_PROGRESS, expiresAt, null));
         } catch (IdempotentKeyConflictException e) {
-            log.info("Idempotent key conflict detected for key: {}", idempotentKey.key());
-            IdempotentStore.Value value = idempotentStore.getValue(idempotentKey, Object.class);
-            if (value == null) {
-                throw new IdempotentException(
-                        "Idempotent entry disappeared after conflict for key: " + idempotentKey.key(), e);
+            log.info("Idempotent key conflict for {}; following existing-entry path", idempotentKey.key());
+            IdempotentStore.Value refetched = idempotentStore.getValue(idempotentKey, returnType);
+            if (refetched == null) {
+                throw new IdempotentKeyConflictException(
+                        "Idempotent key conflict but entry is not available", idempotentKey);
             }
-            return handleExistingOperation(idempotentKey, value);
-        } catch (Exception e) {
-            // Clean up on error
-            idempotentStore.remove(idempotentKey);
-            throw new IdempotentException("Error executing idempotent operation", e);
+            @SuppressWarnings("unchecked")
+            T result = (T) handleExisting(idempotentKey, refetched);
+            return result;
         }
+
+        try {
+            T result = operation.execute();
+            updateStoreWithResponse(idempotentKey, result, expiresAt);
+            return result;
+        } catch (Throwable t) {
+            idempotentStore.remove(idempotentKey);
+            throw t;
+        }
+    }
+
+    private void updateStoreWithResponse(
+            IdempotentStore.IdempotentKey idempotentKey, @Nullable Object response, Instant expiresAt) {
+        if (response instanceof ResponseEntity<?> responseEntity
+                && !responseEntity.getStatusCode().is2xxSuccessful()) {
+            // Non-2xx responses are treated as failures and not cached so the caller can retry.
+            idempotentStore.remove(idempotentKey);
+            return;
+        }
+        // Cache the result — including null (void methods or intentional null returns) so
+        // subsequent calls with the same key short-circuit instead of re-executing.
+        idempotentStore.update(idempotentKey, new IdempotentStore.Value(COMPLETED, expiresAt, response));
     }
 }

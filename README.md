@@ -1,92 +1,109 @@
+<div align="center">
+
 # Idempotent
 
-Idempotent is a lightweight Java library that provides support for idempotency in APIs, making it easier to handle duplicate
-requests and ensuring reliable operation in distributed systems. This library integrates seamlessly with Spring applications
-and offers idempotency support using Redis, DynamoDB, NATS, and RDS stores.
+[![Maven Central](https://img.shields.io/maven-central/v/io.github.arun0009/idempotent-core?label=Maven%20Central)](https://central.sonatype.com/search?q=io.github.arun0009%20idempotent)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+[![Java](https://img.shields.io/badge/Java-17%2B-blue.svg)](https://adoptium.net)
+[![Spring Boot](https://img.shields.io/badge/Spring%20Boot-4.x-brightgreen.svg)](https://spring.io/projects/spring-boot)
 
-<img src="./idempotent.png" alt="Idempotent">
+</div>
 
+**Run once. Same result on every retry.** A lightweight Spring Java library that makes any method or service safe to retry — not just HTTP APIs. Duplicate calls return the cached result; concurrent callers wait for the first run instead of racing.
 
-## What is Idempotency?
-Idempotency is a property in computer science where an operation, when applied multiple times, has the same effect as
-applying it once. In the context of APIs, an idempotent operation can be safely retried or replayed without causing
-unintended side effects or altering the result beyond the initial application.
+Annotate a controller, a `@Service`, or a batch job. Or call `IdempotentService` directly. Pick **Redis**, **DynamoDB**, **NATS KV**, or **JDBC** — or start with the built-in in-memory store.
 
-## How Idempotency Helps
-Idempotency is crucial in distributed systems where network failures, retries, and out-of-order delivery are common.
-By ensuring that requests are processed exactly once, idempotency prevents duplicate actions, maintains data integrity,
-and improves overall system reliability.
-
-In API development, idempotency helps in the following ways:
-
-* **Prevents Duplicate Requests**: Idempotency ensures that repeated requests with the same parameters have no additional effect,
-		reducing the risk of unintended side effects caused by duplicate processing.
-* **Simplifies Error Handling**: With idempotent APIs, error handling becomes more straightforward as clients can safely retry
-		failed requests without worrying about causing duplicate actions or data corruption.
-* **Improves Scalability**: Idempotency allows systems to gracefully handle high loads and spikes in traffic by efficiently
-		processing duplicate requests without overloading backend services or causing resource contention.
-
-## Features
-* **Two API Approaches**: Choose between annotation-based (AOP) or programmatic service-based idempotency depending on your needs.
-* **Integration with Spring**: Seamlessly integrates with Spring applications, providing annotations and utilities to easily add idempotency support to APIs.
-* **Support for [Redis](idempotent-redis/README.md), [DynamoDB](idempotent-dynamo/README.md), [NATS](idempotent-nats/README.md) or [RDS](idempotent-rds/README.md)**: Storage adapters for Redis, DynamoDB, NATS, and RDS, allowing developers to choose the backend that best suits their requirements.
-* **Simple Configuration**: Adding idempotency is as simple as annotating methods with [@Idempotent](idempotent-core/src/main/java/io/github/arun0009/idempotent/core/annotation/Idempotent.java) or using the `IdempotentService` programmatically.
-* **Client-Specified or Server-Specified Idempotent Keys**: Clients can dictate what the idempotent key should be via a configurable HTTP header, or the server can specify the idempotency key specified in the @Idempotent annotation configuration.
-* **Handling In-Progress Concurrent/Duplicate Requests**: Concurrent or duplicate requests will wait for the first request to complete (within a given configurable time frame and retries) and return the same response as the first request.
-* **Customizable payload serialization**: Redis, RDS, DynamoDB, and NATS share one configurable serialization strategy (`json`/`java`) for stored responses, and you can override it with Spring beans. See [idempotent-core – Payload serialization](idempotent-core/README.md#payload-serialization-persistent-stores).
-
-## Getting Started
-
-### Annotation-Based Approach (AOP)
-
-1. Add the Idempotent Maven dependency ([redis](https://central.sonatype.com/artifact/io.github.arun0009/idempotent-redis), [dynamo](https://central.sonatype.com/artifact/io.github.arun0009/idempotent-dynamo), [nats](https://central.sonatype.com/artifact/io.github.arun0009/idempotent-nats) or [rds](https://central.sonatype.com/artifact/io.github.arun0009/idempotent-rds)) to your project.
-2. Configure the storage backend ([Redis](idempotent-redis/README.md), [DynamoDB](idempotent-dynamo/README.md), [NATS](idempotent-nats/README.md) or [RDS](idempotent-rds/README.md)) in your Spring application context.
-3. Annotate the desired API methods with [@Idempotent](idempotent-core/src/main/java/io/github/arun0009/idempotent/core/annotation/Idempotent.java):
-4. Specify the key, time-to-live (TTL) as a Duration string, and/or if you want to hash the key for idempotent requests.
+<div align="center">
+  <img src="./idempotent.png" alt="Idempotent">
+</div>
 
 ```java
-@Idempotent(
-		key = "#paymentDetails",
-		duration = "PT1M",  // 1 minute
-		hashKey = true
-)
-@PostMapping("/payments")
-public PaymentResponse postPayment(@RequestBody PaymentDetails paymentDetails) {
-		// Method implementation
+@Idempotent(key = "#order.id", duration = "30m")
+@PostMapping("/orders")
+public Receipt place(@RequestBody Order order) {
+  return paymentGateway.charge(order);    // runs once, even on a retry storm
 }
 ```
 
-> **Note:** The `ttlInSeconds` parameter is deprecated. Please use the `duration` parameter instead, which accepts ISO-8601 duration strings (e.g., "PT1M" for 1 minute, "PT1H" for 1 hour).
+No bespoke locks. No “did this already happen?” checks. No duplicate work.
 
-### Service-Based Approach (Programmatic)
+## Why your service needs Idempotent
 
-The service-based approach uses `Duration` for specifying TTL, providing better type safety and flexibility:
+In a distributed system, the same request can arrive **twice — or twenty times**. Networks time out, clients retry, load balancers replay, queues redeliver. Without idempotency, you ship the order twice, charge the card again, or corrupt state.
 
-For more control or non-Spring applications, use the `IdempotentService`:
+Idempotent ties every retry to **one logical operation**: same key → same outcome. It claims the key atomically, runs your code once, caches the result, and coordinates any concurrent callers — across **Redis, DynamoDB, NATS KV, or your SQL database**.
 
-```java
-@Service
-public class PaymentService {
+You add a dependency and an annotation. The library handles the hard parts.
 
-	@Autowired
-	private final IdempotentService idempotentService;
+## What you get
 
-	public PaymentResponse processPayment(String paymentId) {
-			return idempotentService.execute(
-					paymentId,
-					"process-payment",
-					() -> callPaymentGateway(paymentId),
-					Duration.ofMinutes(30) // 30 minutes TTL as Duration
-			);
-	}
-}
+| | |
+|---|---|
+| **Two entry points, one engine** | `@Idempotent` on any Spring method, or `IdempotentService.execute(...)` from `@Service` classes, batch jobs, or message consumers. |
+| **Atomic key claims** | Native primitives on every backend (`SET NX`, conditional `PutItem`, revision CAS, `INSERT`) — two callers cannot both think they were first. |
+| **Self-healing expiry** | Per-entry TTL, native backend TTL where available, lazy delete on read, scheduled cleanup for SQL. No zombie keys. |
+| **Keys your way** | Client header (`X-Idempotency-Key`) or server-side SpEL (`#user.id`), with optional SHA-256 hashing. |
+| **Honest semantics** | Domain exceptions propagate as-is. Null/void results are cached. Non-2xx `ResponseEntity` is removed so the client can retry. |
+
+## How it works
+
+Client sends the same request twice (timeout, retry, replay):
+
+```http
+POST /orders        X-Idempotency-Key: 1f3c1a93-…-3bd4
+POST /orders        X-Idempotency-Key: 1f3c1a93-…-3bd4   ← duplicate
 ```
 
-See the [core module documentation](idempotent-core/README.md) for detailed examples and usage patterns.
+| Scenario | What happens |
+|----------|--------------|
+| First call | Claim key (`IN_PROGRESS`) → run your code → store `COMPLETED` |
+| Duplicate **while in progress** | Poll with exponential backoff → return the same response |
+| Duplicate **after success** | Cache hit — your method body does not run |
+| Operation throws | Entry removed, exception propagates, retry allowed |
+| Entry expired | Removed on next read; a new caller can claim the key |
+
+> Set `duration` longer than your slowest operation, so an entry is never evicted mid-flight.
+
+## Without AOP
+
+Same engine from any code — useful in `@Service` classes, consumers, or jobs:
+
+```java
+return idempotentService.execute(
+    "ord_42", "create-order", Order.class,
+    () -> orderService.create(request),
+    Duration.ofMinutes(30));
+```
+
+## Choose your storage
+
+In-memory is the default. Pick a persistent backend for production:
+
+| Module | Best for | Key primitive |
+|--------|----------|---------------|
+| **[Redis](idempotent-redis/README.md)** | Sub-ms reads, native TTL, already in your stack | `SET NX` / `SET XX` |
+| **[DynamoDB](idempotent-dynamo/README.md)** | AWS-native, managed scale, table TTL | Conditional `PutItem` |
+| **[NATS KV](idempotent-nats/README.md)** | KV co-located with your JetStream cluster | `create` + revision CAS |
+| **[RDS / JDBC](idempotent-rds/README.md)** | Postgres, MySQL, MariaDB, or H2 you already run | `INSERT` + scheduled cleanup |
+
+All four share the same serialization, expiry, and state machine — swap backends without changing behavior.
+
+## Install
+
+Add a storage module (it pulls in `idempotent-core`):
+
+```xml
+<dependency>
+  <groupId>io.github.arun0009</groupId>
+  <artifactId>idempotent-redis</artifactId> <!-- or -dynamo, -nats, -rds -->
+  <version>${idempotent.version}</version>
+</dependency>
+```
+
+For `@Idempotent`, also add `spring-boot-starter-aop`. `IdempotentService` works without it.
+
+API reference, configuration, and custom stores: **[idempotent-core](idempotent-core/README.md)**.
+
 ## Contributing
-Contributions to Idempotent are welcome! Whether you want to report a bug, suggest a feature, or contribute code, please feel free
-to open an issue or submit a pull request on GitHub.
 
-By leveraging Idempotent in your Spring applications, you can ensure the reliability and integrity of your APIs, even in the face of
-network failures and high concurrency. Start using Idempotent today to simplify error handling, improve scalability, and deliver a
-more robust experience to your users.
+Issues and pull requests welcome at [github.com/arun0009/idempotent](https://github.com/arun0009/idempotent). Released under the [MIT License](https://opensource.org/licenses/MIT).

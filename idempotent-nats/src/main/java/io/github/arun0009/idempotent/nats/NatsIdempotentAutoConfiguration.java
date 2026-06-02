@@ -1,9 +1,7 @@
 package io.github.arun0009.idempotent.nats;
 
 import io.github.arun0009.idempotent.core.persistence.IdempotentStore;
-import io.github.arun0009.idempotent.core.serialization.IdempotentJsonMapperCustomizer;
 import io.github.arun0009.idempotent.core.serialization.IdempotentPayloadCodec;
-import io.github.arun0009.idempotent.core.service.IdempotentService;
 import io.nats.client.Connection;
 import io.nats.client.ConnectionListener;
 import io.nats.client.JetStreamApiException;
@@ -16,7 +14,6 @@ import io.nats.client.api.KeyValueConfiguration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -29,7 +26,7 @@ import java.time.Instant;
 /** Configuration for Nats-based IdempotentService. */
 @AutoConfiguration
 @EnableConfigurationProperties({NatsIdempotentProperties.class})
-@ConditionalOnProperty(prefix = "idempotent.nats", name = "enable", matchIfMissing = true)
+@ConditionalOnProperty(prefix = "idempotent.nats", name = "enabled", matchIfMissing = true)
 class NatsIdempotentAutoConfiguration {
     private static final Logger log = LoggerFactory.getLogger(NatsIdempotentAutoConfiguration.class);
 
@@ -43,12 +40,7 @@ class NatsIdempotentAutoConfiguration {
     }
 
     @Bean
-    @ConditionalOnMissingBean(IdempotentService.class)
-    IdempotentService idempotentService(IdempotentStore idempotentStore) {
-        return new IdempotentService(idempotentStore);
-    }
-
-    @Bean
+    @ConditionalOnMissingBean
     IdempotentStore idempotentStore(
             Connection connection, NatsIdempotentProperties properties, IdempotentPayloadCodec idempotentPayloadCodec) {
         try {
@@ -68,15 +60,8 @@ class NatsIdempotentAutoConfiguration {
 
             return new NatsIdempotentStore(keyValue, idempotentPayloadCodec);
         } catch (JetStreamApiException | IOException e) {
-            throw new NatsIdempotentExceptions("Error while creating and configuring KV", e);
+            throw new NatsIdempotentException("Error while creating and configuring KV", e);
         }
-    }
-
-    @Bean
-    @ConditionalOnBean(IdempotentJacksonJsonBuilderCustomizer.class)
-    IdempotentJsonMapperCustomizer natsLegacyJacksonCustomizerAdapter(
-            IdempotentJacksonJsonBuilderCustomizer idempotentJacksonJsonBuilderCustomizer) {
-        return idempotentJacksonJsonBuilderCustomizer::customize;
     }
 
     @Bean
@@ -94,10 +79,10 @@ class NatsIdempotentAutoConfiguration {
             log.atDebug().log(() -> "Nats " + connection.getServerInfo());
             return connection;
         } catch (IOException e) {
-            throw new NatsIdempotentExceptions("Error while creating connection", e);
+            throw new NatsIdempotentException("Error while creating connection", e);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            throw new NatsIdempotentExceptions("Error while creating connection", e);
+            throw new NatsIdempotentException("Error while creating connection", e);
         }
     }
 
@@ -105,8 +90,9 @@ class NatsIdempotentAutoConfiguration {
     @ConditionalOnMissingBean
     ConnectionListener connectionListener() {
         return new ConnectionListener() {
+            @Override
             public void connectionEvent(Connection conn, Events type) {
-                // deprecated
+                // NATS still invokes the legacy callback; logging uses the 4-arg overload below.
             }
 
             @Override

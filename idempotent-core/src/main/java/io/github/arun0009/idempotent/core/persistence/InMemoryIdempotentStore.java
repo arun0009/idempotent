@@ -20,7 +20,7 @@ public class InMemoryIdempotentStore implements IdempotentStore {
     }
 
     @Override
-    public @Nullable Value getValue(IdempotentKey idempotentKey, Class<?> returnType) {
+    public @Nullable Value loadValue(IdempotentKey idempotentKey, Class<?> returnType) {
         return map.get(idempotentKey);
     }
 

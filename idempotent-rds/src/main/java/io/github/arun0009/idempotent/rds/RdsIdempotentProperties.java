@@ -3,38 +3,40 @@ package io.github.arun0009.idempotent.rds;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.bind.DefaultValue;
 
+import java.time.Duration;
+
 /**
  * Configuration properties for RDS-based idempotency implementation.
- * <p>
- * These properties control the behavior of the idempotent key storage and
- * cleanup
- * in a relational database system.
- * </p>
  *
+ * @param enabled   whether the RDS auto-configuration is active
  * @param tableName the name of the database table used to store idempotent keys
- * @param cleanup   configuration for the cleanup task that removes expired
- *                  idempotent records
+ * @param cleanup   configuration for the cleanup task that removes expired records
  */
 @ConfigurationProperties(prefix = "idempotent.rds")
 public record RdsIdempotentProperties(
-        @DefaultValue("idempotent") String tableName, Cleanup cleanup) {
+        @DefaultValue("true") boolean enabled,
+        @DefaultValue("idempotent") String tableName,
+        @DefaultValue Cleanup cleanup) {
 
     /**
-     * Configuration properties for the cleanup task that removes expired idempotent
-     * records.
-     * <p>
-     * The cleanup task runs periodically to delete expired idempotent keys from the
-     * database, preventing unbounded growth of the idempotent key table.
-     * </p>
+     * Configuration for the cleanup task that removes expired idempotent records.
      *
      * @param enabled    whether the cleanup task should run
-     * @param batchSize  maximum number of expired records to delete in a single
-     *                   cleanup operation
-     * @param fixedDelay delay in milliseconds between consecutive cleanup task
-     *                   executions
+     * @param batchSize  maximum number of expired records to delete per batch
+     * @param fixedDelay delay between cleanup executions
      */
     public record Cleanup(
             @DefaultValue("true") boolean enabled,
             @DefaultValue("1000") int batchSize,
-            @DefaultValue("60000") long fixedDelay) {}
+            @DefaultValue("PT1M") Duration fixedDelay) {
+
+        public Cleanup {
+            if (batchSize <= 0) {
+                throw new IllegalArgumentException("idempotent.rds.cleanup.batch-size must be positive");
+            }
+            if (fixedDelay.compareTo(Duration.ZERO) <= 0) {
+                throw new IllegalArgumentException("idempotent.rds.cleanup.fixed-delay must be positive");
+            }
+        }
+    }
 }

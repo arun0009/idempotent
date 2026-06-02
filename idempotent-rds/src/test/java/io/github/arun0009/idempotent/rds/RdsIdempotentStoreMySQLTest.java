@@ -3,6 +3,7 @@ package io.github.arun0009.idempotent.rds;
 import io.github.arun0009.idempotent.core.exception.IdempotentKeyConflictException;
 import io.github.arun0009.idempotent.core.persistence.IdempotentStore;
 import io.github.arun0009.idempotent.core.persistence.IdempotentStore.IdempotentKey;
+import io.github.arun0009.idempotent.core.persistence.IdempotentStore.Status;
 import io.github.arun0009.idempotent.core.persistence.IdempotentStore.Value;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -13,6 +14,7 @@ import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 
@@ -43,7 +45,7 @@ class RdsIdempotentStoreMySQLTest {
                     key_id VARCHAR(255) NOT NULL,
                     process_name VARCHAR(255) NOT NULL,
                     status VARCHAR(50),
-                    expiration_time_millis BIGINT,
+                    expires_at BIGINT,
                     response TEXT,
                     PRIMARY KEY (key_id, process_name)
                 )
@@ -51,7 +53,7 @@ class RdsIdempotentStoreMySQLTest {
 
         // MySQL doesn't support CREATE INDEX IF NOT EXISTS, so we check first
         try {
-            jdbcTemplate.update("CREATE INDEX idx_expiration_time ON idempotent(expiration_time_millis)");
+            jdbcTemplate.update("CREATE INDEX idx_expires_at ON idempotent(expires_at)");
         } catch (Exception e) {
             // Index already exists, ignore
         }
@@ -63,13 +65,13 @@ class RdsIdempotentStoreMySQLTest {
     @Test
     void testStoreAndGet() {
         IdempotentKey key = new IdempotentKey("test-key", "test-process");
-        Value value = new Value("COMPLETED", System.currentTimeMillis() + 5000, Map.of("result", "success"));
+        Value value = new Value(Status.COMPLETED, Instant.now().plusMillis(5000), Map.of("result", "success"));
 
         idempotentStore.store(key, value);
 
         Value retrieved = idempotentStore.getValue(key, Map.class);
         assertNotNull(retrieved);
-        assertEquals("COMPLETED", retrieved.status());
+        assertEquals(Status.COMPLETED, retrieved.status());
         @SuppressWarnings("unchecked")
         Map<String, Object> response = (Map<String, Object>) retrieved.response();
         assertNotNull(response);
@@ -79,16 +81,16 @@ class RdsIdempotentStoreMySQLTest {
     @Test
     void testUpdate() {
         IdempotentKey key = new IdempotentKey("test-key-update", "test-process");
-        Value value = new Value("INPROGRESS", System.currentTimeMillis() + 10000, null);
+        Value value = new Value(Status.IN_PROGRESS, Instant.now().plusMillis(10000), null);
 
         idempotentStore.store(key, value);
 
-        Value newValue = new Value("COMPLETED", System.currentTimeMillis() + 20000, Map.of("result", "updated"));
+        Value newValue = new Value(Status.COMPLETED, Instant.now().plusMillis(20000), Map.of("result", "updated"));
         idempotentStore.update(key, newValue);
 
         Value retrieved = idempotentStore.getValue(key, Map.class);
         assertNotNull(retrieved);
-        assertEquals("COMPLETED", retrieved.status()); // INPROGRESS entries can be updated
+        assertEquals(Status.COMPLETED, retrieved.status()); // INPROGRESS entries can be updated
         if (retrieved.response() != null) {
             assertEquals("updated", ((Map) retrieved.response()).get("result"));
         }
@@ -97,28 +99,28 @@ class RdsIdempotentStoreMySQLTest {
     @Test
     void testDuplicateStoreThrowsException() {
         IdempotentKey key = new IdempotentKey("dup-key", "dup-process");
-        Value value1 = new Value("INPROGRESS", System.currentTimeMillis() + 10000, null);
+        Value value1 = new Value(Status.IN_PROGRESS, Instant.now().plusMillis(10000), null);
         idempotentStore.store(key, value1);
 
-        Value value2 = new Value("COMPLETED", System.currentTimeMillis() + 20000, Map.of("data", "overwritten"));
+        Value value2 = new Value(Status.COMPLETED, Instant.now().plusMillis(20000), Map.of("data", "overwritten"));
 
         // With strict insert, this should throw IdempotentKeyConflictException
         assertThrows(IdempotentKeyConflictException.class, () -> idempotentStore.store(key, value2));
 
         Value retrieved = idempotentStore.getValue(key, Map.class);
         assertNotNull(retrieved);
-        assertEquals("INPROGRESS", retrieved.status()); // Should still be original
+        assertEquals(Status.IN_PROGRESS, retrieved.status()); // Should still be original
     }
 
     @Test
     void testCleanup() {
         IdempotentKey key1 = new IdempotentKey("test-key-cleanup-1", "test-process");
         // Expired
-        Value value1 = new Value("COMPLETED", System.currentTimeMillis() - 10000, Map.of("data", "expired"));
+        Value value1 = new Value(Status.COMPLETED, Instant.now().minusMillis(10000), Map.of("data", "expired"));
 
         IdempotentKey key2 = new IdempotentKey("test-key-cleanup-2", "test-process");
         // Not expired
-        Value value2 = new Value("COMPLETED", System.currentTimeMillis() + 10000, Map.of("data", "valid"));
+        Value value2 = new Value(Status.COMPLETED, Instant.now().plusMillis(10000), Map.of("data", "valid"));
 
         idempotentStore.store(key1, value1);
         idempotentStore.store(key2, value2);
@@ -142,13 +144,13 @@ class RdsIdempotentStoreMySQLTest {
                 "metadata",
                 Map.of("source", "api", "version", "1.0"));
 
-        Value value = new Value("COMPLETED", System.currentTimeMillis() + 5000, complexData);
+        Value value = new Value(Status.COMPLETED, Instant.now().plusMillis(5000), complexData);
 
         idempotentStore.store(key, value);
 
         Value retrieved = idempotentStore.getValue(key, Map.class);
         assertNotNull(retrieved);
-        assertEquals("COMPLETED", retrieved.status());
+        assertEquals(Status.COMPLETED, retrieved.status());
         Map<String, Object> response = (Map<String, Object>) retrieved.response();
         assertNotNull(response);
         assertEquals(123, response.get("id"));

@@ -18,7 +18,7 @@ class JacksonIdempotentPayloadCodecTest {
     public record TestRecord(String name, int value) implements Serializable {}
 
     public static class TestPojo implements Serializable {
-        public String name;
+        public String name = "";
         public int value;
 
         public TestPojo() {}
@@ -68,6 +68,7 @@ class JacksonIdempotentPayloadCodecTest {
     @Test
     void invalidJsonThrows() {
         assertThrows(
-                IllegalArgumentException.class, () -> codec.deserializeFromBytes("not-json".getBytes(), Object.class));
+                IdempotentPayloadCodecException.class,
+                () -> codec.deserializeFromBytes("not-json".getBytes(), Object.class));
     }
 }

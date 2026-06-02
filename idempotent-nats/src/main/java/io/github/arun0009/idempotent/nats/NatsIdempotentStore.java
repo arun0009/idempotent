@@ -29,9 +29,9 @@ class NatsIdempotentStore implements IdempotentStore {
         this.payloadCodec = payloadCodec;
     }
 
-    private static MessageTtl fromExpirationTimeInMs(long value) {
-        int ttl = (int) Duration.ofMillis(value - Instant.now().toEpochMilli()).toSeconds();
-        return MessageTtl.seconds(ttl + 1);
+    private static MessageTtl fromExpiresAt(Instant expiresAt) {
+        int ttl = (int) Duration.between(Instant.now(), expiresAt).toSeconds();
+        return MessageTtl.seconds(Math.max(1, ttl + 1));
     }
 
     /**
@@ -54,18 +54,20 @@ class NatsIdempotentStore implements IdempotentStore {
     }
 
     @Override
-    public @Nullable Value getValue(IdempotentKey idemKey, Class<?> returnType) {
+    public @Nullable Value loadValue(IdempotentKey idemKey, Class<?> returnType) {
         try {
             log.atDebug().log("Getting key {}", idemKey);
             var key = encodeIfNotValid(idemKey);
             KeyValueEntry entry = kv.get(key);
             if (entry == null) return null;
 
-            Wrappers.Value wrapperValue = payloadCodec.deserializeFromBytes(entry.getValue(), Wrappers.Value.class);
+            byte[] rawValue = entry.getValue();
+            if (rawValue == null) return null;
+
+            Wrappers.Value wrapperValue = payloadCodec.deserializeFromBytes(rawValue, Wrappers.Value.class);
             return wrapperValue.value();
         } catch (IOException | JetStreamApiException e) {
-            log.error("Error reading value from nats store", e);
-            return null;
+            throw new NatsIdempotentException("Error reading value from NATS store", e);
         }
     }
 
@@ -75,16 +77,16 @@ class NatsIdempotentStore implements IdempotentStore {
         var key = encodeIfNotValid(idemKey);
         try {
             byte[] content = payloadCodec.serializeToBytes(new Wrappers.Value(value));
-            MessageTtl messageTtl = fromExpirationTimeInMs(value.expirationTimeInMilliSeconds());
+            MessageTtl messageTtl = fromExpiresAt(value.expiresAt());
             kv.create(key, content, messageTtl);
         } catch (JetStreamApiException e) {
             // Wrong last sequence, the key already exists.
             if (e.getApiErrorCode() == 10071) {
                 throw new IdempotentKeyConflictException("NATS Key already exists: " + key, idemKey);
             }
-            throw new NatsIdempotentExceptions("Api error storing value in nats", e);
+            throw new NatsIdempotentException("API error storing value in NATS", e);
         } catch (IOException e) {
-            throw new NatsIdempotentExceptions("Error storing value in nats", e);
+            throw new NatsIdempotentException("Error storing value in NATS", e);
         }
     }
 
@@ -95,7 +97,7 @@ class NatsIdempotentStore implements IdempotentStore {
             var key = encodeIfNotValid(idemKey);
             kv.delete(key);
         } catch (JetStreamApiException | IOException e) {
-            throw new NatsIdempotentExceptions("Error removing value from nats store", e);
+            throw new NatsIdempotentException("Error removing value from NATS store", e);
         }
     }
 
@@ -105,10 +107,14 @@ class NatsIdempotentStore implements IdempotentStore {
             log.atDebug().log("Updating key {} with status {}", idemKey, value.status());
             log.atTrace().log(value::toString);
             var key = encodeIfNotValid(idemKey);
+            if (kv.get(key) == null) {
+                // No-op when the key is missing: update must not resurrect a removed entry.
+                return;
+            }
             byte[] content = payloadCodec.serializeToBytes(new Wrappers.Value(value));
             kv.put(key, content);
         } catch (IOException | JetStreamApiException e) {
-            throw new NatsIdempotentExceptions("Error storing value in nats", e);
+            throw new NatsIdempotentException("Error updating value in NATS", e);
         }
     }
 }

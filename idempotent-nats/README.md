@@ -21,9 +21,9 @@
 
 ```xml
 <dependency>
-  <groupId>io.github.arun0009</groupId>
-  <artifactId>idempotent-nats</artifactId>
-  <version>${idempotent.version}</version>
+	<groupId>io.github.arun0009</groupId>
+	<artifactId>idempotent-nats</artifactId>
+	<version>${idempotent.version}</version>
 </dependency>
 ```
 

@@ -29,9 +29,9 @@ Pulled in transitively by every storage module. Add directly if you implement yo
 
 ```xml
 <dependency>
-  <groupId>io.github.arun0009</groupId>
-  <artifactId>idempotent-core</artifactId>
-  <version>${idempotent.version}</version>
+	<groupId>io.github.arun0009</groupId>
+	<artifactId>idempotent-core</artifactId>
+	<version>${idempotent.version}</version>
 </dependency>
 ```
 
@@ -57,11 +57,11 @@ public Order fulfill(String orderId) { ... }
 ```java
 // Same key + different process name = independent entries
 Order order = idempotentService.execute(
-    "order-789",        // key
-    "fulfill-order",    // process scope
-    Order.class,        // explicit return type (preferred)
-    () -> fulfillment.run("order-789"),
-    Duration.ofMinutes(30));
+		"order-789",        // key
+		"fulfill-order",    // process scope
+		Order.class,        // explicit return type (preferred)
+		() -> fulfillment.run("order-789"),
+		Duration.ofMinutes(30));
 ```
 
 Other overloads exist — `execute(key, supplier, ttl)`, `execute(key, processName, supplier, ttl)`, untyped variants — see the [Javadoc](src/main/java/io/github/arun0009/idempotent/core/service/IdempotentService.java).
@@ -100,10 +100,10 @@ All persistent stores route responses through one **`IdempotentPayloadCodec`**.
 ```java
 @Bean
 IdempotentJsonMapperCustomizer customizer() {
-  var ptv = BasicPolymorphicTypeValidator.builder()
-      .allowIfBaseType("com.myapp.")
-      .build();
-  return builder -> builder.polymorphicTypeValidator(ptv);
+	var ptv = BasicPolymorphicTypeValidator.builder()
+			.allowIfBaseType("com.myapp.")
+			.build();
+	return builder -> builder.polymorphicTypeValidator(ptv);
 }
 ```
 
@@ -124,7 +124,7 @@ Four methods, explicit contracts — the same shape Redis, Dynamo, NATS, and RDS
 @Bean
 @Primary
 IdempotentStore myStore() {
-  return new MyIdempotentStore();
+	return new MyIdempotentStore();
 }
 ```
 

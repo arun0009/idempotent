@@ -16,35 +16,52 @@ import java.time.Instant;
  *       entry. Conflicts raise {@link IdempotentKeyConflictException}.</li>
  *   <li>{@link #update update} mutates an existing entry. It is a <strong>no-op when the key is
  *       missing</strong>; it never resurrects a deleted or expired entry.</li>
- *   <li>{@link #getValue getValue} reads the entry, evaluates expiry, and best-effort removes
- *       expired entries so subsequent strict inserts can reuse the key.</li>
+ *   <li>{@link #loadValue loadValue} reads the persisted entry as-is. {@link #getValue getValue} is
+ *       a default that wraps it with expiry enforcement, so implementations only provide the raw
+ *       read.</li>
  *   <li>{@link #remove remove} deletes the entry. It is idempotent and tolerates missing keys.</li>
  * </ol>
  *
  * <h2>Implementation notes</h2>
  * <ul>
- *   <li>The lazy delete inside {@code getValue} is opportunistic; failures are logged and
- *       swallowed.</li>
- *   <li>{@code getValue} and the subsequent lazy delete are <strong>not atomic</strong> in
- *       distributed backends. A concurrent {@code store} for the same key could race with the
- *       lazy delete and have its fresh entry removed. The race is rare and recoverable (the next
- *       caller will succeed with its own strict insert).</li>
+ *   <li>Implementations provide {@link #loadValue} (raw persistence) and must <strong>not</strong>
+ *       filter on {@code expiresAt} — expiry is enforced centrally by the default {@link #getValue}.</li>
+ *   <li>The lazy delete inside the default {@code getValue} is opportunistic; failures are logged
+ *       and swallowed.</li>
+ *   <li>Expiry uses wall-clock time via {@code expiresAt}; keep nodes clock-synchronized (NTP) and
+ *       size TTLs above the slowest operation plus expected skew.</li>
  *   <li>Implementations are expected to be thread-safe.</li>
  * </ul>
  */
 public interface IdempotentStore {
 
     /**
-     * Reads the entry for {@code key}.
+     * Reads the persisted entry for {@code key} without evaluating expiry. Implemented by each
+     * backend; callers should use {@link #getValue} which enforces expiry.
      *
      * @param key        the idempotent key
      * @param returnType type hint used by stores that perform typed deserialization (RDS, DynamoDB);
      *                   pass {@code Object.class} when the type is unknown
-     * @return the stored value, or {@code null} when missing or expired; expired entries are
-     * removed as a best-effort cleanup
+     * @return the persisted value, or {@code null} when no entry exists
      * @throws IdempotentException if the backend fails
      */
-    @Nullable Value getValue(IdempotentKey key, Class<?> returnType);
+    @Nullable Value loadValue(IdempotentKey key, Class<?> returnType);
+
+    /**
+     * Reads the entry for {@code key}, returning {@code null} when missing or expired. Expired
+     * entries are removed as a best-effort cleanup so subsequent strict inserts can reuse the key.
+     *
+     * <p>This is a default that wraps {@link #loadValue}; implementations normally do not override
+     * it.
+     *
+     * @param key        the idempotent key
+     * @param returnType type hint used by stores that perform typed deserialization
+     * @return the live stored value, or {@code null} when missing or expired
+     * @throws IdempotentException if the backend fails
+     */
+    default @Nullable Value getValue(IdempotentKey key, Class<?> returnType) {
+        return IdempotentValues.withoutExpired(loadValue(key, returnType), () -> remove(key));
+    }
 
     /**
      * Strict insert: creates a new entry. Implementations must throw {@link

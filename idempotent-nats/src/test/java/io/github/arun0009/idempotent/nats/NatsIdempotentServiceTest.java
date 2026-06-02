@@ -1,11 +1,7 @@
 package io.github.arun0009.idempotent.nats;
 
 import io.github.arun0009.idempotent.core.persistence.IdempotentStore;
-import io.github.arun0009.idempotent.core.serialization.IdempotentPayloadCodec;
 import io.github.arun0009.idempotent.core.service.IdempotentService;
-import io.nats.client.JetStreamApiException;
-import io.nats.client.KeyValue;
-import io.nats.client.api.KeyValueEntry;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
@@ -31,12 +27,6 @@ import static io.github.arun0009.idempotent.core.persistence.IdempotentStore.Sta
 import static io.github.arun0009.idempotent.core.persistence.IdempotentStore.Status.IN_PROGRESS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 import static org.testcontainers.utility.DockerImageName.parse;
 
 @SpringBootTest
@@ -201,32 +191,6 @@ class NatsIdempotentServiceTest {
         store.update(key, new IdempotentStore.Value(COMPLETED, Instant.now().plusSeconds(60), "should-not-resurrect"));
 
         assertThat(store.getValue(key, Object.class)).isNull();
-    }
-
-    @Test
-    @DisplayName("Update is a no-op when revision CAS fails")
-    void updateIsNoOpWhenRevisionCasFails() throws Exception {
-        KeyValue kv = mock(KeyValue.class);
-        IdempotentPayloadCodec codec = mock(IdempotentPayloadCodec.class);
-        when(codec.serializeToBytes(any())).thenReturn(new byte[] {1});
-        var natsStore = new NatsIdempotentStore(kv, codec);
-
-        var key = new IdempotentStore.IdempotentKey("cas-key", "store-test");
-        var encodedKey = NatsIdempotentStore.encodeIfNotValid(key);
-        var completed = new IdempotentStore.Value(COMPLETED, Instant.now().plusSeconds(60), "done");
-
-        KeyValueEntry entry = mock(KeyValueEntry.class);
-        when(entry.getRevision()).thenReturn(42L);
-        when(kv.get(encodedKey)).thenReturn(entry);
-
-        JetStreamApiException casFailure = mock(JetStreamApiException.class);
-        when(casFailure.getApiErrorCode()).thenReturn(10071);
-        when(kv.update(eq(encodedKey), any(byte[].class), eq(42L))).thenThrow(casFailure);
-
-        assertDoesNotThrow(() -> natsStore.update(key, completed));
-
-        verify(kv).get(encodedKey);
-        verify(kv).update(eq(encodedKey), any(byte[].class), eq(42L));
     }
 
     public record TestData(String name, int value) {}

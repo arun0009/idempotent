@@ -65,10 +65,14 @@ Use `IdempotentJsonMapperCustomizer` from `idempotent-core`.
 - `IdempotentPayloadCodecException` now extends `IdempotentException`
 - `IdempotentStore.Value.status` uses enum `IdempotentStore.Status` (`IN_PROGRESS`, `COMPLETED`; was `INPROGRESS` in 2.x)
 - `IdempotentStore.Value.expiresAt` is an `Instant` (replaces millis-based expiry on the domain model)
-- `getValue` returns `null` for missing or expired entries and best-effort removes expired entries
-  on read so a subsequent strict `store` can reuse the key. The expired-read and the delete are
-  not atomic in distributed backends; a fresh concurrent insert could be removed (rare and
-  recoverable — the next caller succeeds with its own strict insert).
+- `IdempotentStore` now requires `loadValue(key, returnType)` — a raw persistence read. Expiry is
+  enforced centrally by the new default `getValue`, which wraps `loadValue` and best-effort removes
+  expired entries on read so a subsequent strict `store` can reuse the key. **Custom stores must
+  implement `loadValue` instead of `getValue`** and must not filter on `expiresAt` themselves. The
+  expired-read and the delete are not atomic in distributed backends; a fresh concurrent insert
+  could be removed (rare and recoverable — the next caller succeeds with its own strict insert).
+- Expiry is evaluated against wall-clock time (`expiresAt`). Keep nodes clock-synchronized (NTP)
+  and size TTLs above your slowest operation plus expected skew, as in Stripe and AWS Powertools.
 - `IdempotentStore.update` is now **no-op when the key is missing** in every backend. It never
   resurrects a deleted or expired entry. Use `store` to insert.
 - On `IdempotentKeyConflictException`, the library always follows the existing-entry path; it

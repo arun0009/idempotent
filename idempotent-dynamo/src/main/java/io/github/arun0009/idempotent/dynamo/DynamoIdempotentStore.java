@@ -3,7 +3,6 @@ package io.github.arun0009.idempotent.dynamo;
 import io.github.arun0009.idempotent.core.exception.IdempotentException;
 import io.github.arun0009.idempotent.core.exception.IdempotentKeyConflictException;
 import io.github.arun0009.idempotent.core.persistence.IdempotentStore;
-import io.github.arun0009.idempotent.core.persistence.IdempotentValues;
 import io.github.arun0009.idempotent.core.serialization.IdempotentPayloadCodec;
 import io.github.arun0009.idempotent.core.serialization.IdempotentPayloadCodecException;
 import org.jspecify.annotations.Nullable;
@@ -59,7 +58,7 @@ public class DynamoIdempotentStore implements IdempotentStore {
     }
 
     @Override
-    public @Nullable Value getValue(IdempotentKey idempotentKey, Class<?> returnType) {
+    public @Nullable Value loadValue(IdempotentKey idempotentKey, Class<?> returnType) {
         var dynamoKey = Key.builder()
                 .partitionValue(idempotentKey.key())
                 .sortValue(idempotentKey.processName())
@@ -72,8 +71,7 @@ public class DynamoIdempotentStore implements IdempotentStore {
         Object response = serializedResponse == null || serializedResponse.isEmpty()
                 ? null
                 : payloadCodec.deserializeFromString(serializedResponse, returnType);
-        var value = new Value(idempotentItem.getStatus(), idempotentItem.getExpiresAt(), response);
-        return IdempotentValues.withoutExpired(value, () -> remove(idempotentKey));
+        return new Value(idempotentItem.getStatus(), idempotentItem.getExpiresAt(), response);
     }
 
     @Override

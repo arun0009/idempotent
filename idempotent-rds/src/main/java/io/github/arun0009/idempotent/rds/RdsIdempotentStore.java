@@ -3,7 +3,6 @@ package io.github.arun0009.idempotent.rds;
 import io.github.arun0009.idempotent.core.exception.IdempotentException;
 import io.github.arun0009.idempotent.core.exception.IdempotentKeyConflictException;
 import io.github.arun0009.idempotent.core.persistence.IdempotentStore;
-import io.github.arun0009.idempotent.core.persistence.IdempotentValues;
 import io.github.arun0009.idempotent.core.serialization.IdempotentPayloadCodec;
 import io.github.arun0009.idempotent.core.serialization.IdempotentPayloadCodecException;
 import org.jspecify.annotations.Nullable;
@@ -29,7 +28,7 @@ public class RdsIdempotentStore implements IdempotentStore {
     }
 
     @Override
-    public @Nullable Value getValue(IdempotentKey key, Class<?> returnType) {
+    public @Nullable Value loadValue(IdempotentKey key, Class<?> returnType) {
         var sql = """
                 SELECT status, expires_at, response FROM %s WHERE key_id = ? AND process_name = ?
                 """.formatted(tableName);
@@ -45,7 +44,7 @@ public class RdsIdempotentStore implements IdempotentStore {
                     },
                     key.key(),
                     key.processName());
-            return IdempotentValues.withoutExpired(value, () -> remove(key));
+            return value;
         } catch (EmptyResultDataAccessException e) {
             return null;
         }

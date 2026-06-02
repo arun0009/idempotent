@@ -22,8 +22,8 @@ public class RedisIdempotentStore implements IdempotentStore {
     }
 
     @Override
-    public @Nullable Value getValue(IdempotentKey key, Class<?> returnType) {
-        return IdempotentValues.withoutExpired(redisTemplate.opsForValue().get(key), () -> remove(key));
+    public @Nullable Value loadValue(IdempotentKey key, Class<?> returnType) {
+        return redisTemplate.opsForValue().get(key);
     }
 
     @Override

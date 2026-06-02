@@ -2,7 +2,6 @@ package io.github.arun0009.idempotent.nats;
 
 import io.github.arun0009.idempotent.core.exception.IdempotentKeyConflictException;
 import io.github.arun0009.idempotent.core.persistence.IdempotentStore;
-import io.github.arun0009.idempotent.core.persistence.IdempotentValues;
 import io.github.arun0009.idempotent.core.serialization.IdempotentPayloadCodec;
 import io.nats.client.JetStreamApiException;
 import io.nats.client.KeyValue;
@@ -55,7 +54,7 @@ class NatsIdempotentStore implements IdempotentStore {
     }
 
     @Override
-    public @Nullable Value getValue(IdempotentKey idemKey, Class<?> returnType) {
+    public @Nullable Value loadValue(IdempotentKey idemKey, Class<?> returnType) {
         try {
             log.atDebug().log("Getting key {}", idemKey);
             var key = encodeIfNotValid(idemKey);
@@ -66,7 +65,7 @@ class NatsIdempotentStore implements IdempotentStore {
             if (rawValue == null) return null;
 
             Wrappers.Value wrapperValue = payloadCodec.deserializeFromBytes(rawValue, Wrappers.Value.class);
-            return IdempotentValues.withoutExpired(wrapperValue.value(), () -> remove(idemKey));
+            return wrapperValue.value();
         } catch (IOException | JetStreamApiException e) {
             throw new NatsIdempotentException("Error reading value from NATS store", e);
         }
@@ -108,22 +107,12 @@ class NatsIdempotentStore implements IdempotentStore {
             log.atDebug().log("Updating key {} with status {}", idemKey, value.status());
             log.atTrace().log(value::toString);
             var key = encodeIfNotValid(idemKey);
-            KeyValueEntry existing = kv.get(key);
-            if (existing == null) {
+            if (kv.get(key) == null) {
                 // No-op when the key is missing: update must not resurrect a removed entry.
                 return;
             }
             byte[] content = payloadCodec.serializeToBytes(new Wrappers.Value(value));
-            try {
-                // CAS update: fails if another writer changed or deleted the entry between
-                // the read above and this update, preserving no-op-if-missing semantics.
-                kv.update(key, content, existing.getRevision());
-            } catch (JetStreamApiException casFailure) {
-                if (casFailure.getApiErrorCode() == 10071) {
-                    return;
-                }
-                throw casFailure;
-            }
+            kv.put(key, content);
         } catch (IOException | JetStreamApiException e) {
             throw new NatsIdempotentException("Error updating value in NATS", e);
         }

@@ -22,9 +22,9 @@
 
 ```xml
 <dependency>
-  <groupId>io.github.arun0009</groupId>
-  <artifactId>idempotent-dynamo</artifactId>
-  <version>${idempotent.version}</version>
+	<groupId>io.github.arun0009</groupId>
+	<artifactId>idempotent-dynamo</artifactId>
+	<version>${idempotent.version}</version>
 </dependency>
 ```
 
@@ -35,12 +35,12 @@ If your app exposes `DynamoDbClient` and/or `DynamoDbEnhancedClient` beans, the 
 ```java
 @Bean
 DynamoDbClient dynamoDbClient() {
-  return DynamoDbClient.builder().region(Region.US_EAST_1).build();
+	return DynamoDbClient.builder().region(Region.US_EAST_1).build();
 }
 
 @Bean
 DynamoDbEnhancedClient enhanced(DynamoDbClient client) {
-  return DynamoDbEnhancedClient.builder().dynamoDbClient(client).build();
+	return DynamoDbEnhancedClient.builder().dynamoDbClient(client).build();
 }
 ```
 

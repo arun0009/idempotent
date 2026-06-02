@@ -21,9 +21,9 @@
 
 ```xml
 <dependency>
-  <groupId>io.github.arun0009</groupId>
-  <artifactId>idempotent-redis</artifactId>
-  <version>${idempotent.version}</version>
+	<groupId>io.github.arun0009</groupId>
+	<artifactId>idempotent-redis</artifactId>
+	<version>${idempotent.version}</version>
 </dependency>
 ```
 
@@ -59,7 +59,7 @@ Override Redis serialization with a single bean (used for keys and values):
 ```java
 @Bean("idempotentRedisSerializer")
 RedisSerializer<Object> idempotentRedisSerializer(IdempotentPayloadCodec codec) {
-  return new IdempotentPayloadRedisSerializer<>(codec, Object.class);
+	return new IdempotentPayloadRedisSerializer<>(codec, Object.class);
 }
 ```
 

@@ -21,9 +21,9 @@
 
 ```xml
 <dependency>
-  <groupId>io.github.arun0009</groupId>
-  <artifactId>idempotent-rds</artifactId>
-  <version>${idempotent.version}</version>
+	<groupId>io.github.arun0009</groupId>
+	<artifactId>idempotent-rds</artifactId>
+	<version>${idempotent.version}</version>
 </dependency>
 ```
 
@@ -35,12 +35,12 @@ Create the table once. Default name is `idempotent`:
 
 ```sql
 CREATE TABLE idempotent (
-  key_id       VARCHAR(255) NOT NULL,
-  process_name VARCHAR(255) NOT NULL,
-  status       VARCHAR(50)  NOT NULL,
-  expires_at   BIGINT       NOT NULL,
-  response     TEXT,
-  PRIMARY KEY (key_id, process_name)
+	key_id       VARCHAR(255) NOT NULL,
+	process_name VARCHAR(255) NOT NULL,
+	status       VARCHAR(50)  NOT NULL,
+	expires_at   BIGINT       NOT NULL,
+	response     TEXT,
+	PRIMARY KEY (key_id, process_name)
 );
 
 CREATE INDEX idx_expires_at ON idempotent (expires_at);

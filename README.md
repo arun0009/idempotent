@@ -14,14 +14,14 @@
 Annotate a controller, a `@Service`, or a batch job. Or call `IdempotentService` directly. Pick **Redis**, **DynamoDB**, **NATS KV**, or **JDBC** — or start with the built-in in-memory store.
 
 <div align="center">
-  <img src="./idempotent.png" alt="Idempotent">
+	<img src="./idempotent.png" alt="Idempotent">
 </div>
 
 ```java
 @Idempotent(key = "#order.id", duration = "30m")
 @PostMapping("/orders")
 public Receipt place(@RequestBody Order order) {
-  return paymentGateway.charge(order);    // runs once, even on a retry storm
+	return paymentGateway.charge(order);    // runs once, even on a retry storm
 }
 ```
 
@@ -70,9 +70,9 @@ Same engine from any code — useful in `@Service` classes, consumers, or jobs:
 
 ```java
 return idempotentService.execute(
-    "ord_42", "create-order", Order.class,
-    () -> orderService.create(request),
-    Duration.ofMinutes(30));
+		"ord_42", "create-order", Order.class,
+		() -> orderService.create(request),
+		Duration.ofMinutes(30));
 ```
 
 ## Choose your storage
@@ -94,9 +94,9 @@ Add a storage module (it pulls in `idempotent-core`):
 
 ```xml
 <dependency>
-  <groupId>io.github.arun0009</groupId>
-  <artifactId>idempotent-redis</artifactId> <!-- or -dynamo, -nats, -rds -->
-  <version>${idempotent.version}</version>
+	<groupId>io.github.arun0009</groupId>
+	<artifactId>idempotent-redis</artifactId> <!-- or -dynamo, -nats, -rds -->
+	<version>${idempotent.version}</version>
 </dependency>
 ```
 

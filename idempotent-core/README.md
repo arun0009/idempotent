@@ -111,14 +111,15 @@ Or replace serialization entirely with your own `IdempotentPayloadCodec` bean.
 
 ## Custom `IdempotentStore`
 
-Four methods, explicit contracts — the same shape Redis, Dynamo, NATS, and RDS satisfy. The `IdempotentValues` helper covers expiry and lazy delete, so you implement only the backend primitives.
+Implement `loadValue`, `store`, `update`, and `remove`. `getValue` is a default on `IdempotentStore` (expiry + lazy delete over `loadValue`) — callers use it; do not override it in custom stores.
 
 | Method | Contract |
 |--------|----------|
-| `store(key, value)` | Strict insert. Throw `IdempotentKeyConflictException` if the key exists. Never overwrite. |
-| `update(key, value)` | No-op if missing. Never resurrect a deleted or expired entry. |
-| `getValue(key, type)` | Return `null` for missing/expired. Lazy-delete expired entries (best-effort). |
-| `remove(key)` | Idempotent delete; tolerate missing keys. |
+| `getValue(key, type)` | `null` if absent or expired (default) |
+| `loadValue(key, type)` | `null` if absent |
+| `store(key, value)` | Strict insert; `IdempotentKeyConflictException` if the key exists |
+| `update(key, value)` | No-op if absent |
+| `remove(key)` | Idempotent delete |
 
 ```java
 @Bean

@@ -9,7 +9,7 @@
 
 </div>
 
-**Idempotency that lives in your messaging plane.** Stores keys in JetStream KV with revision-based CAS updates — no separate datastore for idempotency.
+**Idempotency that lives in your messaging plane.** Keys are stored in JetStream KV.
 
 ## When NATS KV is the right choice
 
@@ -41,7 +41,7 @@ Now annotate (see [core README](../idempotent-core/README.md)) and you’re done
 | Operation | JetStream KV |
 |-----------|--------------|
 | First claim | `kv.create` — fails if the key exists, surfaces as `IdempotentKeyConflictException` |
-| Complete | `kv.update(key, value, revision)` — **revision CAS**, never resurrects a deleted key |
+| Complete | `kv.put` — no-op if the key is missing |
 | Read | `kv.get` + shared lazy delete on expiry |
 | Expiry | Per-message TTL from `expiresAt`, plus bucket TTL as a safety net |
 

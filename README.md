@@ -40,7 +40,7 @@ You add a dependency and an annotation. The library handles the hard parts.
 | | |
 |---|---|
 | **Two entry points, one engine** | `@Idempotent` on any Spring method, or `IdempotentService.execute(...)` from `@Service` classes, batch jobs, or message consumers. |
-| **Atomic key claims** | Native primitives on every backend (`SET NX`, conditional `PutItem`, revision CAS, `INSERT`) — two callers cannot both think they were first. |
+| **Atomic key claims** | Native primitives on every backend (`SET NX`, conditional `PutItem`, `kv.create`, `INSERT`) — two callers cannot both think they were first. |
 | **Self-healing expiry** | Per-entry TTL, native backend TTL where available, lazy delete on read, scheduled cleanup for SQL. No zombie keys. |
 | **Keys your way** | Client header (`X-Idempotency-Key`) or server-side SpEL (`#user.id`), with optional SHA-256 hashing. |
 | **Honest semantics** | Domain exceptions propagate as-is. Null/void results are cached. Non-2xx `ResponseEntity` is removed so the client can retry. |
@@ -83,7 +83,7 @@ In-memory is the default. Pick a persistent backend for production:
 |--------|----------|---------------|
 | **[Redis](idempotent-redis/README.md)** | Sub-ms reads, native TTL, already in your stack | `SET NX` / `SET XX` |
 | **[DynamoDB](idempotent-dynamo/README.md)** | AWS-native, managed scale, table TTL | Conditional `PutItem` |
-| **[NATS KV](idempotent-nats/README.md)** | KV co-located with your JetStream cluster | `create` + revision CAS |
+| **[NATS KV](idempotent-nats/README.md)** | KV co-located with your JetStream cluster | `create` + conditional `put` |
 | **[RDS / JDBC](idempotent-rds/README.md)** | Postgres, MySQL, MariaDB, or H2 you already run | `INSERT` + scheduled cleanup |
 
 All four share the same serialization, expiry, and state machine — swap backends without changing behavior.

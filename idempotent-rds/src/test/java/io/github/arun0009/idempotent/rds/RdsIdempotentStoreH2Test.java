@@ -8,12 +8,14 @@ import io.github.arun0009.idempotent.core.persistence.IdempotentStore.Status;
 import io.github.arun0009.idempotent.core.persistence.IdempotentStore.Value;
 import io.github.arun0009.idempotent.core.serialization.IdempotentJsonMapperDefaults;
 import io.github.arun0009.idempotent.core.serialization.JacksonIdempotentPayloadCodec;
+import io.github.arun0009.idempotent.core.serialization.ResponseEntityJacksonModule;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.TestPropertySource;
@@ -67,6 +69,7 @@ class RdsIdempotentStoreH2Test {
         public IdempotentStore idempotentStore(JdbcTemplate jdbcTemplate) {
             var builder = JsonMapper.builder();
             IdempotentJsonMapperDefaults.applyPermissivePolymorphicTyping(builder);
+            builder.addModules(new ResponseEntityJacksonModule());
             return new RdsIdempotentStore(
                     jdbcTemplate, "idempotent", new JacksonIdempotentPayloadCodec(builder.build()));
         }
@@ -155,6 +158,25 @@ class RdsIdempotentStoreH2Test {
         assertEquals(TestRecord.class, retrieved.response().getClass());
         assertEquals("hello", ((TestRecord) retrieved.response()).name());
         assertEquals(42, ((TestRecord) retrieved.response()).value());
+    }
+
+    @Test
+    void testResponseEntityRoundTrip() {
+        var key = new IdempotentKey("response-entity-key", "test-process");
+        var response = ResponseEntity.status(201).header("X-Trace", "abc").body(new TestRecord("hello", 42));
+        var value = new Value(Status.COMPLETED, Instant.now().plusMillis(5000), response);
+
+        idempotentStore.store(key, value);
+
+        var retrieved = idempotentStore.getValue(key, ResponseEntity.class);
+        assertNotNull(retrieved);
+        assertEquals(Status.COMPLETED, retrieved.status());
+        assertNotNull(retrieved.response());
+
+        var roundTripped = (ResponseEntity<?>) retrieved.response();
+        assertEquals(201, roundTripped.getStatusCode().value());
+        assertEquals("abc", roundTripped.getHeaders().getFirst("X-Trace"));
+        assertEquals(new TestRecord("hello", 42), roundTripped.getBody());
     }
 
     @Test

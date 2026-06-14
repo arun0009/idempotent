@@ -18,7 +18,6 @@ import tools.jackson.databind.json.JsonMapper;
 @ConditionalOnClass(JsonMapper.class)
 @EnableConfigurationProperties(IdempotentSerializationProperties.class)
 public class IdempotentJsonMapperAutoConfiguration {
-
     private static final Logger log = LoggerFactory.getLogger(IdempotentJsonMapperAutoConfiguration.class);
 
     @Bean
@@ -29,7 +28,7 @@ public class IdempotentJsonMapperAutoConfiguration {
         return switch (properties.strategy()) {
             case JAVA -> new JdkIdempotentPayloadCodec();
             case JSON -> {
-                JsonMapper.Builder builder = JsonMapper.builder();
+                var builder = JsonMapper.builder();
                 var customizers =
                         idempotentJsonMapperCustomizers.orderedStream().toList();
                 if (customizers.isEmpty()) {
@@ -40,6 +39,11 @@ public class IdempotentJsonMapperAutoConfiguration {
                 } else {
                     customizers.forEach(c -> c.customize(builder));
                 }
+
+                if (Utils.isResponseEntityPresent()) {
+                    builder.addModules(new ResponseEntityJacksonModule());
+                }
+
                 yield new JacksonIdempotentPayloadCodec(builder.build());
             }
         };

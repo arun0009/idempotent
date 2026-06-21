@@ -3,6 +3,8 @@ package io.github.arun0009.idempotent.core.service;
 import io.github.arun0009.idempotent.core.exception.IdempotentException;
 import io.github.arun0009.idempotent.core.exception.IdempotentKeyConflictException;
 import io.github.arun0009.idempotent.core.exception.IdempotentWaitExhaustedException;
+import io.github.arun0009.idempotent.core.metrics.IdempotentMetrics;
+import io.github.arun0009.idempotent.core.metrics.IdempotentMetrics.Outcome;
 import io.github.arun0009.idempotent.core.persistence.IdempotentStore;
 import io.github.arun0009.idempotent.core.retry.IdempotentCompletionAwaiter;
 import io.github.arun0009.idempotent.core.retry.WaitStrategy;
@@ -39,14 +41,20 @@ public class IdempotentService {
 
     private final IdempotentStore idempotentStore;
     private final IdempotentCompletionAwaiter completionAwaiter;
+    private final IdempotentMetrics metrics;
 
     public IdempotentService(IdempotentStore idempotentStore) {
-        this(idempotentStore, WaitStrategy.withDefaults());
+        this(idempotentStore, WaitStrategy.withDefaults(), IdempotentMetrics.NOOP);
     }
 
     public IdempotentService(IdempotentStore idempotentStore, WaitStrategy waitStrategy) {
+        this(idempotentStore, waitStrategy, IdempotentMetrics.NOOP);
+    }
+
+    public IdempotentService(IdempotentStore idempotentStore, WaitStrategy waitStrategy, IdempotentMetrics metrics) {
         this.idempotentStore = idempotentStore;
         this.completionAwaiter = new IdempotentCompletionAwaiter(idempotentStore, waitStrategy);
+        this.metrics = metrics;
     }
 
     // ---- Untyped Supplier-based overloads (use Object.class internally) -----------------------
@@ -121,12 +129,15 @@ public class IdempotentService {
 
     private @Nullable Object handleExisting(IdempotentStore.IdempotentKey idempotentKey, IdempotentStore.Value value) {
         if (value.status() == COMPLETED) {
+            metrics.recordOutcome(idempotentKey.processName(), Outcome.HIT);
             return value.response();
         }
         IdempotentStore.Value awaited = completionAwaiter.wait(idempotentKey, value);
         if (awaited != null && awaited.status() == COMPLETED) {
+            metrics.recordOutcome(idempotentKey.processName(), Outcome.HIT_AFTER_WAIT);
             return awaited.response();
         }
+        metrics.recordOutcome(idempotentKey.processName(), Outcome.WAIT_EXHAUSTED);
         idempotentStore.remove(idempotentKey);
         throw new IdempotentWaitExhaustedException(
                 "Operation wait exhausted in progress after multiple retries", idempotentKey);
@@ -143,6 +154,7 @@ public class IdempotentService {
             idempotentStore.store(idempotentKey, new IdempotentStore.Value(IN_PROGRESS, expiresAt, null));
         } catch (IdempotentKeyConflictException e) {
             log.info("Idempotent key conflict for {}; following existing-entry path", idempotentKey.key());
+            metrics.recordOutcome(idempotentKey.processName(), Outcome.CONFLICT);
             IdempotentStore.Value refetched = idempotentStore.getValue(idempotentKey, returnType);
             if (refetched == null) {
                 throw new IdempotentKeyConflictException(
@@ -153,11 +165,18 @@ public class IdempotentService {
             return result;
         }
 
+        long startNanos = System.nanoTime();
         try {
             T result = operation.execute();
+            metrics.recordOperation(
+                    idempotentKey.processName(), true, Duration.ofNanos(System.nanoTime() - startNanos));
+            metrics.recordOutcome(idempotentKey.processName(), Outcome.NEW_SUCCESS);
             updateStoreWithResponse(idempotentKey, result, expiresAt);
             return result;
         } catch (Throwable t) {
+            metrics.recordOperation(
+                    idempotentKey.processName(), false, Duration.ofNanos(System.nanoTime() - startNanos));
+            metrics.recordOutcome(idempotentKey.processName(), Outcome.NEW_FAILURE);
             idempotentStore.remove(idempotentKey);
             throw t;
         }

@@ -41,7 +41,7 @@
     <properties>
 
         <error-prone-core.version>2.50.0</error-prone-core.version>
-        <jreleaser-maven-plugin.version>1.24.0</jreleaser-maven-plugin.version>
+        <jreleaser-maven-plugin.version>1.25.0</jreleaser-maven-plugin.version>
 
         <jspecify.version>1.0.0</jspecify.version>
         <maven-compiler-plugin.version>3.15.0</maven-compiler-plugin.version>

@@ -8,8 +8,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 
 /**
- * Bridges {@link ResponseEntity} and the codec-friendly {@link ResponseEntityPayload}. Shared by
- * the Jackson module and the JDK codec so both wire formats round-trip identically.
+ * Bridges {@link ResponseEntity} and the codec-friendly {@link ResponseEntityPayload}.
  */
 public final class ResponseEntityAdapter {
 

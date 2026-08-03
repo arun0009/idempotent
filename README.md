@@ -44,6 +44,7 @@ You add a dependency and an annotation. The library handles the hard parts.
 | **Self-healing expiry** | Per-entry TTL, native backend TTL where available, lazy delete on read, scheduled cleanup for SQL. No zombie keys. |
 | **Keys your way** | Client header (`X-Idempotency-Key`) or server-side SpEL (`#user.id`), with optional SHA-256 hashing. |
 | **Honest semantics** | Domain exceptions propagate as-is. Null/void results are cached. Non-2xx `ResponseEntity` is removed so the client can retry. |
+| **Observability** | Optional Micrometer counters and timers for every execution outcome via `idempotent-micrometer`. |
 
 ## How it works
 
@@ -87,6 +88,27 @@ In-memory is the default. Pick a persistent backend for production:
 | **[RDS / JDBC](idempotent-rds/README.md)** | Postgres, MySQL, MariaDB, or H2 you already run | `INSERT` + scheduled cleanup |
 
 All four share the same serialization, expiry, and state machine — swap backends without changing behavior.
+
+## Metrics
+
+Optional Micrometer integration in the `idempotent-micrometer` module:
+
+| Meter | Type | Tags |
+|-------|------|------|
+| `idempotent.executions` | Counter | `process`, `outcome` — `hit`, `hit_after_wait`, `new_success`, `new_failure`, `conflict`, `wait_exhausted` |
+| `idempotent.operation` | Timer | `process`, `outcome` — `success`, `failure` |
+
+Add the module — it wires a Micrometer-backed implementation automatically when a `MeterRegistry` bean is present, and `IdempotentService` falls back to a no-op otherwise:
+
+```xml
+<dependency>
+	<groupId>io.github.arun0009</groupId>
+	<artifactId>idempotent-micrometer</artifactId>
+	<version>${idempotent.version}</version>
+</dependency>
+```
+
+Prefer your own backend? Implement the `IdempotentMetrics` SPI from `idempotent-core` and expose it as a bean; it takes precedence over the fallback.
 
 ## Install
 

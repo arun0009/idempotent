@@ -1,5 +1,6 @@
-package io.github.arun0009.idempotent.core.metrics;
+package io.github.arun0009.idempotent.micrometer;
 
+import io.github.arun0009.idempotent.core.metrics.IdempotentMetrics;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Tags;
 

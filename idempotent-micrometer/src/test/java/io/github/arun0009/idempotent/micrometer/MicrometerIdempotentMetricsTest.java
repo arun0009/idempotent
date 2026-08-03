@@ -1,4 +1,4 @@
-package io.github.arun0009.idempotent.core.metrics;
+package io.github.arun0009.idempotent.micrometer;
 
 import io.github.arun0009.idempotent.core.metrics.IdempotentMetrics.Outcome;
 import io.micrometer.core.instrument.MeterRegistry;

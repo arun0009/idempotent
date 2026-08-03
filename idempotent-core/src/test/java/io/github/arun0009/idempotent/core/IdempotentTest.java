@@ -7,17 +7,18 @@ import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
+import java.io.Serializable;
 import java.util.Locale;
 
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 public class IdempotentTest {
 
-    public record AssetType(String category, String version) {}
+    public record AssetType(String category, String version) implements Serializable {}
 
     public record Asset(String id, AssetType type, String name) {}
 
-    public record AssetResponse(String id, AssetType type, String name, String url) {}
+    public record AssetResponse(String id, AssetType type, String name, String url) implements Serializable {}
 
     public void validateAssetResponse(
             MockMvc mockMvc, int counter, String type, MockHttpServletRequestBuilder requestBuilder) throws Exception {

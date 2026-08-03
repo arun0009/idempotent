@@ -2,6 +2,7 @@ package io.github.arun0009.idempotent.redis;
 
 import io.github.arun0009.idempotent.core.IdempotentTest;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.RepetitionInfo;
 import org.junit.jupiter.api.Test;
@@ -93,5 +94,61 @@ class RedisIdempotentControllerTest {
                 .valueEquals("X-Trace", "patch-1")
                 .expectBody(String.class)
                 .isEqualTo(first);
+    }
+
+    @Nested
+    @SpringBootTest(properties = "idempotent.serialization.strategy=JAVA")
+    @ContextConfiguration(classes = RedisTestConfig.class, initializers = RedisTestConfig.Initializer.class)
+    class JavaSerializationTest {
+        @Autowired
+        private WebApplicationContext webApplicationContext;
+
+        private RestTestClient client;
+
+        @BeforeEach
+        void setUp() {
+            client = RestTestClient.bindToApplicationContext(webApplicationContext)
+                    .build();
+        }
+
+        @Test
+        void patchAssetCachesResponseEntityWithJavaStrategy() {
+            // language=json
+            var assetJson = """
+                    {
+                      "id": "patch-java-1",
+                      "name": "Asset Java Patch-1",
+                      "type": {
+                        "category": "Patch API",
+                        "version": "1"
+                      }
+                    }
+                    """;
+
+            var first = client.patch()
+                    .uri("/redis/assets/patch-java-1")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(assetJson)
+                    .exchange()
+                    .expectStatus()
+                    .isCreated()
+                    .expectHeader()
+                    .valueEquals("X-Trace", "patch-java-1")
+                    .expectBody(String.class)
+                    .returnResult()
+                    .getResponseBody();
+
+            client.patch()
+                    .uri("/redis/assets/patch-java-1")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(assetJson)
+                    .exchange()
+                    .expectStatus()
+                    .isCreated()
+                    .expectHeader()
+                    .valueEquals("X-Trace", "patch-java-1")
+                    .expectBody(String.class)
+                    .isEqualTo(first);
+        }
     }
 }

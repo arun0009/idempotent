@@ -29,6 +29,7 @@
         <module>idempotent-dynamo</module>
         <module>idempotent-nats</module>
         <module>idempotent-rds</module>
+        <module>idempotent-micrometer</module>
     </modules>
 
     <scm>

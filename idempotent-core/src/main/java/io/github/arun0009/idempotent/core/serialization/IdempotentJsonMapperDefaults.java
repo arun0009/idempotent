@@ -16,6 +16,28 @@ public final class IdempotentJsonMapperDefaults {
     private IdempotentJsonMapperDefaults() {}
 
     /**
+     * Builds a {@link JsonMapper} preconfigured for idempotent payload serialization: permissive
+     * polymorphic typing plus the {@link ResponseEntityJacksonModule} when Spring is on the
+     * classpath. Suitable only when store contents are trusted.
+     */
+    public static JsonMapper buildPermissiveMapper() {
+        var builder = JsonMapper.builder();
+        applyPermissivePolymorphicTyping(builder);
+        addResponseEntityModuleIfPresent(builder);
+        return builder.build();
+    }
+
+    /**
+     * Registers the {@link ResponseEntityJacksonModule} so {@code ResponseEntity} payloads
+     * round-trip, when Spring is on the classpath.
+     */
+    public static void addResponseEntityModuleIfPresent(JsonMapper.Builder builder) {
+        if (Utils.isResponseEntityPresent()) {
+            builder.addModules(new ResponseEntityJacksonModule());
+        }
+    }
+
+    /**
      * Applies permissive default typing so arbitrary response types round-trip. Covers Java records,
      * Kotlin data classes, and all other final types. Suitable only when store contents are trusted.
      */

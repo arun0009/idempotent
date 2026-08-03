@@ -18,7 +18,6 @@ import tools.jackson.databind.json.JsonMapper;
 @ConditionalOnClass(JsonMapper.class)
 @EnableConfigurationProperties(IdempotentSerializationProperties.class)
 public class IdempotentJsonMapperAutoConfiguration {
-
     private static final Logger log = LoggerFactory.getLogger(IdempotentJsonMapperAutoConfiguration.class);
 
     @Bean
@@ -29,17 +28,19 @@ public class IdempotentJsonMapperAutoConfiguration {
         return switch (properties.strategy()) {
             case JAVA -> new JdkIdempotentPayloadCodec();
             case JSON -> {
-                JsonMapper.Builder builder = JsonMapper.builder();
                 var customizers =
                         idempotentJsonMapperCustomizers.orderedStream().toList();
                 if (customizers.isEmpty()) {
                     log.warn("Using an unrestricted polymorphic type validator for idempotent payload serialization. "
                             + "Without a restricted PolymorphicTypeValidator, deserialization is vulnerable to "
                             + "arbitrary code execution when reading from untrusted sources.");
-                    IdempotentJsonMapperDefaults.applyPermissivePolymorphicTyping(builder);
-                } else {
-                    customizers.forEach(c -> c.customize(builder));
+                    yield new JacksonIdempotentPayloadCodec(IdempotentJsonMapperDefaults.buildPermissiveMapper());
                 }
+
+                var builder = JsonMapper.builder();
+                customizers.forEach(c -> c.customize(builder));
+                IdempotentJsonMapperDefaults.addResponseEntityModuleIfPresent(builder);
+
                 yield new JacksonIdempotentPayloadCodec(builder.build());
             }
         };

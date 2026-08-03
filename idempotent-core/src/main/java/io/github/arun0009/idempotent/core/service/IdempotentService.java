@@ -138,7 +138,7 @@ public class IdempotentService {
             IdempotentOperation<T> operation,
             Duration ttl)
             throws Throwable {
-        Instant expiresAt = Instant.now().plus(ttl);
+        var expiresAt = Instant.now().plus(ttl);
         try {
             idempotentStore.store(idempotentKey, new IdempotentStore.Value(IN_PROGRESS, expiresAt, null));
         } catch (IdempotentKeyConflictException e) {

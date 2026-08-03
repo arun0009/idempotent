@@ -109,11 +109,9 @@ class IdempotentServiceMetricsTest {
         return new IdempotentStore.IdempotentKey(k, PROCESS);
     }
 
-    private record OutcomeCall(String process, Outcome outcome) {
-    }
+    private record OutcomeCall(String process, Outcome outcome) {}
 
-    private record OperationCall(String process, boolean success, Duration elapsed) {
-    }
+    private record OperationCall(String process, boolean success, Duration elapsed) {}
 
     private static final class RecordingMetrics implements IdempotentMetrics {
         private final List<OutcomeCall> outcomes = new ArrayList<>();

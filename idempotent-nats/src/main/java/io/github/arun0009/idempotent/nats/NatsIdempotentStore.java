@@ -3,6 +3,7 @@ package io.github.arun0009.idempotent.nats;
 import io.github.arun0009.idempotent.core.exception.IdempotentKeyConflictException;
 import io.github.arun0009.idempotent.core.persistence.IdempotentStore;
 import io.github.arun0009.idempotent.core.serialization.IdempotentPayloadCodec;
+import io.github.arun0009.idempotent.core.serialization.IdempotentPayloadCodecException;
 import io.nats.client.JetStreamApiException;
 import io.nats.client.KeyValue;
 import io.nats.client.MessageTtl;
@@ -65,6 +66,14 @@ class NatsIdempotentStore implements IdempotentStore {
             if (rawValue == null) return null;
 
             return payloadCodec.deserializeFromBytes(rawValue, Value.class);
+        } catch (IdempotentPayloadCodecException e) {
+            // TODO remove me after release v3.1.0
+            // Entries persisted before the raw Value format were Wrappers.Value and no longer
+            // deserialize. Drop the entry and treat it as a miss, so the next request re-executes and
+            // re-stores in the current format.
+            log.warn("Failed to deserialize stored entry for key {}, removing it", idemKey, e);
+            remove(idemKey);
+            return null;
         } catch (IOException | JetStreamApiException e) {
             throw new NatsIdempotentException("Error reading value from NATS store", e);
         }

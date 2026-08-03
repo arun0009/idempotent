@@ -5,7 +5,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import tools.jackson.databind.json.JsonMapper;
 
 import java.io.Serializable;
 import java.util.List;
@@ -36,10 +35,7 @@ class JacksonIdempotentPayloadCodecTest {
 
     @BeforeEach
     void setUp() {
-        var builder = JsonMapper.builder();
-        IdempotentJsonMapperDefaults.applyPermissivePolymorphicTyping(builder);
-        builder.addModules(new ResponseEntityJacksonModule());
-        codec = new JacksonIdempotentPayloadCodec(builder.build());
+        codec = new JacksonIdempotentPayloadCodec(IdempotentJsonMapperDefaults.buildPermissiveMapper());
     }
 
     @Test

@@ -8,7 +8,6 @@ import io.github.arun0009.idempotent.core.persistence.IdempotentStore.Status;
 import io.github.arun0009.idempotent.core.persistence.IdempotentStore.Value;
 import io.github.arun0009.idempotent.core.serialization.IdempotentJsonMapperDefaults;
 import io.github.arun0009.idempotent.core.serialization.JacksonIdempotentPayloadCodec;
-import io.github.arun0009.idempotent.core.serialization.ResponseEntityJacksonModule;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -20,7 +19,6 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
-import tools.jackson.databind.json.JsonMapper;
 
 import javax.sql.DataSource;
 import java.time.Duration;
@@ -67,11 +65,10 @@ class RdsIdempotentStoreH2Test {
 
         @Bean
         public IdempotentStore idempotentStore(JdbcTemplate jdbcTemplate) {
-            var builder = JsonMapper.builder();
-            IdempotentJsonMapperDefaults.applyPermissivePolymorphicTyping(builder);
-            builder.addModules(new ResponseEntityJacksonModule());
             return new RdsIdempotentStore(
-                    jdbcTemplate, "idempotent", new JacksonIdempotentPayloadCodec(builder.build()));
+                    jdbcTemplate,
+                    "idempotent",
+                    new JacksonIdempotentPayloadCodec(IdempotentJsonMapperDefaults.buildPermissiveMapper()));
         }
 
         @Bean

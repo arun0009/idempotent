@@ -2,21 +2,28 @@ package io.github.arun0009.idempotent.rds;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.bind.DefaultValue;
+import org.springframework.boot.sql.init.DatabaseInitializationMode;
 
 import java.time.Duration;
 
 /**
  * Configuration properties for RDS-based idempotency implementation.
  *
- * @param enabled   whether the RDS auto-configuration is active
- * @param tableName the name of the database table used to store idempotent keys
- * @param cleanup   configuration for the cleanup task that removes expired records
+ * @param enabled          whether the RDS auto-configuration is active
+ * @param tableName        the name of the database table used to store idempotent keys
+ * @param initializeSchema when to create the table at startup
+ * @param cleanup          configuration for the cleanup task that removes expired records
  */
 @ConfigurationProperties(prefix = "idempotent.rds")
 public record RdsIdempotentProperties(
         @DefaultValue("true") boolean enabled,
         @DefaultValue("idempotent") String tableName,
+        @DefaultValue("never") DatabaseInitializationMode initializeSchema,
         @DefaultValue Cleanup cleanup) {
+
+    public RdsIdempotentProperties {
+        RdsSchemaStatements.validateIdentifier(tableName);
+    }
 
     /**
      * Configuration for the cleanup task that removes expired idempotent records.

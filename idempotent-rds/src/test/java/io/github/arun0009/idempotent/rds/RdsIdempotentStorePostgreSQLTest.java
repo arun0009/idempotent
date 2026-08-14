@@ -39,21 +39,6 @@ class RdsIdempotentStorePostgreSQLTest {
 
     @BeforeEach
     void setUp() {
-        // Create the table for PostgreSQL
-        jdbcTemplate.update("""
-                    CREATE TABLE IF NOT EXISTS idempotent (
-                        key_id VARCHAR(255) NOT NULL,
-                        process_name VARCHAR(255) NOT NULL,
-                        status VARCHAR(50),
-                        expires_at BIGINT,
-                        response TEXT,
-                        PRIMARY KEY (key_id, process_name)
-                    )
-                """);
-
-        jdbcTemplate.update("CREATE INDEX IF NOT EXISTS idx_expires_at ON idempotent(expires_at)");
-
-        // Clean up the database before each test
         jdbcTemplate.update("DELETE FROM idempotent");
     }
 

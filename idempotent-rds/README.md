@@ -43,10 +43,14 @@ CREATE TABLE idempotent (
 	PRIMARY KEY (key_id, process_name)
 );
 
-CREATE INDEX idx_expires_at ON idempotent (expires_at);
+CREATE INDEX idx_idempotent_expires_at ON idempotent (expires_at);
 ```
 
+On MySQL/MariaDB use `MEDIUMTEXT` for `response` (`TEXT` is 64KB).
+
 `expires_at` is epoch **milliseconds**. The composite primary key serves point lookups; the `expires_at` index serves the cleanup task. Unrecognized dialects fall back to a generic implementation with a startup warning.
+
+To create the table at startup instead, set `idempotent.rds.initialize-schema` to `embedded` (H2 only) or `always`. Default is `never`. Runs after Flyway/Liquibase.
 
 ## Under the hood
 
@@ -64,7 +68,8 @@ Shared retry / header / serialization properties: [idempotent-core – Configura
 | Property | Default | Description |
 |----------|---------|-------------|
 | `idempotent.rds.enabled` | `true` | Disable auto-configuration |
-| `idempotent.rds.table-name` | `idempotent` | Table name |
+| `idempotent.rds.table-name` | `idempotent` | Table name (`audit.idempotent` is ok) |
+| `idempotent.rds.initialize-schema` | `never` | Create the table at startup: `never`, `embedded` (H2), `always` |
 | `idempotent.rds.cleanup.enabled` | `true` | Scheduled expiry sweep |
 | `idempotent.rds.cleanup.fixed-delay` | `PT1M` | Time between cleanup runs (`60s`, `PT1M`, …) |
 | `idempotent.rds.cleanup.batch-size` | `1000` | Rows per delete batch (avoids long locks) |

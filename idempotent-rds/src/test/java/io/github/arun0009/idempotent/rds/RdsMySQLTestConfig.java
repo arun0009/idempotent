@@ -3,6 +3,7 @@ package io.github.arun0009.idempotent.rds;
 import com.zaxxer.hikari.HikariDataSource;
 import io.github.arun0009.idempotent.core.persistence.IdempotentStore;
 import io.github.arun0009.idempotent.core.serialization.JacksonIdempotentPayloadCodec;
+import org.springframework.boot.sql.init.DatabaseInitializationMode;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -44,6 +45,11 @@ class RdsMySQLTestConfig {
     @Bean
     JdbcTemplate jdbcTemplate(DataSource dataSource) {
         return new JdbcTemplate(dataSource);
+    }
+
+    @Bean
+    RdsSchemaInitializer rdsSchemaInitializer(DataSource dataSource, JdbcTemplate jdbcTemplate) {
+        return new RdsSchemaInitializer(dataSource, jdbcTemplate, "idempotent", DatabaseInitializationMode.ALWAYS);
     }
 
     @Bean

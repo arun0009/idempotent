@@ -39,26 +39,6 @@ class RdsIdempotentStoreMySQLTest {
 
     @BeforeEach
     void setUp() {
-        // Create the table for MySQL
-        jdbcTemplate.update("""
-                CREATE TABLE IF NOT EXISTS idempotent (
-                    key_id VARCHAR(255) NOT NULL,
-                    process_name VARCHAR(255) NOT NULL,
-                    status VARCHAR(50),
-                    expires_at BIGINT,
-                    response TEXT,
-                    PRIMARY KEY (key_id, process_name)
-                )
-                """);
-
-        // MySQL doesn't support CREATE INDEX IF NOT EXISTS, so we check first
-        try {
-            jdbcTemplate.update("CREATE INDEX idx_expires_at ON idempotent(expires_at)");
-        } catch (Exception e) {
-            // Index already exists, ignore
-        }
-
-        // Clean up the database before each test
         jdbcTemplate.update("DELETE FROM idempotent");
     }
 

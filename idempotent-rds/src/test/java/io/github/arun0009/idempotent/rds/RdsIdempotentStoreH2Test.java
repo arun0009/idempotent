@@ -12,6 +12,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.sql.init.DatabaseInitializationMode;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.ResponseEntity;
@@ -64,6 +65,12 @@ class RdsIdempotentStoreH2Test {
         }
 
         @Bean
+        public RdsSchemaInitializer rdsSchemaInitializer(DataSource dataSource, JdbcTemplate jdbcTemplate) {
+            return new RdsSchemaInitializer(
+                    dataSource, jdbcTemplate, "idempotent", DatabaseInitializationMode.EMBEDDED);
+        }
+
+        @Bean
         public IdempotentStore idempotentStore(JdbcTemplate jdbcTemplate) {
             return new RdsIdempotentStore(
                     jdbcTemplate,
@@ -81,19 +88,6 @@ class RdsIdempotentStoreH2Test {
 
     @BeforeEach
     void setUp() {
-        // Create table for H2
-        jdbcTemplate.update("""
-                CREATE TABLE IF NOT EXISTS idempotent (
-                    key_id VARCHAR(255) NOT NULL,
-                    process_name VARCHAR(255) NOT NULL,
-                    status VARCHAR(50),
-                    expires_at BIGINT,
-                    response TEXT,
-                    PRIMARY KEY (key_id, process_name)
-                )
-                """);
-
-        jdbcTemplate.update("CREATE INDEX IF NOT EXISTS idx_expires_at ON idempotent(expires_at)");
         jdbcTemplate.update("DELETE FROM idempotent");
     }
 

@@ -8,11 +8,13 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.boot.jdbc.EmbeddedDatabaseConnection;
+import org.springframework.boot.sql.init.DatabaseInitializationMode;
+import org.springframework.boot.sql.init.dependency.DependsOnDatabaseInitialization;
 import org.springframework.context.annotation.Bean;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.scheduling.TaskScheduler;
 import org.springframework.scheduling.concurrent.SimpleAsyncTaskScheduler;
-import org.springframework.util.Assert;
 
 import javax.sql.DataSource;
 
@@ -21,7 +23,12 @@ import javax.sql.DataSource;
             "org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration",
             "org.springframework.boot.jdbc.autoconfigure.JdbcTemplateAutoConfiguration"
         })
-@ConditionalOnClass({DataSource.class, JdbcTemplate.class})
+@ConditionalOnClass({
+    DataSource.class,
+    JdbcTemplate.class,
+    DatabaseInitializationMode.class,
+    EmbeddedDatabaseConnection.class
+})
 @ConditionalOnBean(DataSource.class)
 @ConditionalOnProperty(prefix = "idempotent.rds", name = "enabled", matchIfMissing = true)
 @EnableConfigurationProperties(RdsIdempotentProperties.class)
@@ -29,12 +36,19 @@ public class RdsAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
+    @DependsOnDatabaseInitialization
+    public RdsSchemaInitializer rdsSchemaInitializer(
+            DataSource dataSource, JdbcTemplate jdbcTemplate, RdsIdempotentProperties properties) {
+        return new RdsSchemaInitializer(
+                dataSource, jdbcTemplate, properties.tableName(), properties.initializeSchema());
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
     public IdempotentStore idempotentStore(
             JdbcTemplate jdbcTemplate,
             RdsIdempotentProperties properties,
             IdempotentPayloadCodec idempotentPayloadCodec) {
-        Assert.hasText(properties.tableName(), "idempotent.rds.table-name must not be blank");
-
         return new RdsIdempotentStore(jdbcTemplate, properties.tableName(), idempotentPayloadCodec);
     }
 

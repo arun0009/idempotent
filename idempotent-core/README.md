@@ -78,6 +78,10 @@ Other overloads exist — `execute(key, supplier, ttl)`, `execute(key, processNa
 
 `IdempotentException` and `IdempotentWaitExhaustedException` are library-only. Your domain exceptions stay yours.
 
+## Metrics
+
+Optional. Add **[idempotent-micrometer](../idempotent-micrometer/README.md)** when a `MeterRegistry` is already in the app. Without it, `IdempotentService` uses `IdempotentMetrics.NOOP`.
+
 ## Configuration
 
 | Property | Default | Description |

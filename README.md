@@ -91,7 +91,7 @@ All four share the same serialization, expiry, and state machine — swap backen
 
 ## Metrics
 
-Optional Micrometer integration in the `idempotent-micrometer` module:
+Optional Micrometer integration in **[idempotent-micrometer](idempotent-micrometer/README.md)**:
 
 | Meter | Type | Tags |
 |-------|------|------|

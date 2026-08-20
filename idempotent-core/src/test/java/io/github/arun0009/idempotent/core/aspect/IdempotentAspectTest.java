@@ -59,9 +59,6 @@ class IdempotentAspectTest {
         when(methodSignature.getParameterNames()).thenReturn(new String[] {"asset"});
         when(methodSignature.getName()).thenReturn("testMethod");
         when(methodSignature.getReturnType()).thenAnswer(invocation -> ResponseEntity.class);
-        // Mock the target object
-        Object target = this;
-        when(proceedingJoinPoint.getTarget()).thenReturn(target);
         when(proceedingJoinPoint.getArgs()).thenReturn(new Object[] {
             new IdempotentTest.Asset("1", new IdempotentTest.AssetType("test-category", "1.0"), "Test API")
         });
@@ -92,9 +89,6 @@ class IdempotentAspectTest {
         });
         when(methodSignature.getName()).thenReturn("testMethod");
         when(methodSignature.getReturnType()).thenAnswer(invocation -> ResponseEntity.class);
-        // Mock the target object
-        Object target = this;
-        when(proceedingJoinPoint.getTarget()).thenReturn(target);
         when(methodSignature.getMethod()).thenReturn(method);
 
         IdempotentStore.IdempotentKey idempotentKey =
@@ -127,9 +121,6 @@ class IdempotentAspectTest {
         when(methodSignature.getName()).thenReturn("testMethod");
         when(methodSignature.getReturnType()).thenAnswer(invocation -> ResponseEntity.class);
 
-        // Mock the target object
-        Object target = this;
-        when(proceedingJoinPoint.getTarget()).thenReturn(target);
         when(methodSignature.getMethod()).thenReturn(method);
 
         IdempotentStore.IdempotentKey idempotentKey =
@@ -156,7 +147,6 @@ class IdempotentAspectTest {
         when(methodSignature.getParameterNames()).thenReturn(new String[] {});
         when(methodSignature.getName()).thenReturn("methodWithShortFormDuration");
         when(methodSignature.getReturnType()).thenAnswer(invocation -> ResponseEntity.class);
-        when(proceedingJoinPoint.getTarget()).thenReturn(this);
         when(proceedingJoinPoint.getArgs()).thenReturn(new Object[] {});
         when(methodSignature.getMethod()).thenReturn(method);
         when(proceedingJoinPoint.proceed()).thenReturn(new ResponseEntity<>("ok", HttpStatus.OK));

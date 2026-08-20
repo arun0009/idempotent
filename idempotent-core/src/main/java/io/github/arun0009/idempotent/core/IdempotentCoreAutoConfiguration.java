@@ -1,6 +1,7 @@
 package io.github.arun0009.idempotent.core;
 
 import io.github.arun0009.idempotent.core.aspect.IdempotentAspect;
+import io.github.arun0009.idempotent.core.metrics.IdempotentMetrics;
 import io.github.arun0009.idempotent.core.persistence.IdempotentStore;
 import io.github.arun0009.idempotent.core.persistence.InMemoryIdempotentStore;
 import io.github.arun0009.idempotent.core.retry.WaitStrategy;
@@ -25,12 +26,19 @@ class IdempotentCoreAutoConfiguration {
     }
 
     @Bean
+    @ConditionalOnMissingBean(IdempotentMetrics.class)
+    IdempotentMetrics idempotentMetrics() {
+        return IdempotentMetrics.NOOP;
+    }
+
+    @Bean
     @ConditionalOnMissingBean(IdempotentService.class)
-    IdempotentService idempotentService(IdempotentStore idempotentStore, IdempotentProperties properties) {
+    IdempotentService idempotentService(
+            IdempotentStore idempotentStore, IdempotentProperties properties, IdempotentMetrics metrics) {
         var inprogress = properties.inprogress();
         var waitStrategy = new WaitStrategy(
                 inprogress.maxRetries(), inprogress.retryInitialInterval(), inprogress.retryMultiplier());
-        return new IdempotentService(idempotentStore, waitStrategy);
+        return new IdempotentService(idempotentStore, waitStrategy, metrics);
     }
 
     /**

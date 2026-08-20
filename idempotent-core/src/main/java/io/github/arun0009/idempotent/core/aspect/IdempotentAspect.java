@@ -61,7 +61,7 @@ public class IdempotentAspect {
 
         key = hashKeyIfRequired(key, annotation);
         var ttl = parseDuration(annotation.duration());
-        var idempotentKey = new IdempotentStore.IdempotentKey(key, processName(pjp));
+        var idempotentKey = new IdempotentStore.IdempotentKey(key, processName(signature));
 
         @SuppressWarnings({"unchecked", "rawtypes"})
         Class<Object> returnType = (Class) signature.getReturnType();
@@ -117,11 +117,8 @@ public class IdempotentAspect {
         return DurationStyle.detectAndParse(value);
     }
 
-    private static String processName(ProceedingJoinPoint pjp) {
-        return "__%s.%s()"
-                .formatted(
-                        pjp.getTarget().getClass().getSimpleName(),
-                        pjp.getSignature().getName());
+    private static String processName(MethodSignature signature) {
+        return "__%s.%s()".formatted(signature.getMethod().getDeclaringClass().getSimpleName(), signature.getName());
     }
 
     private void warnEmptyKeyOnce(Method method) {

@@ -3,6 +3,8 @@ package io.github.arun0009.idempotent.core.service;
 import io.github.arun0009.idempotent.core.exception.IdempotentException;
 import io.github.arun0009.idempotent.core.exception.IdempotentKeyConflictException;
 import io.github.arun0009.idempotent.core.exception.IdempotentWaitExhaustedException;
+import io.github.arun0009.idempotent.core.metrics.IdempotentMetrics;
+import io.github.arun0009.idempotent.core.metrics.IdempotentMetrics.Outcome;
 import io.github.arun0009.idempotent.core.persistence.IdempotentStore;
 import io.github.arun0009.idempotent.core.retry.IdempotentCompletionAwaiter;
 import io.github.arun0009.idempotent.core.retry.WaitStrategy;
@@ -39,14 +41,20 @@ public class IdempotentService {
 
     private final IdempotentStore idempotentStore;
     private final IdempotentCompletionAwaiter completionAwaiter;
+    private final IdempotentMetrics metrics;
 
     public IdempotentService(IdempotentStore idempotentStore) {
-        this(idempotentStore, WaitStrategy.withDefaults());
+        this(idempotentStore, WaitStrategy.withDefaults(), IdempotentMetrics.NOOP);
     }
 
     public IdempotentService(IdempotentStore idempotentStore, WaitStrategy waitStrategy) {
+        this(idempotentStore, waitStrategy, IdempotentMetrics.NOOP);
+    }
+
+    public IdempotentService(IdempotentStore idempotentStore, WaitStrategy waitStrategy, IdempotentMetrics metrics) {
         this.idempotentStore = idempotentStore;
         this.completionAwaiter = new IdempotentCompletionAwaiter(idempotentStore, waitStrategy);
+        this.metrics = metrics;
     }
 
     // ---- Untyped Supplier-based overloads (use Object.class internally) -----------------------
@@ -121,13 +129,16 @@ public class IdempotentService {
 
     private @Nullable Object handleExisting(IdempotentStore.IdempotentKey idempotentKey, IdempotentStore.Value value) {
         if (value.status() == COMPLETED) {
+            metrics.record(idempotentKey.processName(), Outcome.HIT, null);
             return value.response();
         }
         IdempotentStore.Value awaited = completionAwaiter.wait(idempotentKey, value);
         if (awaited != null && awaited.status() == COMPLETED) {
+            metrics.record(idempotentKey.processName(), Outcome.HIT_AFTER_WAIT, null);
             return awaited.response();
         }
         idempotentStore.remove(idempotentKey);
+        metrics.record(idempotentKey.processName(), Outcome.WAIT_EXHAUSTED, null);
         throw new IdempotentWaitExhaustedException(
                 "Operation wait exhausted in progress after multiple retries", idempotentKey);
     }
@@ -143,6 +154,7 @@ public class IdempotentService {
             idempotentStore.store(idempotentKey, new IdempotentStore.Value(IN_PROGRESS, expiresAt, null));
         } catch (IdempotentKeyConflictException e) {
             log.info("Idempotent key conflict for {}; following existing-entry path", idempotentKey.key());
+            metrics.recordConflict(idempotentKey.processName());
             IdempotentStore.Value refetched = idempotentStore.getValue(idempotentKey, returnType);
             if (refetched == null) {
                 throw new IdempotentKeyConflictException(
@@ -153,26 +165,32 @@ public class IdempotentService {
             return result;
         }
 
+        long startNanos = System.nanoTime();
         try {
             T result = operation.execute();
-            updateStoreWithResponse(idempotentKey, result, expiresAt);
+            var elapsed = Duration.ofNanos(System.nanoTime() - startNanos);
+            var successful = updateStoreWithResponse(idempotentKey, result, expiresAt);
+            var outcome = successful ? Outcome.NEW_SUCCESS : Outcome.NEW_FAILURE;
+            metrics.record(idempotentKey.processName(), outcome, elapsed);
             return result;
         } catch (Throwable t) {
             idempotentStore.remove(idempotentKey);
+            metrics.record(
+                    idempotentKey.processName(), Outcome.NEW_FAILURE, Duration.ofNanos(System.nanoTime() - startNanos));
             throw t;
         }
     }
 
-    private void updateStoreWithResponse(
+    private boolean updateStoreWithResponse(
             IdempotentStore.IdempotentKey idempotentKey, @Nullable Object response, Instant expiresAt) {
-        if (response instanceof ResponseEntity<?> responseEntity
-                && !responseEntity.getStatusCode().is2xxSuccessful()) {
+        if (response instanceof ResponseEntity<?> re && !re.getStatusCode().is2xxSuccessful()) {
             // Non-2xx responses are treated as failures and not cached so the caller can retry.
             idempotentStore.remove(idempotentKey);
-            return;
+            return false;
         }
         // Cache the result — including null (void methods or intentional null returns) so
-        // subsequent calls with the same key short-circuit instead of re-executing.
+        // later calls with the same key short-circuit instead of re-executing.
         idempotentStore.update(idempotentKey, new IdempotentStore.Value(COMPLETED, expiresAt, response));
+        return true;
     }
 }

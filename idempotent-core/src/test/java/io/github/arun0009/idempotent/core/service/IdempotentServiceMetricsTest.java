@@ -10,6 +10,7 @@ import io.github.arun0009.idempotent.core.retry.WaitStrategy;
 import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.http.ResponseEntity;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -19,15 +20,12 @@ import java.util.List;
 import static io.github.arun0009.idempotent.core.persistence.IdempotentStore.Status.COMPLETED;
 import static io.github.arun0009.idempotent.core.persistence.IdempotentStore.Status.IN_PROGRESS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class IdempotentServiceMetricsTest {
-
     private static final Duration TTL = Duration.ofMinutes(1);
     private static final String PROCESS = "orders";
-
     private RecordingMetrics metrics;
     private InMemoryIdempotentStore store;
     private IdempotentService service;
@@ -42,102 +40,91 @@ class IdempotentServiceMetricsTest {
     @Test
     void firstExecutionRecordsNewSuccessAndOperationTimer() {
         service.execute(key("k1"), () -> "v", TTL);
-
-        assertEquals(List.of(new OutcomeCall(PROCESS, Outcome.NEW_SUCCESS)), metrics.outcomes);
-        assertEquals(1, metrics.operations.size());
-        assertEquals(PROCESS, metrics.operations.get(0).process());
-        assertTrue(metrics.operations.get(0).success());
+        assertEquals(1, metrics.records.size());
+        assertEquals(Outcome.NEW_SUCCESS, metrics.records.get(0).outcome());
+        assertNotNull(metrics.records.get(0).elapsed());
     }
 
     @Test
     void secondExecutionRecordsHit() {
         service.execute(key("k1"), () -> "v", TTL);
         metrics.clear();
-
         service.execute(key("k1"), () -> "ignored", TTL);
-
-        assertEquals(List.of(new OutcomeCall(PROCESS, Outcome.HIT)), metrics.outcomes);
-        assertEquals(List.of(), metrics.operations, "no operation timer on a cache hit");
+        assertEquals(List.of(new RecordCall(PROCESS, Outcome.HIT, null)), metrics.records);
     }
 
     @Test
     void operationFailureRecordsNewFailureAndFailureTimer() {
-        var key = key("k1");
         assertThrows(
                 IllegalStateException.class,
                 () -> service.execute(
-                        key,
+                        key("k1"),
                         () -> {
                             throw new IllegalStateException("boom");
                         },
                         TTL));
-
-        assertEquals(List.of(new OutcomeCall(PROCESS, Outcome.NEW_FAILURE)), metrics.outcomes);
-        assertEquals(1, metrics.operations.size());
-        assertFalse(metrics.operations.get(0).success());
+        assertEquals(1, metrics.records.size());
+        assertEquals(Outcome.NEW_FAILURE, metrics.records.get(0).outcome());
+        assertNotNull(metrics.records.get(0).elapsed());
     }
 
     @Test
-    void conflictThenCompletedEntryRecordsConflictThenHit() {
-        var conflicting = new SimulatedConflictStore(store);
-        var conflictService = new IdempotentService(conflicting, WaitStrategy.withDefaults(), metrics);
-
+    void conflictThenCompletedEntryRecordsConflictAndHit() {
+        var conflictService =
+                new IdempotentService(new SimulatedConflictStore(store), WaitStrategy.withDefaults(), metrics);
         var result = conflictService.execute(key("k1"), () -> "fresh", TTL);
-
-        assertEquals("concurrent", result, "service should return the entry seeded by the concurrent writer");
-        assertEquals(
-                List.of(new OutcomeCall(PROCESS, Outcome.CONFLICT), new OutcomeCall(PROCESS, Outcome.HIT)),
-                metrics.outcomes);
-        assertEquals(List.of(), metrics.operations, "operation should not run after a conflict");
+        assertEquals("concurrent", result);
+        assertEquals(List.of(PROCESS), metrics.conflicts);
+        assertEquals(List.of(new RecordCall(PROCESS, Outcome.HIT, null)), metrics.records);
     }
 
     @Test
     void waitExhaustedRecordsWaitExhausted() {
-        var fast = new WaitStrategy(1, Duration.ofMillis(1), 1);
-        var waitService = new IdempotentService(store, fast, metrics);
-
-        // Seed an in-progress entry that will never complete during the wait.
+        var waitService = new IdempotentService(store, new WaitStrategy(1, Duration.ofMillis(1), 1), metrics);
         var key = key("stuck");
         store.store(key, new IdempotentStore.Value(IN_PROGRESS, Instant.now().plus(TTL), null));
-
         assertThrows(IdempotentWaitExhaustedException.class, () -> waitService.execute(key, () -> "never", TTL));
-
-        assertEquals(List.of(new OutcomeCall(PROCESS, Outcome.WAIT_EXHAUSTED)), metrics.outcomes);
+        assertEquals(List.of(new RecordCall(PROCESS, Outcome.WAIT_EXHAUSTED, null)), metrics.records);
     }
 
-    private static IdempotentStore.IdempotentKey key(String k) {
-        return new IdempotentStore.IdempotentKey(k, PROCESS);
+    @Test
+    void non2xxResponseRecordsFailureAndCanBeRetried() {
+        var key = key("failed-response");
+        service.execute(key, () -> ResponseEntity.internalServerError().build(), TTL);
+        assertEquals(Outcome.NEW_FAILURE, metrics.records.get(0).outcome());
+        assertNotNull(metrics.records.get(0).elapsed());
+        metrics.clear();
+        service.execute(key, () -> ResponseEntity.ok("retried"), TTL);
+        assertEquals(Outcome.NEW_SUCCESS, metrics.records.get(0).outcome());
     }
 
-    private record OutcomeCall(String process, Outcome outcome) {}
+    private static IdempotentStore.IdempotentKey key(String key) {
+        return new IdempotentStore.IdempotentKey(key, PROCESS);
+    }
 
-    private record OperationCall(String process, boolean success, Duration elapsed) {}
+    private record RecordCall(
+            String process, Outcome outcome, @Nullable Duration elapsed) {}
 
     private static final class RecordingMetrics implements IdempotentMetrics {
-        private final List<OutcomeCall> outcomes = new ArrayList<>();
-        private final List<OperationCall> operations = new ArrayList<>();
+        private final List<RecordCall> records = new ArrayList<>();
+        private final List<String> conflicts = new ArrayList<>();
 
         @Override
-        public void recordOutcome(String process, Outcome outcome) {
-            outcomes.add(new OutcomeCall(process, outcome));
+        public void record(String process, Outcome outcome, @Nullable Duration elapsed) {
+            records.add(new RecordCall(process, outcome, elapsed));
         }
 
         @Override
-        public void recordOperation(String process, boolean success, Duration elapsed) {
-            operations.add(new OperationCall(process, success, elapsed));
+        public void recordConflict(String process) {
+            conflicts.add(process);
         }
 
         void clear() {
-            outcomes.clear();
-            operations.clear();
+            records.clear();
+            conflicts.clear();
         }
     }
 
-    /**
-     * Wraps a real store and simulates a race: the first {@code store()} call seeds a completed
-     * entry into the underlying store (as if another process had inserted it concurrently) and
-     * then throws a conflict, mirroring what a real backend would do.
-     */
     private static final class SimulatedConflictStore implements IdempotentStore {
         private final IdempotentStore delegate;
         private boolean conflicted;

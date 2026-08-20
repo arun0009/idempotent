@@ -95,8 +95,13 @@ Optional Micrometer integration in the `idempotent-micrometer` module:
 
 | Meter | Type | Tags |
 |-------|------|------|
-| `idempotent.executions` | Counter | `process`, `outcome` — `hit`, `hit_after_wait`, `new_success`, `new_failure`, `conflict`, `wait_exhausted` |
-| `idempotent.operation` | Timer | `process`, `outcome` — `success`, `failure` |
+| `idempotent.executions` | Counter | `process`, `outcome` — `hit`, `hit_after_wait`, `new_success`, `new_failure`, `wait_exhausted` |
+| `idempotent.operations` | Timer | `process`, `outcome` — `success`, `failure` |
+| `idempotent.conflicts` | Counter | `process` |
+
+Each request increments `idempotent.executions` once with its terminal outcome. Operation timing
+is recorded only when the operation runs. A lost insert race increments `idempotent.conflicts`
+separately before the request reaches its terminal outcome.
 
 Add the module — it wires a Micrometer-backed implementation automatically when a `MeterRegistry` bean is present, and `IdempotentService` falls back to a no-op otherwise:
 

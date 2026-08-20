@@ -8,6 +8,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.time.Duration;
+import java.util.Locale;
 
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -24,10 +25,10 @@ class MicrometerIdempotentMetricsTest {
     }
 
     @Test
-    void recordOutcomeIncrementsCounterWithProcessAndOutcomeTags() {
-        metrics.recordOutcome("orders", Outcome.HIT);
-        metrics.recordOutcome("orders", Outcome.HIT);
-        metrics.recordOutcome("orders", Outcome.NEW_SUCCESS);
+    void recordIncrementsCounterWithProcessAndOutcomeTags() {
+        metrics.record("orders", Outcome.HIT, null);
+        metrics.record("orders", Outcome.HIT, null);
+        metrics.record("orders", Outcome.NEW_SUCCESS, Duration.ofMillis(1));
 
         var hits = registry.find("idempotent.executions")
                 .tags(Tags.of("process", "orders", "outcome", "hit"))
@@ -43,9 +44,9 @@ class MicrometerIdempotentMetricsTest {
     }
 
     @Test
-    void recordOutcomeKeepsCountersSeparatePerProcess() {
-        metrics.recordOutcome("orders", Outcome.HIT);
-        metrics.recordOutcome("payments", Outcome.HIT);
+    void recordKeepsCountersSeparatePerProcess() {
+        metrics.record("orders", Outcome.HIT, null);
+        metrics.record("payments", Outcome.HIT, null);
 
         var orders = registry.find("idempotent.executions")
                 .tags(Tags.of("process", "orders", "outcome", "hit"))
@@ -61,9 +62,9 @@ class MicrometerIdempotentMetricsTest {
     }
 
     @Test
-    void recordOperationTimerUsesSuccessTagForSuccess() {
-        metrics.recordOperation("orders", true, Duration.ofMillis(25));
-        var timer = registry.find("idempotent.operation")
+    void recordUsesSuccessTimerForNewSuccess() {
+        metrics.record("orders", Outcome.NEW_SUCCESS, Duration.ofMillis(25));
+        var timer = registry.find("idempotent.operations")
                 .tags(Tags.of("process", "orders", "outcome", "success"))
                 .timer();
 
@@ -73,10 +74,10 @@ class MicrometerIdempotentMetricsTest {
     }
 
     @Test
-    void recordOperationTimerUsesFailureTagForFailure() {
-        metrics.recordOperation("orders", false, Duration.ofMillis(10));
+    void recordUsesFailureTimerForNewFailure() {
+        metrics.record("orders", Outcome.NEW_FAILURE, Duration.ofMillis(10));
 
-        var timer = registry.find("idempotent.operation")
+        var timer = registry.find("idempotent.operations")
                 .tags(Tags.of("process", "orders", "outcome", "failure"))
                 .timer();
 
@@ -85,11 +86,26 @@ class MicrometerIdempotentMetricsTest {
     }
 
     @Test
+    void recordWithoutElapsedDoesNotCreateOperationTimer() {
+        metrics.record("orders", Outcome.HIT, null);
+        assertEquals(0, registry.find("idempotent.operations").timers().size());
+    }
+
+    @Test
+    void recordConflictIncrementsDedicatedCounter() {
+        metrics.recordConflict("orders");
+        var counter =
+                registry.find("idempotent.conflicts").tag("process", "orders").counter();
+        assertNotNull(counter);
+        assertEquals(1.0, counter.count());
+    }
+
+    @Test
     void allOutcomeEnumValuesProduceLowercaseTag() {
         for (var outcome : Outcome.values()) {
-            metrics.recordOutcome("orders", outcome);
+            metrics.record("orders", outcome, null);
 
-            var expectedTag = outcome.name().toLowerCase();
+            var expectedTag = outcome.name().toLowerCase(Locale.ROOT);
             var counter = registry.find("idempotent.executions")
                     .tags(Tags.of("process", "orders", "outcome", expectedTag))
                     .counter();

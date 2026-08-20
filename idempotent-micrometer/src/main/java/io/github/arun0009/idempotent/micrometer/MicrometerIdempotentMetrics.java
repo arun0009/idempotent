@@ -3,8 +3,10 @@ package io.github.arun0009.idempotent.micrometer;
 import io.github.arun0009.idempotent.core.metrics.IdempotentMetrics;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Tags;
+import org.jspecify.annotations.Nullable;
 
 import java.time.Duration;
+import java.util.Locale;
 
 /**
  * Micrometer-backed {@link IdempotentMetrics}. This is the only class in the module that
@@ -12,8 +14,6 @@ import java.time.Duration;
  * the library without {@code NoClassDefFoundError}.
  */
 public final class MicrometerIdempotentMetrics implements IdempotentMetrics {
-    private static final String EXECUTIONS_METRIC = "idempotent.executions";
-    private static final String OPERATION_METRIC = "idempotent.operation";
     private final MeterRegistry registry;
 
     public MicrometerIdempotentMetrics(MeterRegistry registry) {
@@ -21,18 +21,25 @@ public final class MicrometerIdempotentMetrics implements IdempotentMetrics {
     }
 
     @Override
-    public void recordOutcome(String process, Outcome outcome) {
-        registry.counter(EXECUTIONS_METRIC, Tags.of("process", process, "outcome", tag(outcome)))
-                .increment();
+    public void record(String process, Outcome outcome, @Nullable Duration elapsed) {
+        incCounter("idempotent.executions", Tags.of("process", process, "outcome", tag(outcome)));
+        if (elapsed != null) {
+            var operationOutcome = outcome == Outcome.NEW_SUCCESS ? "success" : "failure";
+            var tags = Tags.of("process", process, "outcome", operationOutcome);
+            registry.timer("idempotent.operations", tags).record(elapsed);
+        }
     }
 
     @Override
-    public void recordOperation(String process, boolean success, Duration elapsed) {
-        registry.timer(OPERATION_METRIC, Tags.of("process", process, "outcome", success ? "success" : "failure"))
-                .record(elapsed);
+    public void recordConflict(String process) {
+        incCounter("idempotent.conflicts", Tags.of("process", process));
+    }
+
+    private void incCounter(String name, Tags process) {
+        registry.counter(name, process).increment();
     }
 
     private static String tag(Outcome outcome) {
-        return outcome.name().toLowerCase();
+        return outcome.name().toLowerCase(Locale.ROOT);
     }
 }

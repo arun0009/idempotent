@@ -83,7 +83,7 @@ class IdempotentMetricsApplicationTest {
 
     private io.micrometer.core.instrument.Timer operations(String outcome) {
         return requireNonNull(meterRegistry
-                .find("idempotent.operation")
+                .find("idempotent.operations")
                 .tag("outcome", outcome)
                 .timer());
     }

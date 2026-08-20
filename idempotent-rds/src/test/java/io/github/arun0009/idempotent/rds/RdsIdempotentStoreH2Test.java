@@ -14,11 +14,11 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
-import tools.jackson.databind.json.JsonMapper;
 
 import javax.sql.DataSource;
 import java.time.Duration;
@@ -65,10 +65,10 @@ class RdsIdempotentStoreH2Test {
 
         @Bean
         public IdempotentStore idempotentStore(JdbcTemplate jdbcTemplate) {
-            var builder = JsonMapper.builder();
-            IdempotentJsonMapperDefaults.applyPermissivePolymorphicTyping(builder);
             return new RdsIdempotentStore(
-                    jdbcTemplate, "idempotent", new JacksonIdempotentPayloadCodec(builder.build()));
+                    jdbcTemplate,
+                    "idempotent",
+                    new JacksonIdempotentPayloadCodec(IdempotentJsonMapperDefaults.buildPermissiveMapper()));
         }
 
         @Bean
@@ -155,6 +155,25 @@ class RdsIdempotentStoreH2Test {
         assertEquals(TestRecord.class, retrieved.response().getClass());
         assertEquals("hello", ((TestRecord) retrieved.response()).name());
         assertEquals(42, ((TestRecord) retrieved.response()).value());
+    }
+
+    @Test
+    void testResponseEntityRoundTrip() {
+        var key = new IdempotentKey("response-entity-key", "test-process");
+        var response = ResponseEntity.status(201).header("X-Trace", "abc").body(new TestRecord("hello", 42));
+        var value = new Value(Status.COMPLETED, Instant.now().plusMillis(5000), response);
+
+        idempotentStore.store(key, value);
+
+        var retrieved = idempotentStore.getValue(key, ResponseEntity.class);
+        assertNotNull(retrieved);
+        assertEquals(Status.COMPLETED, retrieved.status());
+        assertNotNull(retrieved.response());
+
+        var roundTripped = (ResponseEntity<?>) retrieved.response();
+        assertEquals(201, roundTripped.getStatusCode().value());
+        assertEquals("abc", roundTripped.getHeaders().getFirst("X-Trace"));
+        assertEquals(new TestRecord("hello", 42), roundTripped.getBody());
     }
 
     @Test

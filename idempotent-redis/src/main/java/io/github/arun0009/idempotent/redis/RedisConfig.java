@@ -13,7 +13,6 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.data.redis.serializer.JdkSerializationRedisSerializer;
 import org.springframework.data.redis.serializer.RedisSerializer;
 
 /**
@@ -46,21 +45,11 @@ public class RedisConfig {
             return template;
         }
 
-        switch (properties.strategy()) {
-            case JAVA -> {
-                var jdkSerializer = new JdkSerializationRedisSerializer();
-                template.setKeySerializer(jdkSerializer);
-                template.setValueSerializer(jdkSerializer);
-            }
-            case JSON -> {
-                var keySerializer = new IdempotentPayloadRedisSerializer<>(
-                        idempotentPayloadCodec, IdempotentStore.IdempotentKey.class);
-                var valueSerializer =
-                        new IdempotentPayloadRedisSerializer<>(idempotentPayloadCodec, IdempotentStore.Value.class);
-                template.setKeySerializer(keySerializer);
-                template.setValueSerializer(valueSerializer);
-            }
-        }
+        template.setKeySerializer(
+                new IdempotentPayloadRedisSerializer<>(idempotentPayloadCodec, IdempotentStore.IdempotentKey.class));
+        template.setValueSerializer(
+                new IdempotentPayloadRedisSerializer<>(idempotentPayloadCodec, IdempotentStore.Value.class));
+
         return template;
     }
 

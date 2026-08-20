@@ -34,18 +34,18 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 @Aspect
 public class IdempotentAspect {
-
     private static final Logger log = LoggerFactory.getLogger(IdempotentAspect.class);
 
     private final IdempotentService idempotentService;
     private final ExpressionParser parser;
     private final String idempotentKeyHeader;
-    private final Set<Method> warnedEmptyKeyMethods = ConcurrentHashMap.newKeySet();
+    private final Set<Method> warnedEmptyKeyMethods;
 
     public IdempotentAspect(IdempotentService idempotentService, IdempotentProperties properties) {
         this.idempotentService = idempotentService;
         this.idempotentKeyHeader = properties.keyHeader();
         this.parser = new SpelExpressionParser();
+        this.warnedEmptyKeyMethods = ConcurrentHashMap.newKeySet();
     }
 
     @Around("@annotation(io.github.arun0009.idempotent.core.annotation.Idempotent)")

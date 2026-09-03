@@ -21,6 +21,7 @@ class RdsSchemaStatementsTest {
                             status VARCHAR(50) NOT NULL,
                             expires_at BIGINT NOT NULL,
                             response MEDIUMTEXT,
+                            attributes MEDIUMTEXT,
                             PRIMARY KEY (key_id, process_name),
                             KEY idx_idempotent_expires_at (expires_at)
                         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"""), RdsSchemaStatements.ddl(RdsDialect.MYSQL, "idempotent"));
@@ -49,6 +50,7 @@ class RdsSchemaStatementsTest {
                             status VARCHAR(50) NOT NULL,
                             expires_at BIGINT NOT NULL,
                             response TEXT,
+                            attributes TEXT,
                             PRIMARY KEY (key_id, process_name)
                         )""", "CREATE INDEX IF NOT EXISTS idx_idempotent_expires_at ON idempotent (expires_at)"),
                 RdsSchemaStatements.ddl(dialect, "idempotent"));

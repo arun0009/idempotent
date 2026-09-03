@@ -1,5 +1,6 @@
 package io.github.arun0009.idempotent.core.service;
 
+import io.github.arun0009.idempotent.core.IdempotentKeyAuthorization;
 import io.github.arun0009.idempotent.core.exception.IdempotentException;
 import io.github.arun0009.idempotent.core.exception.IdempotentKeyConflictException;
 import io.github.arun0009.idempotent.core.exception.IdempotentWaitExhaustedException;
@@ -15,6 +16,7 @@ import org.springframework.http.ResponseEntity;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Map;
 import java.util.Objects;
 import java.util.function.Supplier;
 
@@ -34,6 +36,11 @@ import static io.github.arun0009.idempotent.core.persistence.IdempotentStore.Sta
  * <h2>Exception propagation</h2>
  * Domain exceptions thrown by the operation propagate to the caller as-is (no wrapping in
  * {@link IdempotentException}). Cleanup of the in-progress entry happens before the throw.
+ *
+ * <h2>Key ownership</h2>
+ * An optional {@link IdempotentKeyAuthorization} binds each key to whoever claimed it. Its attributes are
+ * captured when the key is claimed and verified on every read of an existing entry, before a cached
+ * response is returned and before any in-progress wait. Defaults to {@link IdempotentKeyAuthorization#NOOP}.
  */
 public class IdempotentService {
 
@@ -42,6 +49,7 @@ public class IdempotentService {
     private final IdempotentStore idempotentStore;
     private final IdempotentCompletionAwaiter completionAwaiter;
     private final IdempotentMetrics metrics;
+    private final IdempotentKeyAuthorization keyGuard;
 
     public IdempotentService(IdempotentStore idempotentStore) {
         this(idempotentStore, WaitStrategy.withDefaults(), IdempotentMetrics.NOOP);
@@ -52,9 +60,18 @@ public class IdempotentService {
     }
 
     public IdempotentService(IdempotentStore idempotentStore, WaitStrategy waitStrategy, IdempotentMetrics metrics) {
+        this(idempotentStore, waitStrategy, metrics, IdempotentKeyAuthorization.NOOP);
+    }
+
+    public IdempotentService(
+            IdempotentStore idempotentStore,
+            WaitStrategy waitStrategy,
+            IdempotentMetrics metrics,
+            IdempotentKeyAuthorization keyGuard) {
         this.idempotentStore = idempotentStore;
         this.completionAwaiter = new IdempotentCompletionAwaiter(idempotentStore, waitStrategy);
         this.metrics = metrics;
+        this.keyGuard = keyGuard;
     }
 
     // ---- Untyped Supplier-based overloads (use Object.class internally) -----------------------
@@ -128,6 +145,8 @@ public class IdempotentService {
     }
 
     private @Nullable Object handleExisting(IdempotentStore.IdempotentKey idempotentKey, IdempotentStore.Value value) {
+        // Fail fast before waiting
+        keyGuard.authorize(idempotentKey, value.attributes());
         if (value.status() == COMPLETED) {
             metrics.record(idempotentKey.processName(), Outcome.HIT, null);
             return value.response();
@@ -150,8 +169,9 @@ public class IdempotentService {
             Duration ttl)
             throws Throwable {
         var expiresAt = Instant.now().plus(ttl);
+        var attributes = keyGuard.getClaimAttributes(idempotentKey);
         try {
-            idempotentStore.store(idempotentKey, new IdempotentStore.Value(IN_PROGRESS, expiresAt, null));
+            idempotentStore.store(idempotentKey, new IdempotentStore.Value(IN_PROGRESS, expiresAt, null, attributes));
         } catch (IdempotentKeyConflictException e) {
             log.info("Idempotent key conflict for {}; following existing-entry path", idempotentKey.key());
             metrics.recordConflict(idempotentKey.processName());
@@ -169,7 +189,7 @@ public class IdempotentService {
         try {
             T result = operation.execute();
             var elapsed = Duration.ofNanos(System.nanoTime() - startNanos);
-            var successful = updateStoreWithResponse(idempotentKey, result, expiresAt);
+            var successful = updateStoreWithResponse(idempotentKey, result, expiresAt, attributes);
             var outcome = successful ? Outcome.NEW_SUCCESS : Outcome.NEW_FAILURE;
             metrics.record(idempotentKey.processName(), outcome, elapsed);
             return result;
@@ -182,7 +202,10 @@ public class IdempotentService {
     }
 
     private boolean updateStoreWithResponse(
-            IdempotentStore.IdempotentKey idempotentKey, @Nullable Object response, Instant expiresAt) {
+            IdempotentStore.IdempotentKey idempotentKey,
+            @Nullable Object response,
+            Instant expiresAt,
+            Map<String, String> attributes) {
         if (response instanceof ResponseEntity<?> re && !re.getStatusCode().is2xxSuccessful()) {
             // Non-2xx responses are treated as failures and not cached so the caller can retry.
             idempotentStore.remove(idempotentKey);
@@ -190,7 +213,7 @@ public class IdempotentService {
         }
         // Cache the result — including null (void methods or intentional null returns) so
         // later calls with the same key short-circuit instead of re-executing.
-        idempotentStore.update(idempotentKey, new IdempotentStore.Value(COMPLETED, expiresAt, response));
+        idempotentStore.update(idempotentKey, new IdempotentStore.Value(COMPLETED, expiresAt, response, attributes));
         return true;
     }
 }

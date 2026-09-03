@@ -6,6 +6,7 @@ import org.jspecify.annotations.Nullable;
 
 import java.io.Serializable;
 import java.time.Instant;
+import java.util.Map;
 
 /**
  * Persistence contract for idempotent entries.
@@ -100,12 +101,27 @@ public interface IdempotentStore {
     /**
      * Stored value.
      *
-     * @param status    current status of the operation
-     * @param expiresAt absolute expiry instant
-     * @param response  cached response, or {@code null} when no response has been recorded yet
-     *                  (typically while {@link Status#IN_PROGRESS}) or when the response is null
+     * @param status     current status of the operation
+     * @param expiresAt  absolute expiry instant
+     * @param response   cached response, or {@code null} when no response has been recorded yet
+     *                   (typically while {@link Status#IN_PROGRESS}) or when the response is null
+     * @param attributes attributes captured when the key was claimed.
      */
-    record Value(Status status, Instant expiresAt, @Nullable Object response) implements Serializable {}
+    record Value(Status status, Instant expiresAt, @Nullable Object response, Map<String, String> attributes)
+            implements Serializable {
+
+        public Value(
+                Status status, Instant expiresAt, @Nullable Object response, @Nullable Map<String, String> attributes) {
+            this.status = status;
+            this.expiresAt = expiresAt;
+            this.response = response;
+            this.attributes = attributes == null ? Map.of() : Map.copyOf(attributes);
+        }
+
+        public Value(Status status, Instant expiresAt, @Nullable Object response) {
+            this(status, expiresAt, response, Map.of());
+        }
+    }
 
     /** Lifecycle status of an idempotent entry. */
     enum Status {

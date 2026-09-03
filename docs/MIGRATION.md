@@ -36,6 +36,13 @@ This release contains intentional breaking changes to simplify configuration and
 #### RDS storage schema
 
 - Column `expiration_time_millis` renamed to `expires_at` (BIGINT, epoch milliseconds). Recreate or migrate your table before upgrading.
+- Column `attributes` stores claim attributes as serialized JSON. Add it to existing tables before enabling `IdempotentKeyAuthorization`:
+
+```sql
+ALTER TABLE idempotent ADD COLUMN IF NOT EXISTS attributes TEXT;
+```
+
+- Use `MEDIUMTEXT` for `attributes` on MySQL/MariaDB. Existing rows may remain `NULL` and are treated as having no attributes.
 
 #### Jackson customizer interfaces
 

@@ -40,6 +40,7 @@ public class RdsSchemaInitializer implements InitializingBean {
             return;
         }
         create(dialect);
+        migrateAttributes(dialect);
     }
 
     private boolean shouldCreate() {
@@ -61,6 +62,18 @@ public class RdsSchemaInitializer implements InitializingBean {
                 }
                 log.debug("Idempotent table '{}' already exists", tableName, e);
             }
+        }
+    }
+
+    private void migrateAttributes(RdsDialect dialect) {
+        try {
+            jdbcTemplate.execute(RdsSchemaStatements.addAttributesColumn(dialect, tableName));
+        } catch (BadSqlGrammarException e) {
+            // Existing installations may manage schema changes outside this initializer.
+            log.warn(
+                    "Could not add attributes column to idempotent table '{}'; apply the migration manually",
+                    tableName,
+                    e);
         }
     }
 

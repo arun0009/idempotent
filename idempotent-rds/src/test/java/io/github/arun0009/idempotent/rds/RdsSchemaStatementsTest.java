@@ -26,6 +26,16 @@ class RdsSchemaStatementsTest {
                         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"""), RdsSchemaStatements.ddl(RdsDialect.MYSQL, "idempotent"));
     }
 
+    @Test
+    void rendersAttributesMigration() {
+        assertEquals(
+                "ALTER TABLE idempotent ADD COLUMN IF NOT EXISTS attributes TEXT",
+                RdsSchemaStatements.addAttributesColumn(RdsDialect.POSTGRES, "idempotent"));
+        assertEquals(
+                "ALTER TABLE idempotent ADD COLUMN IF NOT EXISTS attributes MEDIUMTEXT",
+                RdsSchemaStatements.addAttributesColumn(RdsDialect.MYSQL, "idempotent"));
+    }
+
     @ParameterizedTest
     @EnumSource(
             value = RdsDialect.class,

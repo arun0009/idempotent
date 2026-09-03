@@ -21,6 +21,7 @@ final class RdsSchemaStatements {
                         status VARCHAR(50) NOT NULL,
                         expires_at BIGINT NOT NULL,
                         response MEDIUMTEXT,
+                        attributes MEDIUMTEXT,
                         PRIMARY KEY (key_id, process_name),
                         KEY %s (expires_at)
                     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4""".formatted(tableName, indexName));
@@ -33,10 +34,19 @@ final class RdsSchemaStatements {
                             status VARCHAR(50) NOT NULL,
                             expires_at BIGINT NOT NULL,
                             response TEXT,
+                            attributes TEXT,
                             PRIMARY KEY (key_id, process_name)
                         )""".formatted(tableName),
                         "CREATE INDEX IF NOT EXISTS %s ON %s (expires_at)".formatted(indexName, tableName));
             case GENERIC -> throw new IllegalArgumentException("No DDL for unrecognized database: " + tableName);
+        };
+    }
+
+    static String addAttributesColumn(RdsDialect dialect, String tableName) {
+        return switch (dialect) {
+            case MYSQL -> "ALTER TABLE %s ADD COLUMN IF NOT EXISTS attributes MEDIUMTEXT".formatted(tableName);
+            case POSTGRES, H2 -> "ALTER TABLE %s ADD COLUMN IF NOT EXISTS attributes TEXT".formatted(tableName);
+            case GENERIC -> throw new IllegalArgumentException("No migration for unrecognized database: " + tableName);
         };
     }
 

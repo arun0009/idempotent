@@ -31,14 +31,27 @@ class IdempotentCoreAutoConfiguration {
         return IdempotentMetrics.NOOP;
     }
 
+    /**
+     * Key ownership is opt-in: without a user-supplied {@link IdempotentKeyAuthorization} bean, no
+     * attributes are recorded and every caller may use any key.
+     */
+    @Bean
+    @ConditionalOnMissingBean(IdempotentKeyAuthorization.class)
+    IdempotentKeyAuthorization idempotentKeyGuard() {
+        return IdempotentKeyAuthorization.NOOP;
+    }
+
     @Bean
     @ConditionalOnMissingBean(IdempotentService.class)
     IdempotentService idempotentService(
-            IdempotentStore idempotentStore, IdempotentProperties properties, IdempotentMetrics metrics) {
+            IdempotentStore idempotentStore,
+            IdempotentProperties properties,
+            IdempotentMetrics metrics,
+            IdempotentKeyAuthorization keyGuard) {
         var inprogress = properties.inprogress();
         var waitStrategy = new WaitStrategy(
                 inprogress.maxRetries(), inprogress.retryInitialInterval(), inprogress.retryMultiplier());
-        return new IdempotentService(idempotentStore, waitStrategy, metrics);
+        return new IdempotentService(idempotentStore, waitStrategy, metrics, keyGuard);
     }
 
     /**

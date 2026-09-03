@@ -40,6 +40,7 @@ public class RdsSchemaInitializer implements InitializingBean {
             return;
         }
         create(dialect);
+        migrateAttributes(dialect);
     }
 
     private boolean shouldCreate() {
@@ -64,9 +65,33 @@ public class RdsSchemaInitializer implements InitializingBean {
         }
     }
 
+    private void migrateAttributes(RdsDialect dialect) {
+        if (existsColAttributes()) {
+            return;
+        }
+        try {
+            jdbcTemplate.execute(RdsSchemaStatements.addAttributesColumn(dialect, tableName));
+        } catch (BadSqlGrammarException e) {
+            // Existing installations may manage schema changes outside this initializer.
+            log.warn(
+                    "Could not add attributes column to idempotent table '{}'; apply the migration manually",
+                    tableName,
+                    e);
+        }
+    }
+
     private boolean tableExists() {
         try {
             jdbcTemplate.execute("SELECT 1 FROM %s WHERE 1 = 0".formatted(tableName));
+            return true;
+        } catch (BadSqlGrammarException e) {
+            return false;
+        }
+    }
+
+    private boolean existsColAttributes() {
+        try {
+            jdbcTemplate.execute("SELECT attributes FROM %s WHERE 1 = 0".formatted(tableName));
             return true;
         } catch (BadSqlGrammarException e) {
             return false;

@@ -1,5 +1,6 @@
 package io.github.arun0009.idempotent.core.serialization;
 
+import io.github.arun0009.idempotent.core.persistence.IdempotentStore;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpHeaders;
@@ -7,7 +8,9 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
 import java.io.Serializable;
+import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
@@ -116,6 +119,46 @@ class JacksonIdempotentPayloadCodecTest {
         assertEquals(204, re.getStatusCode().value());
         assertNull(re.getBody());
         assertEquals(List.of("1"), re.getHeaders().get("X-Count"));
+    }
+
+    @Test
+    void valueWithAttributesRoundTrips() {
+        var original = new IdempotentStore.Value(
+                IdempotentStore.Status.COMPLETED,
+                Instant.parse("2026-01-01T00:00:00Z"),
+                "body",
+                Map.of("owner", "user-1"));
+
+        var deserialized = codec.deserializeFromBytes(codec.serializeToBytes(original), IdempotentStore.Value.class);
+
+        assertEquals(IdempotentStore.Status.COMPLETED, deserialized.status());
+        assertEquals(Instant.parse("2026-01-01T00:00:00Z"), deserialized.expiresAt());
+        assertEquals("body", deserialized.response());
+        assertEquals(Map.of("owner", "user-1"), deserialized.attributes());
+    }
+
+    @Test
+    void valueWithoutAttributesFieldDeserializesToEmptyMap() {
+        // Entries persisted before `attributes` existed have no such field.
+        // language=JSON
+        var legacyJson = """
+                {
+                  "@class": "io.github.arun0009.idempotent.core.persistence.IdempotentStore$Value",
+                  "status": [
+                    "io.github.arun0009.idempotent.core.persistence.IdempotentStore$Status",
+                    "COMPLETED"
+                  ],
+                  "expiresAt": [
+                    "java.time.Instant",
+                    "2026-01-01T00:00:00Z"
+                  ],
+                  "response": "body"
+                }""";
+
+        var deserialized = codec.deserializeFromBytes(legacyJson.getBytes(), IdempotentStore.Value.class);
+        assertEquals(IdempotentStore.Status.COMPLETED, deserialized.status());
+        assertEquals("body", deserialized.response());
+        assertEquals(Map.of(), deserialized.attributes());
     }
 
     @Test

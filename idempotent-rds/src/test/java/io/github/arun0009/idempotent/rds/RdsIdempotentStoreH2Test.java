@@ -24,6 +24,7 @@ import org.springframework.test.context.junit.jupiter.SpringExtension;
 import javax.sql.DataSource;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -102,6 +103,18 @@ class RdsIdempotentStoreH2Test {
         assertNotNull(retrieved);
         assertEquals(Status.COMPLETED, retrieved.status());
         assertEquals("success", retrieved.response());
+    }
+
+    @Test
+    void testAttributesRoundTrip() {
+        IdempotentKey key = new IdempotentKey("attributes-key", "test-process");
+        Value value = new Value(Status.COMPLETED, Instant.now().plusMillis(5000), "success", Map.of("owner", "user-1"));
+
+        idempotentStore.store(key, value);
+
+        var retrieved = idempotentStore.getValue(key, String.class);
+        assertNotNull(retrieved);
+        assertEquals(Map.of("owner", "user-1"), retrieved.attributes());
     }
 
     @Test

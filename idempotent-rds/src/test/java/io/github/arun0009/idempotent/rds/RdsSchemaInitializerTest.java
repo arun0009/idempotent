@@ -78,6 +78,33 @@ class RdsSchemaInitializerTest {
     }
 
     @Test
+    void addsAttributesColumnToLegacyTable() {
+        jdbcTemplate.execute("""
+                CREATE TABLE idempotent (
+                    key_id VARCHAR(255) NOT NULL,
+                    process_name VARCHAR(255) NOT NULL,
+                    status VARCHAR(50) NOT NULL,
+                    expires_at BIGINT NOT NULL,
+                    response TEXT,
+                    PRIMARY KEY (key_id, process_name)
+                )""");
+
+        initializer("idempotent", DatabaseInitializationMode.ALWAYS).afterPropertiesSet();
+
+        assertDoesNotThrow(() -> jdbcTemplate.execute("SELECT attributes FROM idempotent WHERE 1 = 0"));
+    }
+
+    @Test
+    void skipsAttributesMigrationWhenColumnExists() {
+        initializer("idempotent", DatabaseInitializationMode.ALWAYS).afterPropertiesSet();
+        var spy = Mockito.spy(jdbcTemplate);
+
+        new RdsSchemaInitializer(dataSource, spy, "idempotent", DatabaseInitializationMode.ALWAYS).afterPropertiesSet();
+
+        Mockito.verify(spy, never()).execute(startsWith("ALTER TABLE"));
+    }
+
+    @Test
     void doesNothingWhenNever() {
         initializer("idempotent", DatabaseInitializationMode.NEVER).afterPropertiesSet();
 

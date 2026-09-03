@@ -9,11 +9,13 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.sql.init.DatabaseInitializationMode;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 
+import javax.sql.DataSource;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -36,6 +38,9 @@ class RdsIdempotentStoreMySQLTest {
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
+
+    @Autowired
+    private DataSource dataSource;
 
     @BeforeEach
     void setUp() {
@@ -136,6 +141,26 @@ class RdsIdempotentStoreMySQLTest {
         assertEquals(123, response.get("id"));
         assertEquals("active", response.get("status"));
         assertEquals(List.of("tag1", "tag2"), response.get("tags"));
+    }
+
+    @Test
+    void testAttributesMigrationOnLegacyTable() {
+        jdbcTemplate.execute("DROP TABLE IF EXISTS legacy_idempotent");
+        jdbcTemplate.execute("""
+                CREATE TABLE legacy_idempotent (
+                    key_id VARCHAR(255) NOT NULL,
+                    process_name VARCHAR(255) NOT NULL,
+                    status VARCHAR(50) NOT NULL,
+                    expires_at BIGINT NOT NULL,
+                    response MEDIUMTEXT,
+                    PRIMARY KEY (key_id, process_name)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4""");
+
+        new RdsSchemaInitializer(dataSource, jdbcTemplate, "legacy_idempotent", DatabaseInitializationMode.ALWAYS)
+                .afterPropertiesSet();
+
+        jdbcTemplate.execute("SELECT attributes FROM legacy_idempotent WHERE 1 = 0");
+        jdbcTemplate.execute("DROP TABLE legacy_idempotent");
     }
 
     @Test

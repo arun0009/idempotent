@@ -11,6 +11,7 @@ import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 import java.time.Instant;
+import java.util.Map;
 
 /**
  * RDS idempotent store using JdbcTemplate with atomic race condition protection.
@@ -30,7 +31,7 @@ public class RdsIdempotentStore implements IdempotentStore {
     @Override
     public @Nullable Value loadValue(IdempotentKey key, Class<?> returnType) {
         var sql = """
-                SELECT status, expires_at, response FROM %s WHERE key_id = ? AND process_name = ?
+                SELECT status, expires_at, response, attributes FROM %s WHERE key_id = ? AND process_name = ?
                 """.formatted(tableName);
         try {
             var value = jdbcTemplate.queryForObject(
@@ -40,7 +41,8 @@ public class RdsIdempotentStore implements IdempotentStore {
                         Instant expiresAt = Instant.ofEpochMilli(rs.getLong("expires_at"));
                         String serializedResponse = rs.getString("response");
                         Object response = payloadCodec.deserializeFromString(serializedResponse, returnType);
-                        return new Value(status, expiresAt, response);
+                        Map<String, String> attributes = deserializeAttributes(rs.getString("attributes"));
+                        return new Value(status, expiresAt, response, attributes);
                     },
                     key.key(),
                     key.processName());
@@ -50,13 +52,23 @@ public class RdsIdempotentStore implements IdempotentStore {
         }
     }
 
+    @SuppressWarnings("unchecked")
+    private Map<String, String> deserializeAttributes(@Nullable String serializedAttributes) {
+        if (serializedAttributes == null) {
+            return Map.of();
+        }
+        var attributes = payloadCodec.deserializeFromString(serializedAttributes, Map.class);
+        return attributes == null ? Map.of() : (Map<String, String>) attributes;
+    }
+
     @Override
     public void store(IdempotentKey key, Value value) {
         try {
             var serializedResponse = payloadCodec.serializeToString(value.response());
+            var serializedAttributes = payloadCodec.serializeToString(value.attributes());
             var sql = """
-                    INSERT INTO %s (key_id, process_name, status, expires_at, response)
-                    VALUES (?, ?, ?, ?, ?)
+                    INSERT INTO %s (key_id, process_name, status, expires_at, response, attributes)
+                    VALUES (?, ?, ?, ?, ?, ?)
                     """.formatted(tableName);
             jdbcTemplate.update(
                     sql,
@@ -64,7 +76,8 @@ public class RdsIdempotentStore implements IdempotentStore {
                     key.processName(),
                     value.status().name(),
                     value.expiresAt().toEpochMilli(),
-                    serializedResponse);
+                    serializedResponse,
+                    serializedAttributes);
         } catch (IdempotentPayloadCodecException e) {
             throw new IdempotentException("Error serializing value response", e);
         } catch (DuplicateKeyException e) {
@@ -84,8 +97,9 @@ public class RdsIdempotentStore implements IdempotentStore {
     public void update(IdempotentKey key, Value value) {
         try {
             var serializedResponse = payloadCodec.serializeToString(value.response());
+            var serializedAttributes = payloadCodec.serializeToString(value.attributes());
             var sql = """
-                    UPDATE %s SET status = ?, expires_at = ?, response = ?
+                    UPDATE %s SET status = ?, expires_at = ?, response = ?, attributes = ?
                     WHERE key_id = ? AND process_name = ?
                     """.formatted(tableName);
             jdbcTemplate.update(
@@ -93,6 +107,7 @@ public class RdsIdempotentStore implements IdempotentStore {
                     value.status().name(),
                     value.expiresAt().toEpochMilli(),
                     serializedResponse,
+                    serializedAttributes,
                     key.key(),
                     key.processName());
         } catch (IdempotentPayloadCodecException e) {

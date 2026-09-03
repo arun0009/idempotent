@@ -40,13 +40,24 @@ CREATE TABLE idempotent (
 	status       VARCHAR(50)  NOT NULL,
 	expires_at   BIGINT       NOT NULL,
 	response     TEXT,
+	attributes   TEXT,
 	PRIMARY KEY (key_id, process_name)
 );
 
 CREATE INDEX idx_idempotent_expires_at ON idempotent (expires_at);
 ```
 
-On MySQL/MariaDB use `MEDIUMTEXT` for `response` (`TEXT` is 64KB).
+On MySQL/MariaDB use `MEDIUMTEXT` for `response` and `attributes` (`TEXT` is 64KB).
+
+For an existing table, add the authorization column before enabling key authorization:
+
+```sql
+ALTER TABLE idempotent ADD COLUMN IF NOT EXISTS attributes TEXT;
+```
+
+Use `MEDIUMTEXT` instead of `TEXT` on MySQL/MariaDB, and drop `IF NOT EXISTS` on MySQL, which does not support it on `ADD COLUMN` (MariaDB does). 
+When `initialize-schema` is enabled, the initializer creates the column and applies this migration automatically; production deployments
+should preferably run it through Flyway, Liquibase, or the normal database migration process.
 
 `expires_at` is epoch **milliseconds**. The composite primary key serves point lookups; the `expires_at` index serves the cleanup task. Unrecognized dialects fall back to a generic implementation with a startup warning.
 

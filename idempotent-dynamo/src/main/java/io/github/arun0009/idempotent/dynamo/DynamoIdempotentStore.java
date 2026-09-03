@@ -64,6 +64,7 @@ public class DynamoIdempotentStore implements IdempotentStore {
                 .sortValue(idempotentKey.processName())
                 .build();
         var idempotentItem = getTable().getItem(dynamoKey);
+        //noinspection ConstantValue
         if (idempotentItem == null) {
             return null;
         }

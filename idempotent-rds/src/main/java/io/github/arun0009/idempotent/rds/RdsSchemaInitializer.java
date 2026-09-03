@@ -66,6 +66,9 @@ public class RdsSchemaInitializer implements InitializingBean {
     }
 
     private void migrateAttributes(RdsDialect dialect) {
+        if (existsColAttributes()) {
+            return;
+        }
         try {
             jdbcTemplate.execute(RdsSchemaStatements.addAttributesColumn(dialect, tableName));
         } catch (BadSqlGrammarException e) {
@@ -80,6 +83,15 @@ public class RdsSchemaInitializer implements InitializingBean {
     private boolean tableExists() {
         try {
             jdbcTemplate.execute("SELECT 1 FROM %s WHERE 1 = 0".formatted(tableName));
+            return true;
+        } catch (BadSqlGrammarException e) {
+            return false;
+        }
+    }
+
+    private boolean existsColAttributes() {
+        try {
+            jdbcTemplate.execute("SELECT attributes FROM %s WHERE 1 = 0".formatted(tableName));
             return true;
         } catch (BadSqlGrammarException e) {
             return false;

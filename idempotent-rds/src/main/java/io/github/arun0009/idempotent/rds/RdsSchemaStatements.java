@@ -44,7 +44,8 @@ final class RdsSchemaStatements {
 
     static String addAttributesColumn(RdsDialect dialect, String tableName) {
         return switch (dialect) {
-            case MYSQL -> "ALTER TABLE %s ADD COLUMN IF NOT EXISTS attributes MEDIUMTEXT".formatted(tableName);
+            // MySQL has no ADD COLUMN IF NOT EXISTS; callers check for the column first.
+            case MYSQL -> "ALTER TABLE %s ADD COLUMN attributes MEDIUMTEXT".formatted(tableName);
             case POSTGRES, H2 -> "ALTER TABLE %s ADD COLUMN IF NOT EXISTS attributes TEXT".formatted(tableName);
             case GENERIC -> throw new IllegalArgumentException("No migration for unrecognized database: " + tableName);
         };

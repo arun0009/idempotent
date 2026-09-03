@@ -55,8 +55,8 @@ For an existing table, add the authorization column before enabling key authoriz
 ALTER TABLE idempotent ADD COLUMN IF NOT EXISTS attributes TEXT;
 ```
 
-Use `MEDIUMTEXT` instead of `TEXT` on MySQL/MariaDB. When `initialize-schema` is enabled, the
-initializer creates the column and applies this migration automatically; production deployments
+Use `MEDIUMTEXT` instead of `TEXT` on MySQL/MariaDB, and drop `IF NOT EXISTS` on MySQL, which does not support it on `ADD COLUMN` (MariaDB does). 
+When `initialize-schema` is enabled, the initializer creates the column and applies this migration automatically; production deployments
 should preferably run it through Flyway, Liquibase, or the normal database migration process.
 
 `expires_at` is epoch **milliseconds**. The composite primary key serves point lookups; the `expires_at` index serves the cleanup task. Unrecognized dialects fall back to a generic implementation with a startup warning.

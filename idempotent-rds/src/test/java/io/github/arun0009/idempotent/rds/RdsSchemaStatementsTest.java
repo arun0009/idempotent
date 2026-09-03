@@ -33,7 +33,7 @@ class RdsSchemaStatementsTest {
                 "ALTER TABLE idempotent ADD COLUMN IF NOT EXISTS attributes TEXT",
                 RdsSchemaStatements.addAttributesColumn(RdsDialect.POSTGRES, "idempotent"));
         assertEquals(
-                "ALTER TABLE idempotent ADD COLUMN IF NOT EXISTS attributes MEDIUMTEXT",
+                "ALTER TABLE idempotent ADD COLUMN attributes MEDIUMTEXT",
                 RdsSchemaStatements.addAttributesColumn(RdsDialect.MYSQL, "idempotent"));
     }
 

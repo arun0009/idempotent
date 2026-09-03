@@ -42,7 +42,7 @@ This release contains intentional breaking changes to simplify configuration and
 ALTER TABLE idempotent ADD COLUMN IF NOT EXISTS attributes TEXT;
 ```
 
-- Use `MEDIUMTEXT` for `attributes` on MySQL/MariaDB. Existing rows may remain `NULL` and are treated as having no attributes.
+- On MySQL use `MEDIUMTEXT` for `attributes` and drop `IF NOT EXISTS`, which MySQL does not support on `ADD COLUMN` (MariaDB does). Existing rows may remain `NULL` and are treated as having no attributes.
 
 #### Jackson customizer interfaces
 

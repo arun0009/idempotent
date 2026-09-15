@@ -37,12 +37,21 @@ public class IdempotentAspect {
     private static final Logger log = LoggerFactory.getLogger(IdempotentAspect.class);
 
     private final IdempotentService idempotentService;
+    private final IdempotencyKeyValidator idempotentKeyValidator;
     private final ExpressionParser parser;
     private final String idempotentKeyHeader;
     private final Set<Method> warnedEmptyKeyMethods;
 
     public IdempotentAspect(IdempotentService idempotentService, IdempotentProperties properties) {
+        this(idempotentService, properties, IdempotencyKeyValidator.NOOP);
+    }
+
+    public IdempotentAspect(
+            IdempotentService idempotentService,
+            IdempotentProperties properties,
+            IdempotencyKeyValidator idempotentKeyValidator) {
         this.idempotentService = idempotentService;
+        this.idempotentKeyValidator = idempotentKeyValidator;
         this.idempotentKeyHeader = properties.keyHeader();
         this.parser = new SpelExpressionParser();
         this.warnedEmptyKeyMethods = ConcurrentHashMap.newKeySet();
@@ -53,7 +62,7 @@ public class IdempotentAspect {
         var signature = (MethodSignature) pjp.getSignature();
         var annotation = signature.getMethod().getAnnotation(Idempotent.class);
 
-        String key = resolveKey(pjp, signature, annotation);
+        String key = resolveValidKey(pjp, signature, annotation);
         if (key == null || key.isEmpty()) {
             warnEmptyKeyOnce(signature.getMethod());
             return pjp.proceed();
@@ -69,9 +78,11 @@ public class IdempotentAspect {
         return idempotentService.executeThrowable(idempotentKey, returnType, pjp::proceed, ttl);
     }
 
-    private @Nullable String resolveKey(ProceedingJoinPoint pjp, MethodSignature signature, Idempotent annotation) {
+    private @Nullable String resolveValidKey(
+            ProceedingJoinPoint pjp, MethodSignature signature, Idempotent annotation) {
         String key = headerKey();
-        if (key != null && !key.isEmpty()) {
+        if (key != null) {
+            idempotentKeyValidator.validate(key);
             return key;
         }
         return spelKey(pjp, signature, annotation.key());

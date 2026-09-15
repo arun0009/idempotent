@@ -20,6 +20,7 @@ import java.util.function.Supplier;
 
 import static io.github.arun0009.idempotent.core.persistence.IdempotentStore.Status.COMPLETED;
 import static io.github.arun0009.idempotent.core.persistence.IdempotentStore.Status.IN_PROGRESS;
+import static java.util.Objects.requireNonNullElse;
 
 /**
  * Programmatic API for idempotent operations.
@@ -42,6 +43,7 @@ public class IdempotentService {
     private final IdempotentStore idempotentStore;
     private final IdempotentCompletionAwaiter completionAwaiter;
     private final IdempotentMetrics metrics;
+    private final IdempotentScopeResolver scopeResolver;
 
     public IdempotentService(IdempotentStore idempotentStore) {
         this(idempotentStore, WaitStrategy.withDefaults(), IdempotentMetrics.NOOP);
@@ -51,10 +53,20 @@ public class IdempotentService {
         this(idempotentStore, waitStrategy, IdempotentMetrics.NOOP);
     }
 
-    public IdempotentService(IdempotentStore idempotentStore, WaitStrategy waitStrategy, IdempotentMetrics metrics) {
+    public IdempotentService(
+            IdempotentStore idempotentStore, WaitStrategy waitStrategy, @Nullable IdempotentMetrics metrics) {
+        this(idempotentStore, waitStrategy, requireNonNullElse(metrics, IdempotentMetrics.NOOP), null);
+    }
+
+    public IdempotentService(
+            IdempotentStore idempotentStore,
+            WaitStrategy waitStrategy,
+            IdempotentMetrics metrics,
+            @Nullable IdempotentScopeResolver scopeResolver) {
         this.idempotentStore = idempotentStore;
         this.completionAwaiter = new IdempotentCompletionAwaiter(idempotentStore, waitStrategy);
         this.metrics = metrics;
+        this.scopeResolver = requireNonNullElse(scopeResolver, IdempotentScopeResolver.NOOP);
     }
 
     // ---- Untyped Supplier-based overloads (use Object.class internally) -----------------------
@@ -120,11 +132,21 @@ public class IdempotentService {
         Objects.requireNonNull(operation, "operation cannot be null");
         Objects.requireNonNull(ttl, "ttl cannot be null");
 
+        idempotentKey = applyScope(idempotentKey);
+
         IdempotentStore.Value existing = idempotentStore.getValue(idempotentKey, returnType);
         if (existing != null) {
             return (T) handleExisting(idempotentKey, existing);
         }
         return handleNew(idempotentKey, returnType, operation, ttl);
+    }
+
+    private IdempotentStore.IdempotentKey applyScope(IdempotentStore.IdempotentKey idempotentKey) {
+        var scope = scopeResolver.resolveScope();
+        if (scope.isBlank()) return idempotentKey;
+
+        var scopedKey = scope + scopeResolver.getDelimiter() + idempotentKey.key();
+        return new IdempotentStore.IdempotentKey(scopedKey, idempotentKey.processName());
     }
 
     private @Nullable Object handleExisting(IdempotentStore.IdempotentKey idempotentKey, IdempotentStore.Value value) {

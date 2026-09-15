@@ -78,6 +78,27 @@ Other overloads exist — `execute(key, supplier, ttl)`, `execute(key, processNa
 
 `IdempotentException` and `IdempotentWaitExhaustedException` are library-only. Your domain exceptions stay yours.
 
+## Caller scope
+
+Register an [IdempotentScopeResolver](src/main/java/io/github/arun0009/idempotent/core/service/IdempotentScopeResolver.java)
+bean to isolate cached responses by user or tenant. It works with both `@Idempotent` and `IdempotentService`, across all backends:
+
+```java
+@Bean
+IdempotentScopeResolver idempotentScopeResolver(CurrentCaller caller) {
+	return () -> caller.requireUserId();
+}
+```
+
+- Supply a stable, trusted user or tenant ID. The application owns collision avoidance and backend key limits. For example, use scope IDs without the delimiter. Scopes are not hashed or escaped.
+- The scope is resolved once before store access.
+- Blank scopes use shared, unscoped entries. Return a non-blank scope or throw when isolation is required.
+- Without a resolver bean, `IdempotentScopeResolver.NOOP` preserves existing keys and behavior.
+- Keep scope and delimiter policies consistent across callers sharing a store and process.
+- Enabling or changing scoping changes lookup keys.
+
+So Alice and Bob using `request-123` get separate entries: `alice_request-123` and `bob_request-123`.
+
 ## Metrics
 
 Optional. Add **[idempotent-micrometer](../idempotent-micrometer/README.md)** when a `MeterRegistry` is already in the app. Without it, `IdempotentService` uses `IdempotentMetrics.NOOP`.

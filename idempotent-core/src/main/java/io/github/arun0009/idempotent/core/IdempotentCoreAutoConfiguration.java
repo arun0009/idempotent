@@ -1,5 +1,6 @@
 package io.github.arun0009.idempotent.core;
 
+import io.github.arun0009.idempotent.core.aspect.IdempotencyKeyValidator;
 import io.github.arun0009.idempotent.core.aspect.IdempotentAspect;
 import io.github.arun0009.idempotent.core.metrics.IdempotentMetrics;
 import io.github.arun0009.idempotent.core.persistence.IdempotentStore;
@@ -39,6 +40,12 @@ class IdempotentCoreAutoConfiguration {
     }
 
     @Bean
+    @ConditionalOnMissingBean(IdempotencyKeyValidator.class)
+    IdempotencyKeyValidator idempotentKeyValidator() {
+        return IdempotencyKeyValidator.NOOP;
+    }
+
+    @Bean
     @ConditionalOnMissingBean(IdempotentService.class)
     IdempotentService idempotentService(
             IdempotentStore idempotentStore,
@@ -60,7 +67,10 @@ class IdempotentCoreAutoConfiguration {
     @Bean
     @ConditionalOnMissingBean(IdempotentAspect.class)
     @ConditionalOnClass(name = "org.springframework.aop.Advisor")
-    IdempotentAspect idempotentAspect(IdempotentService idempotentService, IdempotentProperties properties) {
-        return new IdempotentAspect(idempotentService, properties);
+    IdempotentAspect idempotentAspect(
+            IdempotentService idempotentService,
+            IdempotentProperties properties,
+            IdempotencyKeyValidator idempotentKeyValidator) {
+        return new IdempotentAspect(idempotentService, properties, idempotentKeyValidator);
     }
 }

@@ -8,6 +8,7 @@ import io.github.arun0009.idempotent.core.retry.WaitStrategy;
 import io.github.arun0009.idempotent.core.service.IdempotentService;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.reflect.MethodSignature;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -16,6 +17,9 @@ import org.mockito.MockitoAnnotations;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
 
 import java.lang.reflect.Method;
 import java.time.Duration;
@@ -23,11 +27,15 @@ import java.time.Instant;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -38,6 +46,9 @@ class IdempotentAspectTest {
     @Mock
     private ProceedingJoinPoint proceedingJoinPoint;
 
+    @Mock
+    private IdempotencyKeyValidator keyValidator;
+
     private IdempotentAspect idempotentAspect;
 
     @BeforeEach
@@ -45,10 +56,12 @@ class IdempotentAspectTest {
     void setUp() {
         MockitoAnnotations.openMocks(this);
         var idempotentService = new IdempotentService(idempotentStore, new WaitStrategy(5, Duration.ofMillis(100), 2));
-        idempotentAspect = new IdempotentAspect(
-                idempotentService,
-                new IdempotentProperties(
-                        "X-Idempotency-Key", new IdempotentProperties.InProgress(5, Duration.ofMillis(100), 2)));
+        idempotentAspect = new IdempotentAspect(idempotentService, properties(), keyValidator);
+    }
+
+    @AfterEach
+    void clearRequestContext() {
+        RequestContextHolder.resetRequestAttributes();
     }
 
     @Test
@@ -76,6 +89,56 @@ class IdempotentAspectTest {
         verify(idempotentStore, times(1)).update(eq(idempotentKey), any(IdempotentStore.Value.class));
         assertInstanceOf(ResponseEntity.class, response);
         assertEquals("response", ((ResponseEntity<?>) response).getBody());
+    }
+
+    @Test
+    void testAround_validatesRequestHeaderKey() throws Throwable {
+        setRequestHeader("request-key");
+        Method method = this.getClass().getDeclaredMethod("methodWithoutKeyExpression");
+        var signature = configureJoinPoint(method);
+        when(signature.getName()).thenReturn("methodWithoutKeyExpression");
+        when(signature.getReturnType()).thenReturn(ResponseEntity.class);
+        when(proceedingJoinPoint.proceed()).thenReturn(new ResponseEntity<>("response", HttpStatus.OK));
+        when(idempotentStore.getValue(any(IdempotentStore.IdempotentKey.class), any()))
+                .thenReturn(null);
+
+        idempotentAspect.around(proceedingJoinPoint);
+
+        verify(keyValidator).validate("request-key");
+    }
+
+    @Test
+    void testAroundRejectsInvalidRequestHeaderKeyBeforeStoreAccess() throws Throwable {
+        setRequestHeader("invalid-key");
+        var failure = new IllegalArgumentException("invalid idempotency key");
+        doThrow(failure).when(keyValidator).validate("invalid-key");
+        Method method = this.getClass().getDeclaredMethod("methodWithoutKeyExpression");
+        configureJoinPoint(method);
+
+        var thrown = assertThrows(IllegalArgumentException.class, () -> idempotentAspect.around(proceedingJoinPoint));
+
+        assertSame(failure, thrown);
+        verifyNoInteractions(idempotentStore);
+        verify(proceedingJoinPoint, times(0)).proceed();
+    }
+
+    @Test
+    void testAroundDoesNotValidateSpelKey() throws Throwable {
+        Method method = this.getClass().getDeclaredMethod("testMethod");
+        var signature = configureJoinPoint(method);
+        when(signature.getName()).thenReturn("testMethod");
+        when(signature.getReturnType()).thenReturn(ResponseEntity.class);
+        when(signature.getParameterNames()).thenReturn(new String[] {"asset"});
+        when(proceedingJoinPoint.getArgs()).thenReturn(new Object[] {
+            new IdempotentTest.Asset("1", new IdempotentTest.AssetType("test-category", "1.0"), "Test API")
+        });
+        when(proceedingJoinPoint.proceed()).thenReturn(new ResponseEntity<>("response", HttpStatus.OK));
+        when(idempotentStore.getValue(any(IdempotentStore.IdempotentKey.class), any()))
+                .thenReturn(null);
+
+        idempotentAspect.around(proceedingJoinPoint);
+
+        verifyNoInteractions(keyValidator);
     }
 
     @Test
@@ -168,5 +231,33 @@ class IdempotentAspectTest {
     @Idempotent(key = "'shortFormKey'", duration = "500ms")
     private ResponseEntity<String> methodWithShortFormDuration() {
         return new ResponseEntity<>("ok", HttpStatus.OK);
+    }
+
+    @Idempotent
+    @SuppressWarnings("unused")
+    private ResponseEntity<String> methodWithoutKeyExpression() {
+        return new ResponseEntity<>("response", HttpStatus.OK);
+    }
+
+    private IdempotentProperties properties() {
+        return new IdempotentProperties(
+                "X-Idempotency-Key", new IdempotentProperties.InProgress(5, Duration.ofMillis(100), 2));
+    }
+
+    private void setRequestHeader(String value) {
+        var request = new MockHttpServletRequest();
+        request.addHeader("X-Idempotency-Key", value);
+        RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(request));
+    }
+
+    /**
+     * Stubs only what every path needs, each test adds the stubs its own path consumes, so strict
+     * stubbing stays meaningful.
+     */
+    private MethodSignature configureJoinPoint(Method method) {
+        MethodSignature methodSignature = mock(MethodSignature.class);
+        when(proceedingJoinPoint.getSignature()).thenReturn(methodSignature);
+        when(methodSignature.getMethod()).thenReturn(method);
+        return methodSignature;
     }
 }

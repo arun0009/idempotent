@@ -8,16 +8,6 @@ package io.github.arun0009.idempotent.core.service;
  */
 public interface IdempotentScopeResolver {
 
-    /**
-     * Returns the separator between the caller scope and client key. Overrides must return a stable,
-     * non-null delimiter compatible with the application's scope format and storage backend.
-     *
-     * @return the delimiter
-     */
-    default String getDelimiter() {
-        return "_";
-    }
-
     IdempotentScopeResolver NOOP = () -> "";
 
     /**

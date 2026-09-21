@@ -60,29 +60,6 @@ class IdempotentScopeTest {
     }
 
     @Test
-    void customDelimiterIsUsedForStorageAndReplay() {
-        var resolver = new IdempotentScopeResolver() {
-            @Override
-            public String resolveScope() {
-                return caller.get();
-            }
-
-            @Override
-            public String getDelimiter() {
-                return "__";
-            }
-        };
-        var scoped = scopedService(store, resolver);
-        for (String user : new String[] {"alice", "bob"}) {
-            caller.set(user);
-            assertEquals(user, scoped.execute("key", caller::get, TTL));
-            assertEquals(user, scoped.execute("key", () -> fail("must not execute"), TTL));
-            assertEquals(user, storedResponse(user + "__key", "default"));
-            assertNull(store.getValue(new IdempotentKey(user + "_key", "default"), String.class));
-        }
-    }
-
-    @Test
     void scopeIsResolvedOnceAndFailureCleanupLeavesOtherCallersEntryIntact() {
         service.execute("key", () -> "alice-response", TTL);
         caller.set("bob");
@@ -117,7 +94,6 @@ class IdempotentScopeTest {
         var backend = mock(IdempotentStore.class);
         var resolver = mock(IdempotentScopeResolver.class);
         when(resolver.resolveScope()).thenReturn("alice");
-        when(resolver.getDelimiter()).thenReturn("_");
 
         var key = new IdempotentKey("alice_key", "default");
         var expiresAt = Instant.now().plus(TTL);
@@ -128,7 +104,6 @@ class IdempotentScopeTest {
         assertEquals("cached", scopedService(backend, resolver).execute("key", () -> fail("must not execute"), TTL));
 
         verify(resolver).resolveScope();
-        verify(resolver).getDelimiter();
         verify(backend, times(3)).getValue(eq(key), any());
         verify(backend).store(eq(key), any());
         verifyNoMoreInteractions(backend, resolver);

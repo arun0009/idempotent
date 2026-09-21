@@ -145,7 +145,7 @@ public class IdempotentService {
         var scope = scopeResolver.resolveScope();
         if (scope.isBlank()) return idempotentKey;
 
-        var scopedKey = scope + scopeResolver.getDelimiter() + idempotentKey.key();
+        var scopedKey = scope + "_" + idempotentKey.key();
         return new IdempotentStore.IdempotentKey(scopedKey, idempotentKey.processName());
     }
 

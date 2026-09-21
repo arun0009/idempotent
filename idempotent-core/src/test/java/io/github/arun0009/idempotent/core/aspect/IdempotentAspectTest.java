@@ -108,6 +108,29 @@ class IdempotentAspectTest {
     }
 
     @Test
+    void testAroundBlankHeaderFallsBackToSpelKeyAfterValidation() throws Throwable {
+        setRequestHeader(" ");
+        Method method = this.getClass().getDeclaredMethod("testMethod");
+        var signature = configureJoinPoint(method);
+        when(signature.getName()).thenReturn("testMethod");
+        when(signature.getReturnType()).thenReturn(ResponseEntity.class);
+        when(signature.getParameterNames()).thenReturn(new String[] {"asset"});
+        when(proceedingJoinPoint.getArgs()).thenReturn(new Object[] {
+            new IdempotentTest.Asset("1", new IdempotentTest.AssetType("test-category", "1.0"), "Test API")
+        });
+        when(proceedingJoinPoint.proceed()).thenReturn(new ResponseEntity<>("response", HttpStatus.OK));
+        when(idempotentStore.getValue(any(IdempotentStore.IdempotentKey.class), any()))
+                .thenReturn(null);
+
+        idempotentAspect.around(proceedingJoinPoint);
+
+        verify(keyValidator).validate(" ");
+        verify(idempotentStore)
+                .getValue(
+                        eq(new IdempotentStore.IdempotentKey("testKey", "__IdempotentAspectTest.testMethod()")), any());
+    }
+
+    @Test
     void testAroundRejectsInvalidRequestHeaderKeyBeforeStoreAccess() throws Throwable {
         setRequestHeader("invalid-key");
         var failure = new IllegalArgumentException("invalid idempotency key");

@@ -42,7 +42,7 @@ You add a dependency and an annotation. The library handles the hard parts.
 | **Two entry points, one engine** | `@Idempotent` on any Spring method, or `IdempotentService.execute(...)` from `@Service` classes, batch jobs, or message consumers. |
 | **Atomic key claims** | Native primitives on every backend (`SET NX`, conditional `PutItem`, `kv.create`, `INSERT`) — two callers cannot both think they were first. |
 | **Self-healing expiry** | Per-entry TTL, native backend TTL where available, lazy delete on read, scheduled cleanup for SQL. No zombie keys. |
-| **Keys your way** | Client header (`X-Idempotency-Key`) or server-side SpEL (`#user.id`), with optional SHA-256 hashing. |
+| **Keys your way** | Client header (`X-Idempotency-Key`) or server-side SpEL (`#user.id`), with optional SHA-256 hashing. See the draft's [Security Considerations](https://datatracker.ietf.org/doc/html/draft-ietf-httpapi-idempotency-key-header#section-5). |
 | **Honest semantics** | Domain exceptions propagate as-is. Null/void results are cached. Non-2xx `ResponseEntity` is removed so the client can retry. |
 | **Observability** | Optional Micrometer counters and timers for every execution outcome via `idempotent-micrometer`. |
 

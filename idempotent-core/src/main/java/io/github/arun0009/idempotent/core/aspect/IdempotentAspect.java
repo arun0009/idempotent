@@ -80,10 +80,12 @@ public class IdempotentAspect {
 
     private @Nullable String resolveValidKey(
             ProceedingJoinPoint pjp, MethodSignature signature, Idempotent annotation) {
-        String key = headerKey();
+        var key = headerKey();
         if (key != null) {
             idempotentKeyValidator.validate(key);
-            return key;
+            if (!key.isBlank()) {
+                return key;
+            }
         }
         return spelKey(pjp, signature, annotation.key());
     }
